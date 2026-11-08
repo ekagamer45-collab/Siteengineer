@@ -1,0 +1,27 @@
+name: laporan_harian
+description: Aplikasi laporan harian proyek (input manual + foto ke Excel).
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  archive: ^3.6.1
+  image: ^4.2.0
+  image_picker: ^1.0.7
+  path_provider: ^2.1.2
+  share_plus: ^9.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/template.xlsx
+    - assets/config.json

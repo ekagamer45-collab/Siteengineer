@@ -1,0 +1,1538 @@
+{
+ "sheets": [
+  {
+   "name": "H1",
+   "path": "xl/worksheets/sheet1.xml",
+   "pages": [
+    4,
+    36,
+    107,
+    178,
+    249
+   ],
+   "slots": [
+    {
+     "id": "H1_05",
+     "label": "RUANG KELAS 1 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H1_05.jpeg",
+     "aspect": 1.9058,
+     "row": 41,
+     "col": 0
+    },
+    {
+     "id": "H1_01",
+     "label": "RUANG KELAS 3 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H1_01.jpeg",
+     "aspect": 1.9246,
+     "row": 41,
+     "col": 8
+    },
+    {
+     "id": "H1_02",
+     "label": "RUANG KELAS 1 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H1_02.jpeg",
+     "aspect": 1.9207,
+     "row": 57,
+     "col": 0
+    },
+    {
+     "id": "H1_06",
+     "label": "RUANG KELAS 3 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H1_06.jpeg",
+     "aspect": 1.9462,
+     "row": 57,
+     "col": 8
+    },
+    {
+     "id": "H1_03",
+     "label": "RUANG KELAS 1 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H1_03.jpeg",
+     "aspect": 1.971,
+     "row": 73,
+     "col": 0
+    },
+    {
+     "id": "H1_07",
+     "label": "RUANG KELAS 3 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H1_07.jpeg",
+     "aspect": 1.9973,
+     "row": 73,
+     "col": 8
+    },
+    {
+     "id": "H1_08",
+     "label": "RUANG KELAS 1 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H1_08.jpeg",
+     "aspect": 1.9728,
+     "row": 89,
+     "col": 0
+    },
+    {
+     "id": "H1_04",
+     "label": "RUANG KELAS 3 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H1_04.jpeg",
+     "aspect": 2.0039,
+     "row": 89,
+     "col": 8
+    },
+    {
+     "id": "H1_11",
+     "label": "RUANG KELAS 4 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H1_11.jpeg",
+     "aspect": 2.0077,
+     "row": 112,
+     "col": 0
+    },
+    {
+     "id": "H1_28",
+     "label": "RUANG KELAS 5 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H1_28.jpeg",
+     "aspect": 2.0433,
+     "row": 112,
+     "col": 8
+    },
+    {
+     "id": "H1_09",
+     "label": "RUANG KELAS 4 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H1_09.jpeg",
+     "aspect": 1.9936,
+     "row": 128,
+     "col": 0
+    },
+    {
+     "id": "H1_12",
+     "label": "RUANG KELAS 5 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H1_12.jpeg",
+     "aspect": 2.0029,
+     "row": 128,
+     "col": 8
+    },
+    {
+     "id": "H1_10",
+     "label": "RUANG KELAS 4 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H1_10.jpeg",
+     "aspect": 1.9864,
+     "row": 144,
+     "col": 0
+    },
+    {
+     "id": "H1_29",
+     "label": "RUANG KELAS 5 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H1_29.jpeg",
+     "aspect": 2.0508,
+     "row": 144,
+     "col": 8
+    },
+    {
+     "id": "H1_14",
+     "label": "RUANG KELAS 4 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H1_14.jpeg",
+     "aspect": 1.9547,
+     "row": 160,
+     "col": 0
+    },
+    {
+     "id": "H1_27",
+     "label": "RUANG KELAS 5 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H1_27.jpeg",
+     "aspect": 2.0303,
+     "row": 160,
+     "col": 8
+    },
+    {
+     "id": "H1_15",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H1_15.jpeg",
+     "aspect": 1.9943,
+     "row": 183,
+     "col": 0
+    },
+    {
+     "id": "H1_18",
+     "label": "TOILET (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H1_18.jpeg",
+     "aspect": 2.0309,
+     "row": 183,
+     "col": 8
+    },
+    {
+     "id": "H1_16",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H1_16.jpeg",
+     "aspect": 1.9492,
+     "row": 199,
+     "col": 0
+    },
+    {
+     "id": "H1_19",
+     "label": "TOILET (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H1_19.jpeg",
+     "aspect": 2.0099,
+     "row": 199,
+     "col": 8
+    },
+    {
+     "id": "H1_13",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H1_13.jpeg",
+     "aspect": 1.9893,
+     "row": 215,
+     "col": 0
+    },
+    {
+     "id": "H1_20",
+     "label": "TOILET (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H1_20.jpeg",
+     "aspect": 1.9977,
+     "row": 215,
+     "col": 8
+    },
+    {
+     "id": "H1_17",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DALAM)",
+     "media": "xl/media/slot_H1_17.jpeg",
+     "aspect": 1.9816,
+     "row": 231,
+     "col": 0
+    },
+    {
+     "id": "H1_21",
+     "label": "TOILET (TAMPAK DALAM) – foto 1",
+     "media": "xl/media/slot_H1_21.jpeg",
+     "aspect": 1.9941,
+     "row": 231,
+     "col": 8
+    },
+    {
+     "id": "H1_22",
+     "label": "TOILET (TAMPAK DALAM) – foto 2",
+     "media": "xl/media/slot_H1_22.jpeg",
+     "aspect": 1.9439,
+     "row": 254,
+     "col": 0
+    },
+    {
+     "id": "H1_26",
+     "label": "PENATAAN LINGKUNGAN – foto 1",
+     "media": "xl/media/slot_H1_26.jpeg",
+     "aspect": 2.0048,
+     "row": 254,
+     "col": 8
+    },
+    {
+     "id": "H1_23",
+     "label": "TOILET (TAMPAK DALAM) – foto 3",
+     "media": "xl/media/slot_H1_23.jpeg",
+     "aspect": 1.9415,
+     "row": 270,
+     "col": 0
+    },
+    {
+     "id": "H1_25",
+     "label": "PENATAAN LINGKUNGAN – foto 2",
+     "media": "xl/media/slot_H1_25.jpeg",
+     "aspect": 2.0104,
+     "row": 270,
+     "col": 8
+    },
+    {
+     "id": "H1_24",
+     "label": "TOILET (TAMPAK DALAM) – foto 4",
+     "media": "xl/media/slot_H1_24.jpeg",
+     "aspect": 1.9477,
+     "row": 286,
+     "col": 0
+    }
+   ]
+  },
+  {
+   "name": "H2",
+   "path": "xl/worksheets/sheet2.xml",
+   "pages": [
+    4,
+    36,
+    107,
+    178,
+    249
+   ],
+   "slots": [
+    {
+     "id": "H2_05",
+     "label": "RUANG KELAS 1 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H2_05.jpeg",
+     "aspect": 1.9443,
+     "row": 41,
+     "col": 0
+    },
+    {
+     "id": "H2_01",
+     "label": "RUANG KELAS 3 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H2_01.jpeg",
+     "aspect": 1.9697,
+     "row": 41,
+     "col": 8
+    },
+    {
+     "id": "H2_02",
+     "label": "RUANG KELAS 1 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H2_02.jpeg",
+     "aspect": 1.96,
+     "row": 57,
+     "col": 0
+    },
+    {
+     "id": "H2_06",
+     "label": "RUANG KELAS 3 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H2_06.jpeg",
+     "aspect": 1.9924,
+     "row": 57,
+     "col": 8
+    },
+    {
+     "id": "H2_03",
+     "label": "RUANG KELAS 1 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H2_03.jpeg",
+     "aspect": 1.9515,
+     "row": 73,
+     "col": 0
+    },
+    {
+     "id": "H2_07",
+     "label": "RUANG KELAS 3 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H2_07.jpeg",
+     "aspect": 1.9801,
+     "row": 73,
+     "col": 8
+    },
+    {
+     "id": "H2_08",
+     "label": "RUANG KELAS 1 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H2_08.jpeg",
+     "aspect": 1.9533,
+     "row": 89,
+     "col": 0
+    },
+    {
+     "id": "H2_04",
+     "label": "RUANG KELAS 3 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H2_04.jpeg",
+     "aspect": 1.9865,
+     "row": 89,
+     "col": 8
+    },
+    {
+     "id": "H2_11",
+     "label": "RUANG KELAS 4 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H2_11.jpeg",
+     "aspect": 1.9875,
+     "row": 112,
+     "col": 0
+    },
+    {
+     "id": "H2_28",
+     "label": "RUANG KELAS 5 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H2_28.jpeg",
+     "aspect": 2.0254,
+     "row": 112,
+     "col": 8
+    },
+    {
+     "id": "H2_09",
+     "label": "RUANG KELAS 4 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H2_09.jpeg",
+     "aspect": 1.9738,
+     "row": 128,
+     "col": 0
+    },
+    {
+     "id": "H2_12",
+     "label": "RUANG KELAS 5 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H2_12.jpeg",
+     "aspect": 1.9857,
+     "row": 128,
+     "col": 8
+    },
+    {
+     "id": "H2_10",
+     "label": "RUANG KELAS 4 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H2_10.jpeg",
+     "aspect": 1.9612,
+     "row": 144,
+     "col": 0
+    },
+    {
+     "id": "H2_29",
+     "label": "RUANG KELAS 5 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H2_29.jpeg",
+     "aspect": 2.0193,
+     "row": 144,
+     "col": 8
+    },
+    {
+     "id": "H2_14",
+     "label": "RUANG KELAS 4 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H2_14.jpeg",
+     "aspect": 1.9302,
+     "row": 160,
+     "col": 0
+    },
+    {
+     "id": "H2_27",
+     "label": "RUANG KELAS 5 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H2_27.jpeg",
+     "aspect": 1.9995,
+     "row": 160,
+     "col": 8
+    },
+    {
+     "id": "H2_15",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H2_15.jpeg",
+     "aspect": 1.969,
+     "row": 183,
+     "col": 0
+    },
+    {
+     "id": "H2_18",
+     "label": "TOILET (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H2_18.jpeg",
+     "aspect": 2.0,
+     "row": 183,
+     "col": 8
+    },
+    {
+     "id": "H2_16",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H2_16.jpeg",
+     "aspect": 1.9247,
+     "row": 199,
+     "col": 0
+    },
+    {
+     "id": "H2_19",
+     "label": "TOILET (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H2_19.jpeg",
+     "aspect": 1.9795,
+     "row": 199,
+     "col": 8
+    },
+    {
+     "id": "H2_13",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H2_13.jpeg",
+     "aspect": 1.9639,
+     "row": 215,
+     "col": 0
+    },
+    {
+     "id": "H2_20",
+     "label": "TOILET (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H2_20.jpeg",
+     "aspect": 1.9677,
+     "row": 215,
+     "col": 8
+    },
+    {
+     "id": "H2_17",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DALAM)",
+     "media": "xl/media/slot_H2_17.jpeg",
+     "aspect": 1.9567,
+     "row": 231,
+     "col": 0
+    },
+    {
+     "id": "H2_21",
+     "label": "TOILET (TAMPAK DALAM) – foto 1",
+     "media": "xl/media/slot_H2_21.jpeg",
+     "aspect": 1.9941,
+     "row": 231,
+     "col": 8
+    },
+    {
+     "id": "H2_22",
+     "label": "TOILET (TAMPAK DALAM) – foto 2",
+     "media": "xl/media/slot_H2_22.jpeg",
+     "aspect": 1.9439,
+     "row": 254,
+     "col": 0
+    },
+    {
+     "id": "H2_26",
+     "label": "PENATAAN LINGKUNGAN – foto 1",
+     "media": "xl/media/slot_H2_26.jpeg",
+     "aspect": 1.9745,
+     "row": 254,
+     "col": 8
+    },
+    {
+     "id": "H2_23",
+     "label": "TOILET (TAMPAK DALAM) – foto 3",
+     "media": "xl/media/slot_H2_23.jpeg",
+     "aspect": 1.9415,
+     "row": 270,
+     "col": 0
+    },
+    {
+     "id": "H2_25",
+     "label": "PENATAAN LINGKUNGAN – foto 2",
+     "media": "xl/media/slot_H2_25.jpeg",
+     "aspect": 1.98,
+     "row": 270,
+     "col": 8
+    },
+    {
+     "id": "H2_24",
+     "label": "TOILET (TAMPAK DALAM) – foto 4",
+     "media": "xl/media/slot_H2_24.jpeg",
+     "aspect": 1.9477,
+     "row": 286,
+     "col": 0
+    }
+   ]
+  },
+  {
+   "name": "H3",
+   "path": "xl/worksheets/sheet3.xml",
+   "pages": [
+    4,
+    36,
+    107,
+    178,
+    249
+   ],
+   "slots": [
+    {
+     "id": "H3_05",
+     "label": "RUANG KELAS 1 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H3_05.jpeg",
+     "aspect": 1.9362,
+     "row": 41,
+     "col": 0
+    },
+    {
+     "id": "H3_01",
+     "label": "RUANG KELAS 3 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H3_01.jpeg",
+     "aspect": 1.9526,
+     "row": 41,
+     "col": 8
+    },
+    {
+     "id": "H3_28",
+     "label": "RUANG KELAS 1 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H3_28.jpeg",
+     "aspect": 1.9354,
+     "row": 57,
+     "col": 0
+    },
+    {
+     "id": "H3_02",
+     "label": "RUANG KELAS 3 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H3_02.jpeg",
+     "aspect": 1.9554,
+     "row": 57,
+     "col": 8
+    },
+    {
+     "id": "H3_06",
+     "label": "RUANG KELAS 1 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H3_06.jpeg",
+     "aspect": 1.9058,
+     "row": 73,
+     "col": 0
+    },
+    {
+     "id": "H3_03",
+     "label": "RUANG KELAS 3 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H3_03.jpeg",
+     "aspect": 1.9534,
+     "row": 73,
+     "col": 8
+    },
+    {
+     "id": "H3_07",
+     "label": "RUANG KELAS 1 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H3_07.jpeg",
+     "aspect": 1.9086,
+     "row": 89,
+     "col": 0
+    },
+    {
+     "id": "H3_04",
+     "label": "RUANG KELAS 3 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H3_04.jpeg",
+     "aspect": 1.9744,
+     "row": 89,
+     "col": 8
+    },
+    {
+     "id": "H3_10",
+     "label": "RUANG KELAS 4 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H3_10.jpeg",
+     "aspect": 1.9099,
+     "row": 112,
+     "col": 0
+    },
+    {
+     "id": "H3_26",
+     "label": "RUANG KELAS 5 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H3_26.jpeg",
+     "aspect": 1.9581,
+     "row": 112,
+     "col": 8
+    },
+    {
+     "id": "H3_08",
+     "label": "RUANG KELAS 4 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H3_08.jpeg",
+     "aspect": 1.9071,
+     "row": 128,
+     "col": 0
+    },
+    {
+     "id": "H3_11",
+     "label": "RUANG KELAS 5 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H3_11.jpeg",
+     "aspect": 2.0051,
+     "row": 128,
+     "col": 8
+    },
+    {
+     "id": "H3_27",
+     "label": "RUANG KELAS 4 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H3_27.jpeg",
+     "aspect": 1.9584,
+     "row": 144,
+     "col": 0
+    },
+    {
+     "id": "H3_09",
+     "label": "RUANG KELAS 5 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H3_09.jpeg",
+     "aspect": 1.9559,
+     "row": 144,
+     "col": 8
+    },
+    {
+     "id": "H3_25",
+     "label": "RUANG KELAS 4 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H3_25.jpeg",
+     "aspect": 1.9279,
+     "row": 160,
+     "col": 0
+    },
+    {
+     "id": "H3_13",
+     "label": "RUANG KELAS 5 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H3_13.jpeg",
+     "aspect": 1.961,
+     "row": 160,
+     "col": 8
+    },
+    {
+     "id": "H3_14",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H3_14.jpeg",
+     "aspect": 1.9257,
+     "row": 183,
+     "col": 0
+    },
+    {
+     "id": "H3_17",
+     "label": "TOILET (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H3_17.jpeg",
+     "aspect": 1.9478,
+     "row": 183,
+     "col": 8
+    },
+    {
+     "id": "H3_15",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H3_15.jpeg",
+     "aspect": 1.9135,
+     "row": 199,
+     "col": 0
+    },
+    {
+     "id": "H3_29",
+     "label": "TOILET (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H3_29.jpeg",
+     "aspect": 1.936,
+     "row": 199,
+     "col": 8
+    },
+    {
+     "id": "H3_12",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H3_12.jpeg",
+     "aspect": 1.9184,
+     "row": 215,
+     "col": 0
+    },
+    {
+     "id": "H3_18",
+     "label": "TOILET (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H3_18.jpeg",
+     "aspect": 1.9638,
+     "row": 215,
+     "col": 8
+    },
+    {
+     "id": "H3_16",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DALAM)",
+     "media": "xl/media/slot_H3_16.jpeg",
+     "aspect": 1.9205,
+     "row": 231,
+     "col": 0
+    },
+    {
+     "id": "H3_19",
+     "label": "TOILET (TAMPAK DALAM) – foto 1",
+     "media": "xl/media/slot_H3_19.jpeg",
+     "aspect": 1.9941,
+     "row": 231,
+     "col": 8
+    },
+    {
+     "id": "H3_20",
+     "label": "TOILET (TAMPAK DALAM) – foto 2",
+     "media": "xl/media/slot_H3_20.jpeg",
+     "aspect": 1.9439,
+     "row": 254,
+     "col": 0
+    },
+    {
+     "id": "H3_24",
+     "label": "PENATAAN LINGKUNGAN – foto 1",
+     "media": "xl/media/slot_H3_24.jpeg",
+     "aspect": 1.9761,
+     "row": 254,
+     "col": 8
+    },
+    {
+     "id": "H3_21",
+     "label": "TOILET (TAMPAK DALAM) – foto 3",
+     "media": "xl/media/slot_H3_21.jpeg",
+     "aspect": 1.9415,
+     "row": 270,
+     "col": 0
+    },
+    {
+     "id": "H3_23",
+     "label": "PENATAAN LINGKUNGAN – foto 2",
+     "media": "xl/media/slot_H3_23.jpeg",
+     "aspect": 1.9731,
+     "row": 270,
+     "col": 8
+    },
+    {
+     "id": "H3_22",
+     "label": "TOILET (TAMPAK DALAM) – foto 4",
+     "media": "xl/media/slot_H3_22.jpeg",
+     "aspect": 1.9477,
+     "row": 286,
+     "col": 0
+    }
+   ]
+  },
+  {
+   "name": "H4",
+   "path": "xl/worksheets/sheet4.xml",
+   "pages": [
+    4,
+    36,
+    107,
+    178,
+    249
+   ],
+   "slots": [
+    {
+     "id": "H4_05",
+     "label": "RUANG KELAS 1 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H4_05.jpeg",
+     "aspect": 1.9799,
+     "row": 41,
+     "col": 0
+    },
+    {
+     "id": "H4_01",
+     "label": "RUANG KELAS 3 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H4_01.jpeg",
+     "aspect": 1.9974,
+     "row": 41,
+     "col": 8
+    },
+    {
+     "id": "H4_26",
+     "label": "RUANG KELAS 1 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H4_26.jpeg",
+     "aspect": 1.9731,
+     "row": 57,
+     "col": 0
+    },
+    {
+     "id": "H4_02",
+     "label": "RUANG KELAS 3 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H4_02.jpeg",
+     "aspect": 2.0049,
+     "row": 57,
+     "col": 8
+    },
+    {
+     "id": "H4_30",
+     "label": "RUANG KELAS 1 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H4_30.jpeg",
+     "aspect": 1.9564,
+     "row": 73,
+     "col": 0
+    },
+    {
+     "id": "H4_03",
+     "label": "RUANG KELAS 3 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H4_03.jpeg",
+     "aspect": 1.9395,
+     "row": 73,
+     "col": 8
+    },
+    {
+     "id": "H4_06",
+     "label": "RUANG KELAS 1 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H4_06.jpeg",
+     "aspect": 1.9231,
+     "row": 89,
+     "col": 0
+    },
+    {
+     "id": "H4_04",
+     "label": "RUANG KELAS 3 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H4_04.jpeg",
+     "aspect": 1.97,
+     "row": 89,
+     "col": 8
+    },
+    {
+     "id": "H4_09",
+     "label": "RUANG KELAS 4 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H4_09.jpeg",
+     "aspect": 1.9115,
+     "row": 112,
+     "col": 0
+    },
+    {
+     "id": "H4_24",
+     "label": "RUANG KELAS 5 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H4_24.jpeg",
+     "aspect": 1.9572,
+     "row": 112,
+     "col": 8
+    },
+    {
+     "id": "H4_07",
+     "label": "RUANG KELAS 4 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H4_07.jpeg",
+     "aspect": 1.9083,
+     "row": 128,
+     "col": 0
+    },
+    {
+     "id": "H4_10",
+     "label": "RUANG KELAS 5 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H4_10.jpeg",
+     "aspect": 1.9863,
+     "row": 128,
+     "col": 8
+    },
+    {
+     "id": "H4_29",
+     "label": "RUANG KELAS 4 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H4_29.jpeg",
+     "aspect": 1.9135,
+     "row": 144,
+     "col": 0
+    },
+    {
+     "id": "H4_08",
+     "label": "RUANG KELAS 5 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H4_08.jpeg",
+     "aspect": 1.9549,
+     "row": 144,
+     "col": 8
+    },
+    {
+     "id": "H4_25",
+     "label": "RUANG KELAS 4 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H4_25.jpeg",
+     "aspect": 1.9483,
+     "row": 160,
+     "col": 0
+    },
+    {
+     "id": "H4_12",
+     "label": "RUANG KELAS 5 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H4_12.jpeg",
+     "aspect": 1.9604,
+     "row": 160,
+     "col": 8
+    },
+    {
+     "id": "H4_13",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H4_13.jpeg",
+     "aspect": 1.9467,
+     "row": 183,
+     "col": 0
+    },
+    {
+     "id": "H4_28",
+     "label": "TOILET (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H4_28.jpeg",
+     "aspect": 1.9779,
+     "row": 183,
+     "col": 8
+    },
+    {
+     "id": "H4_14",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H4_14.jpeg",
+     "aspect": 1.9049,
+     "row": 199,
+     "col": 0
+    },
+    {
+     "id": "H4_16",
+     "label": "TOILET (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H4_16.jpeg",
+     "aspect": 1.9712,
+     "row": 199,
+     "col": 8
+    },
+    {
+     "id": "H4_11",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H4_11.jpeg",
+     "aspect": 1.9075,
+     "row": 215,
+     "col": 0
+    },
+    {
+     "id": "H4_17",
+     "label": "TOILET (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H4_17.jpeg",
+     "aspect": 1.9734,
+     "row": 215,
+     "col": 8
+    },
+    {
+     "id": "H4_15",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DALAM)",
+     "media": "xl/media/slot_H4_15.jpeg",
+     "aspect": 1.9104,
+     "row": 231,
+     "col": 0
+    },
+    {
+     "id": "H4_18",
+     "label": "TOILET (TAMPAK DALAM) – foto 1",
+     "media": "xl/media/slot_H4_18.jpeg",
+     "aspect": 1.9941,
+     "row": 231,
+     "col": 8
+    },
+    {
+     "id": "H4_19",
+     "label": "TOILET (TAMPAK DALAM) – foto 2",
+     "media": "xl/media/slot_H4_19.jpeg",
+     "aspect": 1.9439,
+     "row": 254,
+     "col": 0
+    },
+    {
+     "id": "H4_23",
+     "label": "PENATAAN LINGKUNGAN – foto 1",
+     "media": "xl/media/slot_H4_23.jpeg",
+     "aspect": 1.9617,
+     "row": 254,
+     "col": 8
+    },
+    {
+     "id": "H4_20",
+     "label": "TOILET (TAMPAK DALAM) – foto 3",
+     "media": "xl/media/slot_H4_20.jpeg",
+     "aspect": 1.9415,
+     "row": 270,
+     "col": 0
+    },
+    {
+     "id": "H4_22",
+     "label": "PENATAAN LINGKUNGAN – foto 2",
+     "media": "xl/media/slot_H4_22.jpeg",
+     "aspect": 1.9392,
+     "row": 270,
+     "col": 8
+    },
+    {
+     "id": "H4_21",
+     "label": "TOILET (TAMPAK DALAM) – foto 4",
+     "media": "xl/media/slot_H4_21.jpeg",
+     "aspect": 1.9477,
+     "row": 286,
+     "col": 0
+    },
+    {
+     "id": "H4_27",
+     "label": "Foto tambahan (baris 286)",
+     "media": "xl/media/slot_H4_27.jpeg",
+     "aspect": 1.9822,
+     "row": 286,
+     "col": 8
+    }
+   ]
+  },
+  {
+   "name": "H5",
+   "path": "xl/worksheets/sheet5.xml",
+   "pages": [
+    4,
+    36,
+    107,
+    178,
+    249
+   ],
+   "slots": [
+    {
+     "id": "H5_05",
+     "label": "RUANG KELAS 1 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H5_05.jpeg",
+     "aspect": 1.9602,
+     "row": 41,
+     "col": 0
+    },
+    {
+     "id": "H5_01",
+     "label": "RUANG KELAS 3 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H5_01.jpeg",
+     "aspect": 1.9801,
+     "row": 41,
+     "col": 8
+    },
+    {
+     "id": "H5_26",
+     "label": "RUANG KELAS 1 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H5_26.jpeg",
+     "aspect": 1.9536,
+     "row": 57,
+     "col": 0
+    },
+    {
+     "id": "H5_02",
+     "label": "RUANG KELAS 3 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H5_02.jpeg",
+     "aspect": 1.9875,
+     "row": 57,
+     "col": 8
+    },
+    {
+     "id": "H5_30",
+     "label": "RUANG KELAS 1 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H5_30.jpeg",
+     "aspect": 1.9371,
+     "row": 73,
+     "col": 0
+    },
+    {
+     "id": "H5_03",
+     "label": "RUANG KELAS 3 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H5_03.jpeg",
+     "aspect": 1.9626,
+     "row": 73,
+     "col": 8
+    },
+    {
+     "id": "H5_06",
+     "label": "RUANG KELAS 1 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H5_06.jpeg",
+     "aspect": 1.9531,
+     "row": 89,
+     "col": 0
+    },
+    {
+     "id": "H5_04",
+     "label": "RUANG KELAS 3 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H5_04.jpeg",
+     "aspect": 1.9938,
+     "row": 89,
+     "col": 8
+    },
+    {
+     "id": "H5_09",
+     "label": "RUANG KELAS 4 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H5_09.jpeg",
+     "aspect": 1.9413,
+     "row": 112,
+     "col": 0
+    },
+    {
+     "id": "H5_24",
+     "label": "RUANG KELAS 5 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H5_24.jpeg",
+     "aspect": 1.9806,
+     "row": 112,
+     "col": 8
+    },
+    {
+     "id": "H5_07",
+     "label": "RUANG KELAS 4 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H5_07.jpeg",
+     "aspect": 1.938,
+     "row": 128,
+     "col": 0
+    },
+    {
+     "id": "H5_10",
+     "label": "RUANG KELAS 5 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H5_10.jpeg",
+     "aspect": 2.0106,
+     "row": 128,
+     "col": 8
+    },
+    {
+     "id": "H5_29",
+     "label": "RUANG KELAS 4 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H5_29.jpeg",
+     "aspect": 1.9434,
+     "row": 144,
+     "col": 0
+    },
+    {
+     "id": "H5_08",
+     "label": "RUANG KELAS 5 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H5_08.jpeg",
+     "aspect": 1.9783,
+     "row": 144,
+     "col": 8
+    },
+    {
+     "id": "H5_25",
+     "label": "RUANG KELAS 4 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H5_25.jpeg",
+     "aspect": 1.9793,
+     "row": 160,
+     "col": 0
+    },
+    {
+     "id": "H5_12",
+     "label": "RUANG KELAS 5 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H5_12.jpeg",
+     "aspect": 1.984,
+     "row": 160,
+     "col": 8
+    },
+    {
+     "id": "H5_13",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H5_13.jpeg",
+     "aspect": 1.9776,
+     "row": 183,
+     "col": 0
+    },
+    {
+     "id": "H5_28",
+     "label": "TOILET (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H5_28.jpeg",
+     "aspect": 2.002,
+     "row": 183,
+     "col": 8
+    },
+    {
+     "id": "H5_14",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H5_14.jpeg",
+     "aspect": 1.9345,
+     "row": 199,
+     "col": 0
+    },
+    {
+     "id": "H5_16",
+     "label": "TOILET (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H5_16.jpeg",
+     "aspect": 1.9951,
+     "row": 199,
+     "col": 8
+    },
+    {
+     "id": "H5_11",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H5_11.jpeg",
+     "aspect": 1.9372,
+     "row": 215,
+     "col": 0
+    },
+    {
+     "id": "H5_17",
+     "label": "TOILET (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H5_17.jpeg",
+     "aspect": 1.9972,
+     "row": 215,
+     "col": 8
+    },
+    {
+     "id": "H5_15",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DALAM)",
+     "media": "xl/media/slot_H5_15.jpeg",
+     "aspect": 1.9402,
+     "row": 231,
+     "col": 0
+    },
+    {
+     "id": "H5_18",
+     "label": "TOILET (TAMPAK DALAM) – foto 1",
+     "media": "xl/media/slot_H5_18.jpeg",
+     "aspect": 1.9941,
+     "row": 231,
+     "col": 8
+    },
+    {
+     "id": "H5_19",
+     "label": "TOILET (TAMPAK DALAM) – foto 2",
+     "media": "xl/media/slot_H5_19.jpeg",
+     "aspect": 1.9439,
+     "row": 254,
+     "col": 0
+    },
+    {
+     "id": "H5_23",
+     "label": "PENATAAN LINGKUNGAN – foto 1",
+     "media": "xl/media/slot_H5_23.jpeg",
+     "aspect": 1.9854,
+     "row": 254,
+     "col": 8
+    },
+    {
+     "id": "H5_20",
+     "label": "TOILET (TAMPAK DALAM) – foto 3",
+     "media": "xl/media/slot_H5_20.jpeg",
+     "aspect": 1.9415,
+     "row": 270,
+     "col": 0
+    },
+    {
+     "id": "H5_22",
+     "label": "PENATAAN LINGKUNGAN – foto 2",
+     "media": "xl/media/slot_H5_22.jpeg",
+     "aspect": 1.9622,
+     "row": 270,
+     "col": 8
+    },
+    {
+     "id": "H5_21",
+     "label": "TOILET (TAMPAK DALAM) – foto 4",
+     "media": "xl/media/slot_H5_21.jpeg",
+     "aspect": 1.9477,
+     "row": 286,
+     "col": 0
+    },
+    {
+     "id": "H5_27",
+     "label": "Foto tambahan (baris 286)",
+     "media": "xl/media/slot_H5_27.jpeg",
+     "aspect": 2.0064,
+     "row": 286,
+     "col": 8
+    }
+   ]
+  },
+  {
+   "name": "H6",
+   "path": "xl/worksheets/sheet6.xml",
+   "pages": [
+    4,
+    36,
+    107,
+    178,
+    249
+   ],
+   "slots": [
+    {
+     "id": "H6_05",
+     "label": "RUANG KELAS 1 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H6_05.jpeg",
+     "aspect": 1.9102,
+     "row": 41,
+     "col": 0
+    },
+    {
+     "id": "H6_01",
+     "label": "RUANG KELAS 3 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H6_01.jpeg",
+     "aspect": 1.961,
+     "row": 41,
+     "col": 8
+    },
+    {
+     "id": "H6_06",
+     "label": "RUANG KELAS 1 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H6_06.jpeg",
+     "aspect": 1.9312,
+     "row": 57,
+     "col": 0
+    },
+    {
+     "id": "H6_02",
+     "label": "RUANG KELAS 3 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H6_02.jpeg",
+     "aspect": 1.9827,
+     "row": 57,
+     "col": 8
+    },
+    {
+     "id": "H6_07",
+     "label": "RUANG KELAS 1 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H6_07.jpeg",
+     "aspect": 1.9148,
+     "row": 73,
+     "col": 0
+    },
+    {
+     "id": "H6_03",
+     "label": "RUANG KELAS 3 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H6_03.jpeg",
+     "aspect": 1.9465,
+     "row": 73,
+     "col": 8
+    },
+    {
+     "id": "H6_08",
+     "label": "RUANG KELAS 1 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H6_08.jpeg",
+     "aspect": 1.936,
+     "row": 89,
+     "col": 0
+    },
+    {
+     "id": "H6_04",
+     "label": "RUANG KELAS 3 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H6_04.jpeg",
+     "aspect": 1.9802,
+     "row": 89,
+     "col": 8
+    },
+    {
+     "id": "H6_11",
+     "label": "RUANG KELAS 4 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H6_11.jpeg",
+     "aspect": 1.9265,
+     "row": 112,
+     "col": 0
+    },
+    {
+     "id": "H6_27",
+     "label": "RUANG KELAS 5 (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H6_27.jpeg",
+     "aspect": 1.9799,
+     "row": 112,
+     "col": 8
+    },
+    {
+     "id": "H6_12",
+     "label": "RUANG KELAS 4 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H6_12.jpeg",
+     "aspect": 1.9344,
+     "row": 128,
+     "col": 0
+    },
+    {
+     "id": "H6_09",
+     "label": "RUANG KELAS 5 (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H6_09.jpeg",
+     "aspect": 1.9808,
+     "row": 128,
+     "col": 8
+    },
+    {
+     "id": "H6_28",
+     "label": "RUANG KELAS 4 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H6_28.jpeg",
+     "aspect": 1.9463,
+     "row": 144,
+     "col": 0
+    },
+    {
+     "id": "H6_10",
+     "label": "RUANG KELAS 5 (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H6_10.jpeg",
+     "aspect": 1.9948,
+     "row": 144,
+     "col": 8
+    },
+    {
+     "id": "H6_14",
+     "label": "RUANG KELAS 4 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H6_14.jpeg",
+     "aspect": 1.9369,
+     "row": 160,
+     "col": 0
+    },
+    {
+     "id": "H6_26",
+     "label": "RUANG KELAS 5 (TAMPAK DALAM)",
+     "media": "xl/media/slot_H6_26.jpeg",
+     "aspect": 1.9836,
+     "row": 160,
+     "col": 8
+    },
+    {
+     "id": "H6_15",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H6_15.jpeg",
+     "aspect": 1.934,
+     "row": 183,
+     "col": 0
+    },
+    {
+     "id": "H6_18",
+     "label": "TOILET (TAMPAK DEPAN)",
+     "media": "xl/media/slot_H6_18.jpeg",
+     "aspect": 1.9784,
+     "row": 183,
+     "col": 8
+    },
+    {
+     "id": "H6_16",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H6_16.jpeg",
+     "aspect": 1.9475,
+     "row": 199,
+     "col": 0
+    },
+    {
+     "id": "H6_29",
+     "label": "TOILET (TAMPAK SAMPING)",
+     "media": "xl/media/slot_H6_29.jpeg",
+     "aspect": 2.0126,
+     "row": 199,
+     "col": 8
+    },
+    {
+     "id": "H6_13",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H6_13.jpeg",
+     "aspect": 1.9427,
+     "row": 215,
+     "col": 0
+    },
+    {
+     "id": "H6_19",
+     "label": "TOILET (TAMPAK BELAKANG)",
+     "media": "xl/media/slot_H6_19.jpeg",
+     "aspect": 1.988,
+     "row": 215,
+     "col": 8
+    },
+    {
+     "id": "H6_17",
+     "label": "RUANG PERPUSTAKAAN (TAMPAK DALAM)",
+     "media": "xl/media/slot_H6_17.jpeg",
+     "aspect": 1.9321,
+     "row": 231,
+     "col": 0
+    },
+    {
+     "id": "H6_20",
+     "label": "TOILET (TAMPAK DALAM) – foto 1",
+     "media": "xl/media/slot_H6_20.jpeg",
+     "aspect": 1.9941,
+     "row": 231,
+     "col": 8
+    },
+    {
+     "id": "H6_21",
+     "label": "TOILET (TAMPAK DALAM) – foto 2",
+     "media": "xl/media/slot_H6_21.jpeg",
+     "aspect": 1.9439,
+     "row": 254,
+     "col": 0
+    },
+    {
+     "id": "H6_25",
+     "label": "PENATAAN LINGKUNGAN – foto 1",
+     "media": "xl/media/slot_H6_25.jpeg",
+     "aspect": 1.9967,
+     "row": 254,
+     "col": 8
+    },
+    {
+     "id": "H6_22",
+     "label": "TOILET (TAMPAK DALAM) – foto 3",
+     "media": "xl/media/slot_H6_22.jpeg",
+     "aspect": 1.9415,
+     "row": 270,
+     "col": 0
+    },
+    {
+     "id": "H6_24",
+     "label": "PENATAAN LINGKUNGAN – foto 2",
+     "media": "xl/media/slot_H6_24.jpeg",
+     "aspect": 2.0153,
+     "row": 270,
+     "col": 8
+    },
+    {
+     "id": "H6_23",
+     "label": "TOILET (TAMPAK DALAM) – foto 4",
+     "media": "xl/media/slot_H6_23.jpeg",
+     "aspect": 1.9477,
+     "row": 286,
+     "col": 0
+    },
+    {
+     "id": "H6_30",
+     "label": "PENATAAN LINGKUNGAN – foto 3",
+     "media": "xl/media/slot_H6_30.jpeg",
+     "aspect": 1.991,
+     "row": 286,
+     "col": 8
+    }
+   ]
+  },
+  {
+   "name": "H7",
+   "path": "xl/worksheets/sheet7.xml",
+   "pages": [
+    4
+   ],
+   "slots": []
+  }
+ ],
+ "school": [
+  "SDN BAKALAN",
+  "20502848",
+  "KAB. MOJOKERTO",
+  "JAWA TIMUR"
+ ],
+ "ketua": "( RUBAIKAH, S.Pd )",
+ "pengawas": "( DANANG WIJANARKO N.)",
+ "tools": [
+  "Arco",
+  "Cetok",
+  "Mesin Bor",
+  "Mesin Gerinda",
+  "Mesin Las",
+  "Palu",
+  "Scaffolding"
+ ],
+ "materials": [
+  "Baja Ringan",
+  "Bata Merah",
+  "Besi Tulangan",
+  "Genteng Bubung",
+  "Genteng Kodok",
+  "Lisplank",
+  "Pasir",
+  "Plafon GRC",
+  "Plafon Grc",
+  "Semen",
+  "Semen Portland",
+  "Semen Putih",
+  "Tenslah"
+ ]
+}
