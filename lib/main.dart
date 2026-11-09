@@ -278,10 +278,33 @@ class HomeScreen extends StatelessWidget {
               ),
             ],
           ),
-          body: ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: 7,
-            itemBuilder: (context, i) {
+          body: Column(
+            children: [
+              if (store.templateIssues.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  color: Colors.red.shade900,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Peringatan: assets/config.json dan assets/template.xlsx tidak cocok '
+                          '(${store.templateIssues.first}). Jalankan ulang tools/make_template.py.',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: 7,
+                  itemBuilder: (context, i) {
               final sh = store.cfg.sheets[i];
               final d = p.days[i];
               final foto = store.photoCount(sh);
@@ -362,6 +385,9 @@ class HomeScreen extends StatelessWidget {
                 ),
               );
             },
+                ),
+              ),
+            ],
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _export(context),

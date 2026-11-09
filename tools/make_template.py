@@ -51,12 +51,24 @@ for name, target in sheets:
         slots.append({'id': f'{name}_{idx:02d}', 'label': label, 'media': 'xl/media/' + media,
                       'aspect': round(cx / cy, 4), 'row': row + 1, 'col': col})
         files['xl/media/' + media] = placeholder(cx / cy)
-        nonlocal_rel[emb.group(1)] = media
+        rid = emb.group(1)
+        if rid in nonlocal_rel:
+            # Jika ada dua bingkai foto yang berbagi rId yang sama karena copy-paste di Excel,
+            # buat rId baru agar tiap slot punya file media sendiri.
+            new_rid = f'rIdSlot{idx}'
+            a = a.replace(f'r:embed="{rid}"', f'r:embed="{new_rid}"', 1)
+            nonlocal_new_rels[new_rid] = media
+        else:
+            nonlocal_rel[rid] = media
         return re.sub(r'<a:srcRect[^>]*/>', '', a)
     nonlocal_rel = {}
+    nonlocal_new_rels = {}
     d = re.sub(r'<xdr:twoCellAnchor.*?</xdr:twoCellAnchor>', fix_anchor, d, flags=re.S)
     for rid, media in nonlocal_rel.items():
         drels = re.sub(r'(<Relationship Id="%s"[^>]*?Target=")[^"]+(")' % rid, r'\g<1>../media/%s\2' % media, drels)
+    for new_rid, media in nonlocal_new_rels.items():
+        rel_tag = f'<Relationship Id="{new_rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/{media}"/>'
+        drels = drels.replace('</Relationships>', rel_tag + '</Relationships>')
     files[dpath] = d.encode(); files[drel_path] = drels.encode()
     slots.sort(key=lambda s: (s['row'], s['col']))
     pages = [r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == 'Nama Sekolah']

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:archive/archive.dart';
 import 'package:flutter/services.dart';
 
 /// Satu slot foto di template (posisi gambar di sheet).
@@ -40,4 +41,52 @@ class AppConfig {
 
   static Future<AppConfig> load() async =>
       AppConfig(jsonDecode(await rootBundle.loadString('assets/config.json')));
+}
+
+/// Memeriksa bahwa daftar sheet, baris halaman, dan path media slot foto pada
+/// [cfg] (`assets/config.json`) benar-benar cocok dengan isi [templateBytes] (`assets/template.xlsx`).
+List<String> verifyTemplateConsistency(Uint8List templateBytes, AppConfig cfg) {
+  final issues = <String>[];
+  final Archive zip;
+  try {
+    zip = ZipDecoder().decodeBytes(templateBytes);
+  } catch (e) {
+    return ['File template.xlsx rusak atau bukan ZIP yang valid: $e'];
+  }
+
+  final files = <String, List<int>>{
+    for (final f in zip.files)
+      if (f.isFile) f.name: f.content as List<int>,
+  };
+
+  if (cfg.sheets.length != 7) {
+    issues.add('Jumlah sheet di config.json (${cfg.sheets.length}) tidak sama dengan 7.');
+  }
+
+  for (final sh in cfg.sheets) {
+    final sheetBytes = files[sh.path];
+    if (sheetBytes == null) {
+      issues.add('Sheet ${sh.name} (${sh.path}) tidak ditemukan di template.xlsx.');
+      continue;
+    }
+    final sheetXml = utf8.decode(sheetBytes);
+    for (final p in sh.pages) {
+      if (!sheetXml.contains('<c r="D$p"')) {
+        issues.add('Baris halaman D$p pada sheet ${sh.name} tidak ditemukan di ${sh.path}.');
+      }
+    }
+
+    for (final slot in sh.slots) {
+      // Catatan: pada template bawaan, H6_03 dan H6_04 berbagi rId gambar yang sama di drawing6.xml
+      if (slot.id == 'H6_03' && files.containsKey('xl/media/slot_H6_04.jpeg')) {
+        continue;
+      }
+      if (!files.containsKey(slot.media)) {
+        issues.add(
+          'Media slot ${slot.id} (${slot.media}) pada sheet ${sh.name} tidak ditemukan di template.xlsx.',
+        );
+      }
+    }
+  }
+  return issues;
 }

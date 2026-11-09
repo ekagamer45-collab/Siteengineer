@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:laporan_harian/config.dart';
 import 'package:laporan_harian/models.dart';
 import 'package:laporan_harian/store.dart'
     show
@@ -409,5 +410,23 @@ void main() {
     } finally {
       tempDir.deleteSync(recursive: true);
     }
+  });
+
+  test('verifyTemplateConsistency() validates config.json against template.xlsx', () {
+    final templateBytes = Uint8List.fromList(File('assets/template.xlsx').readAsBytesSync());
+    final rawCfg = jsonDecode(File('assets/config.json').readAsStringSync()) as Map<String, dynamic>;
+    final cfg = AppConfig(rawCfg);
+
+    // Harus cocok tanpa isu untuk template.xlsx dan config.json saat ini
+    expect(verifyTemplateConsistency(templateBytes, cfg), isEmpty);
+
+    // Simulasikan ketidakcocokan media slot pada config.json
+    final brokenRaw = jsonDecode(jsonEncode(rawCfg)) as Map<String, dynamic>;
+    ((brokenRaw['sheets'] as List).first['slots'] as List).first['media'] =
+        'xl/media/slot_tidak_ada.jpeg';
+    final brokenCfg = AppConfig(brokenRaw);
+    final issues = verifyTemplateConsistency(templateBytes, brokenCfg);
+    expect(issues, isNotEmpty);
+    expect(issues.first, contains('slot_tidak_ada.jpeg'));
   });
 }

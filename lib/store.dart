@@ -61,10 +61,13 @@ class Store extends ChangeNotifier {
   late final AppConfig cfg;
   late Project project;
   late final Directory _dir;
+  List<String> templateIssues = const [];
   Directory get photoDir => Directory('${_dir.path}/photos');
 
   Future<void> init() async {
     cfg = await AppConfig.load();
+    final tplBytes = (await rootBundle.load('assets/template.xlsx')).buffer.asUint8List();
+    templateIssues = verifyTemplateConsistency(tplBytes, cfg);
     _dir = await getApplicationDocumentsDirectory();
     photoDir.createSync(recursive: true);
     final f = File('${_dir.path}/project.json');
