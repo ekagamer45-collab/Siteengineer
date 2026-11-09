@@ -19,8 +19,8 @@ subprojects {
     afterEvaluate {
         if (plugins.hasPlugin("com.android.library")) {
             extensions.configure<LibraryExtension> {
-                if ((compileSdk ?: 0) < 35) {
-                    compileSdk = 35
+                if ((compileSdk ?: 0) < 36) {
+                    compileSdk = 36
                 }
             }
             if (name == "camera_android_camerax") {
