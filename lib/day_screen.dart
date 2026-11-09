@@ -33,7 +33,7 @@ class DayScreen extends StatelessWidget {
           bottom: const TabBar(tabs: [Tab(text: 'Data'), Tab(text: 'Foto')]),
         ),
         body: TabBarView(children: [
-          DataTab(day: store.project.days[index]),
+          DataTab(day: store.project.days[index], dayIndex: index),
           PhotoTab(sheet: sh),
         ]),
       ),
@@ -43,8 +43,9 @@ class DayScreen extends StatelessWidget {
 
 // ======================= TAB DATA =======================
 class DataTab extends StatefulWidget {
-  const DataTab({super.key, required this.day});
+  const DataTab({super.key, required this.day, required this.dayIndex});
   final DayReport day;
+  final int dayIndex;
   @override
   State<DataTab> createState() => _DataTabState();
 }
@@ -53,6 +54,65 @@ class _DataTabState extends State<DataTab> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
   DayReport get d => widget.day;
+  DayReport? get _prevDay =>
+      widget.dayIndex > 0 ? store.project.days[widget.dayIndex - 1] : null;
+
+  Future<Activity?> _pickYesterdayActivity({int? preferredIndex}) async {
+    final prev = _prevDay;
+    if (prev == null) return null;
+    final valid = prev.acts.where((a) => a.text.trim().isNotEmpty).toList();
+    if (valid.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada kegiatan pada hari sebelumnya.')),
+      );
+      return null;
+    }
+    if (valid.length == 1) {
+      return valid.first.copy();
+    }
+    return showDialog<Activity>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Pilih kegiatan dari ${hariNama[widget.dayIndex - 1]}'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: valid.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (_, idx) {
+              final act = valid[idx];
+              final isPref = preferredIndex == idx;
+              final subParts = <String>[
+                if (act.volume.isNotEmpty || act.unit.isNotEmpty)
+                  'Vol: ${act.volume} ${act.unit}'.trim(),
+                if (act.note.isNotEmpty) 'Ket: ${act.note}',
+              ];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: isPref
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : null,
+                  child: Text('${idx + 1}', style: const TextStyle(fontSize: 12)),
+                ),
+                title: Text(act.text, maxLines: 2, overflow: TextOverflow.ellipsis),
+                subtitle: subParts.isEmpty ? null : Text(subParts.join(' · ')),
+                onTap: () => Navigator.pop(ctx, act.copy()),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _upd([VoidCallback? f]) {
     setState(() => f?.call());
@@ -184,11 +244,28 @@ class _DataTabState extends State<DataTab> with AutomaticKeepAliveClientMixin {
           _title('Kegiatan pelaksanaan hari ini', sub: 'maks. $maxActs'),
           for (var i = 0; i < d.acts.length; i++) _activity(i),
           if (d.acts.length < maxActs)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton.icon(
                   onPressed: () => _upd(() => d.acts.add(Activity())),
-                  icon: const Icon(Icons.add), label: const Text('Tambah kegiatan')),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tambah kegiatan'),
+                ),
+                if (widget.dayIndex > 0)
+                  TextButton.icon(
+                    onPressed: () async {
+                      final copy = await _pickYesterdayActivity(
+                        preferredIndex: d.acts.length,
+                      );
+                      if (copy == null) return;
+                      _upd(() => d.acts.add(copy));
+                    },
+                    icon: const Icon(Icons.history),
+                    label: const Text('Duplikat kegiatan dari kemarin'),
+                  ),
+              ],
             ),
         ]);
       },
@@ -211,6 +288,16 @@ class _DataTabState extends State<DataTab> with AutomaticKeepAliveClientMixin {
                 onChanged: (v) { a.text = v; store.changed(); },
               ),
             ),
+            if (widget.dayIndex > 0)
+              IconButton(
+                tooltip: 'Duplikat kegiatan dari kemarin untuk baris ini',
+                icon: const Icon(Icons.history),
+                onPressed: () async {
+                  final copy = await _pickYesterdayActivity(preferredIndex: i);
+                  if (copy == null) return;
+                  _upd(() => d.acts[i] = copy);
+                },
+              ),
             IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _upd(() => d.acts.remove(a))),
           ]),
           const SizedBox(height: 8),
