@@ -10,6 +10,20 @@ import 'config.dart';
 import 'models.dart';
 import 'xlsx_filler.dart';
 
+/// Koordinat pemangkasan ternormalisasi [0..1] terhadap ukuran gambar setelah orientasi EXIF.
+class CropRect {
+  const CropRect({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+}
+
 /// Data input untuk pembuatan watermark GPS pada foto kamera.
 class WatermarkData {
   const WatermarkData({
@@ -73,9 +87,10 @@ class Store extends ChangeNotifier {
   int photoCount(SheetCfg sh) => sh.slots.where(hasPhoto).length;
   PhotoMeta? photoMetaOf(Slot s) => project.photoMeta[s.id];
 
-  /// Pangkas tengah sesuai rasio bingkai Excel, kecilkan, simpan sebagai JPEG (tanpa GPS / dari galeri).
-  Future<void> setPhoto(Slot s, Uint8List raw) async {
-    final out = await Isolate.run(() => preparePhoto(raw, s.aspect));
+  /// Pangkas sesuai rasio bingkai Excel (atau CropRect manual), kecilkan, simpan sebagai JPEG (tanpa GPS / dari galeri).
+  Future<void> setPhoto(Slot s, Uint8List raw, {CropRect? crop}) async {
+    final aspect = s.aspect;
+    final out = await Isolate.run(() => preparePhoto(raw, aspect, crop));
     await FileImage(photoFile(s)).evict(); // buang cache gambar lama
     photoFile(s).writeAsBytesSync(out);
     project.photoMeta[s.id] = PhotoMeta(hasGps: false, time: DateTime.now());
@@ -125,24 +140,39 @@ class Store extends ChangeNotifier {
   }
 }
 
-img.Image _cropAndResize(Uint8List raw, double aspect) {
+img.Image _cropAndResize(Uint8List raw, double aspect, [CropRect? crop]) {
   var im = img.decodeImage(raw);
   if (im == null) throw StateError('Gambar tidak bisa dibaca');
   im = img.bakeOrientation(im); // hormati rotasi EXIF dari kamera
-  int w = im.width, h = im.height;
-  int cw = w, ch = (w / aspect).round();
-  if (ch > h) {
-    ch = h;
-    cw = (h * aspect).round();
+  final int w = im.width, h = im.height;
+  int cx, cy, cw, ch;
+  if (crop != null) {
+    cx = (crop.left * w).round().clamp(0, w - 1);
+    cy = (crop.top * h).round().clamp(0, h - 1);
+    cw = (crop.width * w).round().clamp(1, w - cx);
+    ch = (cw / aspect).round();
+    if (cy + ch > h) {
+      ch = (h - cy).clamp(1, h);
+      cw = (ch * aspect).round().clamp(1, w - cx);
+    }
+  } else {
+    cw = w;
+    ch = (w / aspect).round();
+    if (ch > h) {
+      ch = h;
+      cw = (h * aspect).round();
+    }
+    cx = (w - cw) ~/ 2;
+    cy = (h - ch) ~/ 2;
   }
-  im = img.copyCrop(im, x: (w - cw) ~/ 2, y: (h - ch) ~/ 2, width: cw, height: ch);
+  im = img.copyCrop(im, x: cx, y: cy, width: cw, height: ch);
   if (im.width > 1000) im = img.copyResize(im, width: 1000);
   return im;
 }
 
 @visibleForTesting
-Uint8List preparePhoto(Uint8List raw, double aspect) {
-  final im = _cropAndResize(raw, aspect);
+Uint8List preparePhoto(Uint8List raw, double aspect, [CropRect? crop]) {
+  final im = _cropAndResize(raw, aspect, crop);
   return Uint8List.fromList(img.encodeJpg(im, quality: 85));
 }
 

@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:laporan_harian/models.dart';
 import 'package:laporan_harian/store.dart'
-    show WatermarkData, preparePhoto, prepareWatermarkedPhoto;
+    show CropRect, WatermarkData, preparePhoto, prepareWatermarkedPhoto;
 import 'package:laporan_harian/xlsx_filler.dart';
 
 String? _cellXml(String sheetXml, String ref) {
@@ -244,6 +244,17 @@ void main() {
     expect(outImg.width / outImg.height, closeTo(2.0, 0.05));
     expect(outImg.width, 800);
     expect(outImg.height, 400);
+
+    // Uji dengan CropRect manual (zoom 2x di bagian tengah)
+    final croppedResult = preparePhoto(
+      rawJpg,
+      2.0,
+      const CropRect(left: 0.25, top: 0.25, width: 0.5, height: 0.5),
+    );
+    final croppedImg = img.decodeImage(croppedResult)!;
+    expect(croppedImg.width, 400);
+    expect(croppedImg.height, 200);
+    expect(croppedImg.width / croppedImg.height, closeTo(2.0, 0.05));
   });
 
   test('prepareWatermarkedPhoto() matches slot aspect ratio and handles empty or full address cleanly', () {

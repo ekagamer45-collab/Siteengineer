@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'camera_screen.dart';
 import 'config.dart';
+import 'crop_screen.dart';
 import 'main.dart' show tgl;
 import 'models.dart';
 import 'store.dart';
@@ -260,7 +261,16 @@ class PhotoTab extends StatelessWidget {
         imageQuality: 90,
       );
       if (x == null) return;
-      await store.setPhoto(s, await x.readAsBytes());
+      final bytes = await x.readAsBytes();
+      if (!context.mounted) return;
+      final crop = await PhotoCropDialog.show(
+        context,
+        rawBytes: bytes,
+        aspect: s.aspect,
+        title: s.label,
+      );
+      if (crop == null) return;
+      await store.setPhoto(s, bytes, crop: crop);
     } catch (e) {
       msg.showSnackBar(SnackBar(content: Text('Foto gagal diproses: $e')));
     }
