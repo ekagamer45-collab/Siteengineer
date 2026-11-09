@@ -87,6 +87,31 @@ class Store extends ChangeNotifier {
   int photoCount(SheetCfg sh) => sh.slots.where(hasPhoto).length;
   PhotoMeta? photoMetaOf(Slot s) => project.photoMeta[s.id];
 
+  int nonGpsPhotoCount(SheetCfg sh) => sh.slots
+      .where((s) => hasPhoto(s) && (photoMetaOf(s)?.hasGps != true))
+      .length;
+
+  /// Daftar peringatan kelengkapan untuk hari ke-[index] (0 = Senin .. 6 = Minggu).
+  List<String> dayWarnings(int index) {
+    final d = project.days[index];
+    final sh = cfg.sheets[index];
+    final actCount = d.acts.where((a) => a.text.trim().isNotEmpty).length;
+    final workerCount = d.workers.fold<int>(0, (s, w) => s + w.count);
+    final foto = photoCount(sh);
+    final nonGps = nonGpsPhotoCount(sh);
+
+    final issues = <String>[];
+    if (actCount == 0) issues.add('belum ada kegiatan');
+    if (workerCount == 0) issues.add('jumlah pekerja nol');
+    if (sh.slots.isNotEmpty && foto < sh.slots.length) {
+      issues.add('foto belum penuh ($foto/${sh.slots.length})');
+    }
+    if (nonGps > 0) {
+      issues.add('$nonGps foto tanpa GPS');
+    }
+    return issues;
+  }
+
   /// Pangkas sesuai rasio bingkai Excel (atau CropRect manual), kecilkan, simpan sebagai JPEG (tanpa GPS / dari galeri).
   Future<void> setPhoto(Slot s, Uint8List raw, {CropRect? crop}) async {
     final aspect = s.aspect;

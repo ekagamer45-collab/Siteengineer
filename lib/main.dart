@@ -30,7 +30,82 @@ String tgl(DateTime d) {
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  Future<bool> _confirmIncomplete(BuildContext context) async {
+    final incomplete = <int, List<String>>{};
+    for (var i = 0; i < 7; i++) {
+      final w = store.dayWarnings(i);
+      if (w.isNotEmpty) incomplete[i] = w;
+    }
+    if (incomplete.isEmpty) return true;
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Expanded(child: Text('Ringkasan Kelengkapan')),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Beberapa hari memiliki data yang belum lengkap:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                for (final entry in incomplete.entries)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '• ${hariNama[entry.key]} (${tgl(store.project.dateOf(entry.key))})',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 14, top: 2),
+                          child: Text(
+                            entry.value.join(', '),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Tetap Lanjut'),
+          ),
+        ],
+      ),
+    );
+    return proceed ?? false;
+  }
+
   Future<void> _export(BuildContext context) async {
+    final ok = await _confirmIncomplete(context);
+    if (!ok || !context.mounted) return;
+
     final nav = Navigator.of(context);
     final msg = ScaffoldMessenger.of(context);
     showDialog(
@@ -74,13 +149,51 @@ class HomeScreen extends StatelessWidget {
               final sh = store.cfg.sheets[i];
               final d = p.days[i];
               final foto = store.photoCount(sh);
+              final warnings = store.dayWarnings(i);
+              final isComplete = warnings.isEmpty;
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(child: Text('${i + 1}')),
-                  title: Text('${hariNama[i]}, ${tgl(p.dateOf(i))}'),
-                  subtitle: Text('${d.acts.where((a) => a.text.isNotEmpty).length} kegiatan · '
-                      '${d.workers.fold<int>(0, (s, w) => s + w.count)} pekerja · '
-                      'foto $foto/${sh.slots.length}'),
+                  leading: CircleAvatar(
+                    backgroundColor: isComplete
+                        ? Colors.green.shade100
+                        : Colors.orange.shade100,
+                    foregroundColor: isComplete
+                        ? Colors.green.shade900
+                        : Colors.orange.shade900,
+                    child: Text('${i + 1}'),
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(child: Text('${hariNama[i]}, ${tgl(p.dateOf(i))}')),
+                      Icon(
+                        isComplete
+                            ? Icons.check_circle
+                            : Icons.warning_amber_rounded,
+                        size: 18,
+                        color: isComplete ? Colors.green : Colors.orange.shade800,
+                      ),
+                    ],
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${d.acts.where((a) => a.text.isNotEmpty).length} kegiatan · '
+                          '${d.workers.fold<int>(0, (s, w) => s + w.count)} pekerja · '
+                          'foto $foto/${sh.slots.length}'),
+                      if (!isComplete)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            'Belum lengkap: ${warnings.join(' · ')}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.orange.shade900,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DayScreen(index: i))),
                 ),
