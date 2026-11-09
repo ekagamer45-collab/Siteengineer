@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show FileImage;
 import 'package:flutter/services.dart';
@@ -9,6 +10,17 @@ import 'package:path_provider/path_provider.dart';
 import 'config.dart';
 import 'models.dart';
 import 'xlsx_filler.dart';
+
+/// Hasil validasi file backup (.zip) sebelum menimpa data proyek.
+class BackupPreview {
+  const BackupPreview({
+    required this.project,
+    required this.photos,
+  });
+  final Project project;
+  final Map<String, List<int>> photos; // slotId -> bytes jpg
+  int get photoCount => photos.length;
+}
 
 /// Koordinat pemangkasan ternormalisasi [0..1] terhadap ukuran gambar setelah orientasi EXIF.
 class CropRect {
@@ -169,6 +181,132 @@ class Store extends ChangeNotifier {
     File(path).writeAsBytesSync(bytes);
     return path;
   }
+
+  // ---------- backup & restore ----------
+  Set<String> get _allSlotIds => {
+        for (final sh in cfg.sheets)
+          for (final s in sh.slots) s.id,
+      };
+
+  /// Ekspor project.json beserta folder photos ke satu file .zip.
+  Future<String> exportBackupZip() async {
+    final proj = project.toJson();
+    final dir = photoDir.path;
+    final bytes = await Isolate.run(() => buildBackupZip(proj, dir));
+    final out = await getTemporaryDirectory();
+    final path = '${out.path}/BACKUP_LAPORAN_MINGGU_${project.minggu}.zip';
+    File(path).writeAsBytesSync(bytes);
+    return path;
+  }
+
+  /// Validasi isi zip sebelum menimpa data.
+  Future<BackupPreview> inspectBackupZip(Uint8List zipBytes) async {
+    final validSlots = _allSlotIds;
+    return Isolate.run(() => validateBackupZip(zipBytes, validSlots));
+  }
+
+  /// Terapkan hasil restore yang sudah divalidasi dan dikonfirmasi pengguna.
+  Future<void> applyBackup(BackupPreview preview) async {
+    for (final sh in cfg.sheets) {
+      for (final s in sh.slots) {
+        await FileImage(photoFile(s)).evict();
+      }
+    }
+    if (photoDir.existsSync()) {
+      for (final ent in photoDir.listSync()) {
+        if (ent is File) ent.deleteSync();
+      }
+    } else {
+      photoDir.createSync(recursive: true);
+    }
+
+    for (final entry in preview.photos.entries) {
+      File('${photoDir.path}/${entry.key}.jpg').writeAsBytesSync(entry.value);
+    }
+
+    project = preview.project;
+    save();
+    notifyListeners();
+  }
+}
+
+@visibleForTesting
+Uint8List buildBackupZip(Map<String, dynamic> projectJson, String photoDirPath) {
+  final arch = Archive();
+  final projBytes = utf8.encode(jsonEncode(projectJson));
+  arch.addFile(ArchiveFile('project.json', projBytes.length, projBytes));
+
+  final dir = Directory(photoDirPath);
+  if (dir.existsSync()) {
+    final files = dir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.toLowerCase().endsWith('.jpg'))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+    for (final f in files) {
+      final name = f.uri.pathSegments.last;
+      final b = f.readAsBytesSync();
+      final af = ArchiveFile('photos/$name', b.length, b)..compress = false;
+      arch.addFile(af);
+    }
+  }
+  return Uint8List.fromList(ZipEncoder().encode(arch)!);
+}
+
+@visibleForTesting
+BackupPreview validateBackupZip(Uint8List zipBytes, Set<String> validSlotIds) {
+  final Archive arch;
+  try {
+    arch = ZipDecoder().decodeBytes(zipBytes);
+  } catch (e) {
+    throw const FormatException('File bukan arsip ZIP yang valid.');
+  }
+
+  ArchiveFile? projFile;
+  final photos = <String, List<int>>{};
+
+  for (final f in arch.files) {
+    if (!f.isFile) continue;
+    final name = f.name.replaceAll('\\', '/');
+    if (name == 'project.json') {
+      projFile = f;
+    } else if (name.startsWith('photos/') && name.toLowerCase().endsWith('.jpg')) {
+      final base = name.substring('photos/'.length);
+      final slotId = base.substring(0, base.length - 4);
+      if (validSlotIds.isNotEmpty && !validSlotIds.contains(slotId)) {
+        throw FormatException('ID slot foto tidak dikenal di dalam backup: $slotId');
+      }
+      final bytes = f.content as List<int>;
+      if (bytes.length < 4 || bytes[0] != 0xFF || bytes[1] != 0xD8) {
+        throw FormatException('File foto $name rusak atau bukan JPEG yang valid.');
+      }
+      photos[slotId] = bytes;
+    }
+  }
+
+  if (projFile == null) {
+    throw const FormatException('File project.json tidak ditemukan di dalam ZIP.');
+  }
+
+  final Project parsedProject;
+  try {
+    final rawJson = jsonDecode(utf8.decode(projFile.content as List<int>));
+    if (rawJson is! Map<String, dynamic>) {
+      throw const FormatException('Format project.json tidak sesuai.');
+    }
+    parsedProject = Project.fromJson(rawJson);
+  } catch (e) {
+    throw FormatException('Isi project.json tidak valid: $e');
+  }
+
+  if (parsedProject.days.length != 7) {
+    throw FormatException(
+      'Data hari di project.json harus berjumlah 7 (ditemukan ${parsedProject.days.length}).',
+    );
+  }
+
+  return BackupPreview(project: parsedProject, photos: photos);
 }
 
 img.Image _cropAndResize(Uint8List raw, double aspect, [CropRect? crop]) {

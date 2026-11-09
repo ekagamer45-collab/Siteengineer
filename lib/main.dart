@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'day_screen.dart';
@@ -25,6 +27,110 @@ String tgl(DateTime d) {
   const bln = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus',
     'September', 'Oktober', 'November', 'Desember'];
   return '${d.day} ${bln[d.month - 1]} ${d.year}';
+}
+
+Future<void> exportBackup(BuildContext context) async {
+  final nav = Navigator.of(context);
+  final msg = ScaffoldMessenger.of(context);
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 20),
+          Expanded(child: Text('Membuat file backup (.zip)…')),
+        ],
+      ),
+    ),
+  );
+  try {
+    final path = await store.exportBackupZip();
+    nav.pop();
+    await Share.shareXFiles(
+      [XFile(path)],
+      text: 'Backup Laporan Harian Minggu ${store.project.minggu}',
+    );
+  } catch (e) {
+    nav.pop();
+    msg.showSnackBar(SnackBar(content: Text('Gagal membuat backup: $e')));
+  }
+}
+
+Future<void> restoreBackup(BuildContext context) async {
+  final msg = ScaffoldMessenger.of(context);
+  try {
+    final res = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+      withData: true,
+    );
+    if (res == null || res.files.isEmpty) return;
+    final picked = res.files.first;
+    final bytes = picked.bytes ??
+        (picked.path != null ? File(picked.path!).readAsBytesSync() : null);
+    if (bytes == null) {
+      msg.showSnackBar(
+        const SnackBar(content: Text('File ZIP tidak dapat dibaca.')),
+      );
+      return;
+    }
+
+    final preview = await store.inspectBackupZip(bytes);
+    if (!context.mounted) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Konfirmasi Restore Backup'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'File backup valid. Rincian isi backup:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text('• Sekolah: ${preview.project.school}'),
+            Text('• Minggu ke-${preview.project.minggu} (Bulan ke-${preview.project.bulan})'),
+            Text('• Mulai: ${tgl(preview.project.mulai)}'),
+            Text('• Jumlah foto: ${preview.photoCount} foto'),
+            const SizedBox(height: 12),
+            Text(
+              'Perhatian: Semua data laporan dan foto saat ini akan ditimpa dengan isi backup ini. Lanjutkan?',
+              style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Timpa & Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !context.mounted) return;
+    await store.applyBackup(preview);
+    msg.showSnackBar(
+      const SnackBar(content: Text('Data proyek & foto berhasil dipulihkan dari backup.')),
+    );
+  } on FormatException catch (e) {
+    msg.showSnackBar(
+      SnackBar(content: Text('Backup ditolak: ${e.message}')),
+    );
+  } catch (e) {
+    msg.showSnackBar(
+      SnackBar(content: Text('Gagal memulihkan backup: $e')),
+    );
+  }
 }
 
 class HomeScreen extends StatelessWidget {
@@ -139,6 +245,32 @@ class HomeScreen extends StatelessWidget {
           appBar: AppBar(
             title: Text('Laporan Harian – Minggu ${p.minggu}'),
             actions: [
+              PopupMenuButton<String>(
+                tooltip: 'Backup & Restore',
+                icon: const Icon(Icons.archive_outlined),
+                onSelected: (v) {
+                  if (v == 'backup') exportBackup(context);
+                  if (v == 'restore') restoreBackup(context);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'backup',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.upload_file),
+                      title: Text('Backup Data (.zip)'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'restore',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.restore),
+                      title: Text('Restore Data (.zip)'),
+                    ),
+                  ),
+                ],
+              ),
               IconButton(
                 tooltip: 'Pengaturan proyek',
                 icon: const Icon(Icons.settings),
@@ -300,7 +432,32 @@ class SettingsScreen extends StatelessWidget {
                 store.changed();
               },
             ),
+            const Divider(height: 24),
+            Text(
+              'Backup & Restore Data',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => exportBackup(context),
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Backup (.zip)'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => restoreBackup(context),
+                    icon: const Icon(Icons.restore),
+                    label: const Text('Restore (.zip)'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             Text('Tanda tangan di template tidak berubah. Kosongkan/ganti sendiri di Excel bila perlu.',
                 style: Theme.of(context).textTheme.bodySmall),
           ]),

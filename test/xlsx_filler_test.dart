@@ -6,7 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:laporan_harian/models.dart';
 import 'package:laporan_harian/store.dart'
-    show CropRect, WatermarkData, preparePhoto, prepareWatermarkedPhoto;
+    show
+        CropRect,
+        WatermarkData,
+        buildBackupZip,
+        preparePhoto,
+        prepareWatermarkedPhoto,
+        validateBackupZip;
 import 'package:laporan_harian/xlsx_filler.dart';
 
 String? _cellXml(String sheetXml, String ref) {
@@ -365,5 +371,43 @@ void main() {
     expect(roundTrip.photoMeta['H1_01']?.lng, closeTo(112.433801, 1e-6));
     expect(roundTrip.photoMeta['H1_01']?.accuracy, closeTo(3.8, 1e-4));
     expect(roundTrip.photoMeta['H1_01']?.address, 'Mojokerto');
+  });
+
+  test('buildBackupZip() and validateBackupZip() package and validate project + photos', () {
+    final tempDir = Directory.systemTemp.createTempSync('backup_test_');
+    try {
+      final canvas = img.Image(width: 200, height: 100);
+      img.fill(canvas, color: img.ColorRgb8(10, 150, 80));
+      final jpgBytes = Uint8List.fromList(img.encodeJpg(canvas, quality: 85));
+      File('${tempDir.path}/H1_01.jpg').writeAsBytesSync(jpgBytes);
+
+      final proj = Project(
+        school: 'SDN BAKALAN',
+        npsn: '20502848',
+        kab: 'KAB. MOJOKERTO',
+        prov: 'JAWA TIMUR',
+        ketua: 'KETUA',
+        pengawas: 'PENGAWAS',
+        minggu: 9,
+        bulan: 3,
+        mulai: DateTime(2026, 11, 2),
+        toolsMaster: ['Palu'],
+        materialsMaster: ['Semen'],
+      );
+
+      final zipBytes = buildBackupZip(proj.toJson(), tempDir.path);
+      final preview = validateBackupZip(zipBytes, {'H1_01', 'H1_02'});
+      expect(preview.project.school, 'SDN BAKALAN');
+      expect(preview.photoCount, 1);
+      expect(preview.photos['H1_01'], equals(jpgBytes));
+
+      // Harus menolak jika slotId tidak dikenal
+      expect(
+        () => validateBackupZip(zipBytes, {'H9_99'}),
+        throwsFormatException,
+      );
+    } finally {
+      tempDir.deleteSync(recursive: true);
+    }
   });
 }
