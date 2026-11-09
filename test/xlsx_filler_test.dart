@@ -5,7 +5,8 @@ import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:laporan_harian/models.dart';
-import 'package:laporan_harian/store.dart' show preparePhoto;
+import 'package:laporan_harian/store.dart'
+    show WatermarkData, preparePhoto, prepareWatermarkedPhoto;
 import 'package:laporan_harian/xlsx_filler.dart';
 
 String? _cellXml(String sheetXml, String ref) {
@@ -243,5 +244,94 @@ void main() {
     expect(outImg.width / outImg.height, closeTo(2.0, 0.05));
     expect(outImg.width, 800);
     expect(outImg.height, 400);
+  });
+
+  test('prepareWatermarkedPhoto() matches slot aspect ratio and handles empty or full address cleanly', () {
+    // Buat gambar 1200x1600 dengan warna terang seragam
+    final src = img.Image(width: 1200, height: 1600);
+    img.fill(src, color: img.ColorRgb8(220, 230, 240));
+    final rawJpg = Uint8List.fromList(img.encodeJpg(src, quality: 90));
+
+    const slotAspect = 1.9246;
+
+    // 1. Uji dengan alamat kosong (kondisi offline)
+    final wmOffline = WatermarkData(
+      lat: -7.472612,
+      lng: 112.433801,
+      accuracy: 4.5,
+      time: DateTime.utc(2026, 11, 8, 2, 30, 15),
+      slotLabel: '1. Pekerjaan Bongkaran – Foto 1',
+      schoolName: 'SDN BAKALAN',
+      address: '',
+    );
+
+    final outOffline = prepareWatermarkedPhoto(rawJpg, slotAspect, wmOffline);
+    final decodedOffline = img.decodeImage(outOffline)!;
+    expect(decodedOffline.width, 1000);
+    expect(decodedOffline.width / decodedOffline.height, closeTo(slotAspect, 0.01));
+
+    // Pastikan bagian bawah foto telah digambari latar watermark gelap
+    final topPixel = decodedOffline.getPixel(500, 20);
+    final bottomPixel = decodedOffline.getPixel(500, decodedOffline.height - 5);
+    expect(bottomPixel.r, lessThan(topPixel.r));
+
+    // 2. Uji dengan alamat lengkap dari geocoding
+    final wmOnline = WatermarkData(
+      lat: -7.472612,
+      lng: 112.433801,
+      accuracy: 3.2,
+      time: DateTime.utc(2026, 11, 8, 2, 30, 15),
+      slotLabel: '1. Pekerjaan Bongkaran – Foto 1',
+      schoolName: 'SDN BAKALAN',
+      address: 'Jl. Raya Bakalan No. 10, Kec. Gondang, Kab. Mojokerto, Jawa Timur',
+    );
+
+    final outOnline = prepareWatermarkedPhoto(rawJpg, slotAspect, wmOnline);
+    final decodedOnline = img.decodeImage(outOnline)!;
+    expect(decodedOnline.width, 1000);
+    expect(decodedOnline.width / decodedOnline.height, closeTo(slotAspect, 0.01));
+  });
+
+  test('Project.fromJson() supports legacy project.json and persists photoMeta', () {
+    final legacyJson = <String, dynamic>{
+      'school': 'SDN BAKALAN',
+      'npsn': '20502848',
+      'kab': 'KAB. MOJOKERTO',
+      'prov': 'JAWA TIMUR',
+      'ketua': 'KETUA',
+      'pengawas': 'PENGAWAS',
+      'minggu': 9,
+      'bulan': 3,
+      'mulai': '2026-11-02T00:00:00.000',
+      'toolsMaster': <String>['Palu'],
+      'materialsMaster': <String>['Semen'],
+      'days': List.generate(7, (_) => DayReport().toJson()),
+    };
+
+    // Harus bisa membaca project.json lama tanpa field allowGallery & photoMeta
+    final loadedLegacy = Project.fromJson(legacyJson);
+    expect(loadedLegacy.allowGallery, isTrue);
+    expect(loadedLegacy.photoMeta, isEmpty);
+
+    // Tambahkan metadata foto dan pastikan tersimpan saat toJson -> fromJson
+    loadedLegacy.allowGallery = false;
+    loadedLegacy.photoMeta['H1_01'] = PhotoMeta(
+      hasGps: true,
+      lat: -7.472612,
+      lng: 112.433801,
+      accuracy: 3.8,
+      address: 'Mojokerto',
+      time: DateTime.utc(2026, 11, 8, 3, 0, 0),
+    );
+
+    final roundTrip = Project.fromJson(
+      jsonDecode(jsonEncode(loadedLegacy.toJson())) as Map<String, dynamic>,
+    );
+    expect(roundTrip.allowGallery, isFalse);
+    expect(roundTrip.photoMeta['H1_01']?.hasGps, isTrue);
+    expect(roundTrip.photoMeta['H1_01']?.lat, closeTo(-7.472612, 1e-6));
+    expect(roundTrip.photoMeta['H1_01']?.lng, closeTo(112.433801, 1e-6));
+    expect(roundTrip.photoMeta['H1_01']?.accuracy, closeTo(3.8, 1e-4));
+    expect(roundTrip.photoMeta['H1_01']?.address, 'Mojokerto');
   });
 }

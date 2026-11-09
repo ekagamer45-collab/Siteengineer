@@ -144,6 +144,18 @@ class SettingsScreen extends StatelessWidget {
                 }
               },
             ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Izinkan pilih foto dari galeri'),
+              subtitle: const Text(
+                'Matikan untuk mewajibkan semua foto diambil langsung lewat kamera ber-GPS.',
+              ),
+              value: p.allowGallery,
+              onChanged: (val) {
+                p.allowGallery = val;
+                store.changed();
+              },
+            ),
             const SizedBox(height: 8),
             Text('Tanda tangan di template tidak berubah. Kosongkan/ganti sendiri di Excel bila perlu.',
                 style: Theme.of(context).textTheme.bodySmall),

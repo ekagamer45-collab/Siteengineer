@@ -82,6 +82,42 @@ class DayReport {
   }
 }
 
+/// Metadata foto tiap slot (disimpan di project.json -> photoMeta[slotId]).
+class PhotoMeta {
+  PhotoMeta({
+    required this.hasGps,
+    required this.time,
+    this.lat,
+    this.lng,
+    this.accuracy,
+    this.address = '',
+  });
+  final bool hasGps;
+  final double? lat;
+  final double? lng;
+  final double? accuracy;
+  final String address;
+  final DateTime time;
+
+  Map<String, dynamic> toJson() => {
+        'hasGps': hasGps,
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
+        if (accuracy != null) 'accuracy': accuracy,
+        if (address.isNotEmpty) 'address': address,
+        'time': time.toIso8601String(),
+      };
+
+  factory PhotoMeta.fromJson(Map<String, dynamic> j) => PhotoMeta(
+        hasGps: j['hasGps'] as bool? ?? (j['lat'] != null && j['lng'] != null),
+        lat: (j['lat'] as num?)?.toDouble(),
+        lng: (j['lng'] as num?)?.toDouble(),
+        accuracy: (j['accuracy'] as num?)?.toDouble(),
+        address: j['address'] as String? ?? '',
+        time: j['time'] != null ? DateTime.parse(j['time'] as String) : DateTime.now(),
+      );
+}
+
 class Project {
   Project({
     required this.school,
@@ -96,13 +132,18 @@ class Project {
     required this.toolsMaster,
     required this.materialsMaster,
     List<DayReport>? days,
-  }) : days = days ?? List.generate(7, (_) => DayReport());
+    this.allowGallery = true,
+    Map<String, PhotoMeta>? photoMeta,
+  })  : days = days ?? List.generate(7, (_) => DayReport()),
+        photoMeta = photoMeta ?? {};
 
   String school, npsn, kab, prov, ketua, pengawas;
   int minggu, bulan;
   DateTime mulai; // hari Senin minggu ini
   List<String> toolsMaster, materialsMaster;
   List<DayReport> days; // 7 hari: Senin..Minggu
+  bool allowGallery;
+  Map<String, PhotoMeta> photoMeta; // slotId -> metadata GPS/waktu
 
   DateTime dateOf(int i) => DateTime(mulai.year, mulai.month, mulai.day + i);
 
@@ -113,6 +154,8 @@ class Project {
         'mulai': mulai.toIso8601String(),
         'toolsMaster': toolsMaster, 'materialsMaster': materialsMaster,
         'days': days.map((e) => e.toJson()).toList(),
+        'allowGallery': allowGallery,
+        'photoMeta': photoMeta.map((k, v) => MapEntry(k, v.toJson())),
       };
   factory Project.fromJson(Map<String, dynamic> j) => Project(
         school: j['school'], npsn: j['npsn'], kab: j['kab'], prov: j['prov'],
@@ -122,5 +165,11 @@ class Project {
         toolsMaster: (j['toolsMaster'] as List).cast<String>(),
         materialsMaster: (j['materialsMaster'] as List).cast<String>(),
         days: (j['days'] as List).map((e) => DayReport.fromJson(e)).toList(),
+        allowGallery: j['allowGallery'] as bool? ?? true,
+        photoMeta: j['photoMeta'] is Map
+            ? (j['photoMeta'] as Map<String, dynamic>).map(
+                (k, v) => MapEntry(k, PhotoMeta.fromJson(v as Map<String, dynamic>)),
+              )
+            : {},
       );
 }

@@ -1,3 +1,5 @@
+import com.android.build.gradle.LibraryExtension
+
 allprojects {
     repositories {
         google()
@@ -14,6 +16,18 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
+    afterEvaluate {
+        if (plugins.hasPlugin("com.android.library")) {
+            extensions.configure<LibraryExtension> {
+                if ((compileSdk ?: 0) < 35) {
+                    compileSdk = 35
+                }
+            }
+            if (name == "camera_android_camerax") {
+                dependencies.add("implementation", "androidx.concurrent:concurrent-futures:1.1.0")
+            }
+        }
+    }
 }
 subprojects {
     project.evaluationDependsOn(":app")

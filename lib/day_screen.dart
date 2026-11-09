@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'camera_screen.dart';
 import 'config.dart';
 import 'main.dart' show tgl;
 import 'models.dart';
@@ -243,10 +244,21 @@ class PhotoTab extends StatelessWidget {
   const PhotoTab({super.key, required this.sheet});
   final SheetCfg sheet;
 
-  Future<void> _pick(BuildContext context, Slot s, ImageSource src) async {
+  Future<void> _openCamera(BuildContext context, Slot s) async {
+    await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => CameraScreen(slot: s)),
+    );
+  }
+
+  Future<void> _pickGallery(BuildContext context, Slot s) async {
     final msg = ScaffoldMessenger.of(context);
     try {
-      final x = await ImagePicker().pickImage(source: src, maxWidth: 2000, imageQuality: 90);
+      final x = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2000,
+        imageQuality: 90,
+      );
       if (x == null) return;
       await store.setPhoto(s, await x.readAsBytes());
     } catch (e) {
@@ -255,6 +267,7 @@ class PhotoTab extends StatelessWidget {
   }
 
   void _menu(BuildContext context, Slot s) {
+    final allowGallery = store.project.allowGallery;
     showModalBottomSheet(
       context: context,
       builder: (_) => SafeArea(
@@ -262,19 +275,29 @@ class PhotoTab extends StatelessWidget {
           ListTile(title: Text(s.label, style: const TextStyle(fontWeight: FontWeight.bold))),
           ListTile(
             leading: const Icon(Icons.photo_camera),
-            title: const Text('Ambil foto'),
-            onTap: () { Navigator.pop(context); _pick(context, s, ImageSource.camera); },
+            title: const Text('Ambil foto (Kamera GPS)'),
+            onTap: () {
+              Navigator.pop(context);
+              _openCamera(context, s);
+            },
           ),
-          ListTile(
-            leading: const Icon(Icons.photo_library),
-            title: const Text('Pilih dari galeri'),
-            onTap: () { Navigator.pop(context); _pick(context, s, ImageSource.gallery); },
-          ),
+          if (allowGallery)
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Pilih dari galeri (tanpa GPS)'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickGallery(context, s);
+              },
+            ),
           if (store.hasPhoto(s))
             ListTile(
               leading: const Icon(Icons.delete_outline),
               title: const Text('Hapus foto'),
-              onTap: () { Navigator.pop(context); store.removePhoto(s); },
+              onTap: () {
+                Navigator.pop(context);
+                store.removePhoto(s);
+              },
             ),
         ]),
       ),
@@ -299,6 +322,8 @@ class PhotoTab extends StatelessWidget {
         itemBuilder: (context, i) {
           final s = sheet.slots[i];
           final has = store.hasPhoto(s);
+          final meta = store.photoMetaOf(s);
+          final hasGps = meta?.hasGps ?? false;
           return InkWell(
             onTap: () => _menu(context, s),
             child: Card(
@@ -308,6 +333,39 @@ class PhotoTab extends StatelessWidget {
                   Image.file(store.photoFile(s), fit: BoxFit.cover, cacheWidth: 500)
                 else
                   const Center(child: Icon(Icons.add_a_photo_outlined, size: 36, color: Colors.black38)),
+                if (has)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: hasGps
+                            ? Colors.green.shade800.withValues(alpha: 0.88)
+                            : Colors.orange.shade900.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            hasGps ? Icons.location_on : Icons.location_off,
+                            size: 13,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            hasGps ? 'GPS' : 'Tanpa GPS',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 Positioned(
                   left: 0, right: 0, bottom: 0,
                   child: Container(
