@@ -152,14 +152,20 @@ class Store extends ChangeNotifier {
 
   // ---------- ekspor ----------
   /// Hasilkan file .xlsx dan kembalikan path-nya.
-  Future<String> exportXlsx() async {
+  /// Jika [singleDayIndex] diisi (0..6), hanya sheet hari tersebut yang diekspor.
+  Future<String> exportXlsx({int? singleDayIndex}) async {
     final tpl = (await rootBundle.load('assets/template.xlsx')).buffer.asUint8List();
     final cfgRaw = cfg.raw;
     final proj = project.toJson();
     final dir = photoDir.path;
-    final bytes = await Isolate.run(() => XlsxFiller.build(tpl, cfgRaw, proj, dir));
+    final bytes = await Isolate.run(
+      () => XlsxFiller.build(tpl, cfgRaw, proj, dir, singleDayIndex: singleDayIndex),
+    );
     final out = await getTemporaryDirectory();
-    final path = '${out.path}/LAPORAN_HARIAN_MINGGU_${project.minggu}.xlsx';
+    final suffix = singleDayIndex != null
+        ? '_H${singleDayIndex + 1}_${hariNama[singleDayIndex].toUpperCase()}'
+        : '';
+    final path = '${out.path}/LAPORAN_HARIAN_MINGGU_${project.minggu}$suffix.xlsx';
     File(path).writeAsBytesSync(bytes);
     return path;
   }

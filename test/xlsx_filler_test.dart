@@ -226,6 +226,27 @@ void main() {
 
       // Simpan contoh hasil ekspor untuk divalidasi menjadi PDF
       File('hasil.xlsx').writeAsBytesSync(outBytes);
+
+      // 11. Uji ekspor satu hari saja (singleDayIndex: 0 = Senin / H1)
+      final singleBytes = XlsxFiller.build(
+        Uint8List.fromList(templateBytes),
+        cfg,
+        project.toJson(),
+        tempDir.path,
+        singleDayIndex: 0,
+      );
+      final singleZip = ZipDecoder().decodeBytes(singleBytes);
+      final singleFiles = <String, List<int>>{
+        for (final f in singleZip.files)
+          if (f.isFile) f.name: f.content as List<int>,
+      };
+      expect(singleFiles.containsKey('xl/worksheets/sheet1.xml'), isTrue);
+      for (var sIdx = 2; sIdx <= 7; sIdx++) {
+        expect(singleFiles.containsKey('xl/worksheets/sheet$sIdx.xml'), isFalse);
+      }
+      final singleWb = utf8.decode(singleFiles['xl/workbook.xml']!);
+      expect(singleWb, contains('name="H1"'));
+      expect(singleWb, isNot(contains('name="H2"')));
     } finally {
       tempDir.deleteSync(recursive: true);
     }

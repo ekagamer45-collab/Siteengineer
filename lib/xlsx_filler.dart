@@ -99,10 +99,79 @@ class XlsxFiller {
     );
   }
 
+  /// Hapus sheet selain [keepIdx] dari struktur XML workbook agar file hanya berisi 1 sheet.
+  static void _pruneOtherSheets(
+    Map<String, List<int>> files,
+    List<dynamic> sheets,
+    int keepIdx,
+  ) {
+    final keepSh = sheets[keepIdx] as Map<String, dynamic>;
+    final keepName = keepSh['name'] as String; // misal "H1"
+    final keepPath = keepSh['path'] as String; // misal "xl/worksheets/sheet1.xml"
+    final keepTarget = keepPath.replaceFirst('xl/', ''); // "worksheets/sheet1.xml"
+
+    // 1. Bersihkan xl/workbook.xml: hanya sisakan <sheet name="keepName" .../> dan activeTab="0"
+    var wb = _utf8(files['xl/workbook.xml']!);
+    wb = wb.replaceAllMapped(
+      RegExp(r'<sheet\s[^>]*?name="([^"]+)"[^>]*?/>'),
+      (m) => m.group(1) == keepName ? m.group(0)! : '',
+    );
+    wb = wb.replaceAll(RegExp(r'\s+activeTab="\d+"'), '');
+    files['xl/workbook.xml'] = _utf8Bytes(wb);
+
+    // 2. Bersihkan xl/_rels/workbook.xml.rels: hapus relationship ke worksheets/sheetX.xml lain
+    const relsPath = 'xl/_rels/workbook.xml.rels';
+    if (files.containsKey(relsPath)) {
+      var rels = _utf8(files[relsPath]!);
+      rels = rels.replaceAllMapped(
+        RegExp(r'<Relationship\s[^>]*?Target="worksheets/[^"]+"[^>]*?/>'),
+        (m) => m.group(0)!.contains('Target="$keepTarget"') ? m.group(0)! : '',
+      );
+      rels = rels.replaceAllMapped(
+        RegExp(r'<Relationship\s[^>]*?Target="calcChain\.xml"[^>]*?/>'),
+        (_) => '',
+      );
+      files[relsPath] = _utf8Bytes(rels);
+    }
+
+    // 3. Bersihkan [Content_Types].xml dan hapus file sheet serta media milik hari lain
+    var ct = _utf8(files['[Content_Types].xml']!);
+    ct = ct.replaceAllMapped(
+      RegExp(r'<Override\s[^>]*?PartName="/xl/calcChain\.xml"[^>]*?/>'),
+      (_) => '',
+    );
+    files.remove('xl/calcChain.xml');
+
+    for (var i = 0; i < sheets.length; i++) {
+      if (i == keepIdx) continue;
+      final sh = sheets[i] as Map<String, dynamic>;
+      final p = sh['path'] as String; // "xl/worksheets/sheet2.xml"
+      final relFile =
+          '${p.replaceFirst('xl/worksheets/', 'xl/worksheets/_rels/')}.rels';
+      files.remove(p);
+      files.remove(relFile);
+      ct = ct.replaceAllMapped(
+        RegExp('<Override\\s[^>]*?PartName="/$p"[^>]*?/>'),
+        (_) => '',
+      );
+      for (final slot in sh['slots'] as List) {
+        final mediaPath = slot['media'] as String;
+        files.remove(mediaPath);
+      }
+    }
+    files['[Content_Types].xml'] = _utf8Bytes(ct);
+  }
+
   /// [template] bytes template.xlsx, [cfg] isi config.json, [project] Project.toJson(),
-  /// [photoDir] folder berisi `<slotId>.jpg`. Mengembalikan bytes .xlsx.
-  static Uint8List build(Uint8List template, Map<String, dynamic> cfg,
-      Map<String, dynamic> project, String photoDir) {
+  /// [photoDir] folder berisi `<slotId>.jpg`.
+  /// Jika [singleDayIndex] diisi (0..6), hanya sheet hari tersebut yang disertakan.
+  static Uint8List build(
+    Uint8List template,
+    Map<String, dynamic> cfg,
+    Map<String, dynamic> project,
+    String photoDir, {
+    int? singleDayIndex,
+  }) {
     final zip = ZipDecoder().decodeBytes(template);
     final files = <String, List<int>>{};
     final compressFlags = <String, bool>{};
@@ -119,6 +188,7 @@ class XlsxFiller {
 
     final sheets = cfg['sheets'] as List;
     for (var i = 0; i < sheets.length && i < days.length; i++) {
+      if (singleDayIndex != null && i != singleDayIndex) continue;
       final sh = sheets[i] as Map<String, dynamic>;
       final path = sh['path'] as String;
       final xml = _utf8(files[path]!);
@@ -133,6 +203,10 @@ class XlsxFiller {
           compressFlags[mediaPath] = false;
         }
       }
+    }
+
+    if (singleDayIndex != null) {
+      _pruneOtherSheets(files, sheets, singleDayIndex);
     }
 
     // Excel menghitung ulang semua rumus saat file dibuka.

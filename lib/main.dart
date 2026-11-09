@@ -30,9 +30,10 @@ String tgl(DateTime d) {
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  Future<bool> _confirmIncomplete(BuildContext context) async {
+  Future<bool> _confirmIncomplete(BuildContext context, {int? singleDayIndex}) async {
     final incomplete = <int, List<String>>{};
-    for (var i = 0; i < 7; i++) {
+    final indices = singleDayIndex != null ? [singleDayIndex] : List.generate(7, (i) => i);
+    for (final i in indices) {
       final w = store.dayWarnings(i);
       if (w.isNotEmpty) incomplete[i] = w;
     }
@@ -102,8 +103,8 @@ class HomeScreen extends StatelessWidget {
     return proceed ?? false;
   }
 
-  Future<void> _export(BuildContext context) async {
-    final ok = await _confirmIncomplete(context);
+  Future<void> _export(BuildContext context, {int? singleDayIndex}) async {
+    final ok = await _confirmIncomplete(context, singleDayIndex: singleDayIndex);
     if (!ok || !context.mounted) return;
 
     final nav = Navigator.of(context);
@@ -116,9 +117,12 @@ class HomeScreen extends StatelessWidget {
       ),
     );
     try {
-      final path = await store.exportXlsx();
+      final path = await store.exportXlsx(singleDayIndex: singleDayIndex);
       nav.pop();
-      await Share.shareXFiles([XFile(path)], text: 'Laporan Harian Minggu ${store.project.minggu}');
+      final label = singleDayIndex != null
+          ? 'Laporan Harian ${hariNama[singleDayIndex]} (Minggu ${store.project.minggu})'
+          : 'Laporan Harian Minggu ${store.project.minggu}';
+      await Share.shareXFiles([XFile(path)], text: label);
     } catch (e) {
       nav.pop();
       msg.showSnackBar(SnackBar(content: Text('Gagal membuat Excel: $e')));
@@ -194,7 +198,34 @@ class HomeScreen extends StatelessWidget {
                         ),
                     ],
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: PopupMenuButton<String>(
+                    tooltip: 'Menu hari',
+                    onSelected: (val) {
+                      if (val == 'open') {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => DayScreen(index: i)));
+                      } else if (val == 'export_day') {
+                        _export(context, singleDayIndex: i);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'open',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.edit_note),
+                          title: Text('Isi / Edit Hari Ini'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'export_day',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.file_download_outlined),
+                          title: Text('Ekspor ${hariNama[i]} saja (.xlsx)'),
+                        ),
+                      ),
+                    ],
+                  ),
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DayScreen(index: i))),
                 ),
               );
