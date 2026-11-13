@@ -75,14 +75,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _fbUrlCtrl = TextEditingController(text: s.firebaseDbUrl);
     _fbAuthCtrl = TextEditingController(text: s.firebaseAuthToken);
     _seedSeenSubmissions();
-    if (s.sheetsService.isValidUrl(s.appsScriptUrl)) {
-      _refreshAll(silent: true);
-      _pollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
-        if (mounted && !_busy && s.sheetsService.isValidUrl(s.appsScriptUrl)) {
-          _refreshAll(silent: true);
-        }
-      });
-    }
+    _refreshAll(silent: true);
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted && !_busy) {
+        _refreshAll(silent: true);
+      }
+    });
+    _tabs.addListener(() {
+      if (_tabs.indexIsChanging && mounted) {
+        _refreshAll(silent: true);
+      }
+    });
   }
 
   @override
@@ -1459,8 +1462,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Tambah Akun'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 84),
+      body: RefreshIndicator(
+        onRefresh: () => _refreshAll(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 84),
         children: [
           if (pendingUsers.isNotEmpty) ...[
             Card(
@@ -1599,7 +1605,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSpreadsheetTab() {

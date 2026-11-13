@@ -247,6 +247,48 @@ class FirebaseService {
     }
   }
 
+  Future<CloudResult<AppUser>> loginUser(
+    String dbUrl,
+    String username,
+    String password, {
+    String? authToken,
+  }) async {
+    final norm = normalizeDbUrl(dbUrl);
+    if (!isValidDbUrl(norm)) {
+      return const CloudResult(ok: false, message: 'Firebase belum dikonfigurasi.');
+    }
+    try {
+      final res = await fetchUsers(norm, authToken: authToken);
+      if (!res.ok || res.data == null) {
+        return CloudResult(ok: false, message: res.message);
+      }
+      final uname = username.trim().toLowerCase();
+      final inputHash = hashPassword(password);
+      final found = res.data!.cast<AppUser?>().firstWhere(
+            (u) => u != null && u.username.trim().toLowerCase() == uname,
+            orElse: () => null,
+          );
+      if (found == null) {
+        return const CloudResult(ok: false, message: 'Nama pengguna atau kata sandi salah.');
+      }
+      final match = (found.password == password) ||
+          (found.password == inputHash) ||
+          (found.password.isEmpty);
+      if (!match) {
+        return const CloudResult(ok: false, message: 'Nama pengguna atau kata sandi salah.');
+      }
+      if (!found.active) {
+        return const CloudResult(
+          ok: false,
+          message: 'Akun Anda masih menunggu persetujuan (ACC) Superadmin.',
+        );
+      }
+      return CloudResult(ok: true, data: found, message: 'Login Firebase berhasil');
+    } catch (e) {
+      return CloudResult(ok: false, message: 'Firebase login error: $e');
+    }
+  }
+
   Future<CloudResult<void>> deleteUser(
     String dbUrl,
     String userId, {

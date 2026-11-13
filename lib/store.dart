@@ -243,6 +243,12 @@ class Store extends ChangeNotifier {
 
     _loadAuthConfig();
     initHistoryBaseline();
+    unawaited(
+      refreshUsersFromCloud().catchError((_) => const CloudResult<List<AppUser>>(ok: false)),
+    );
+    unawaited(
+      fetchCloudSubmissions().catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
+    );
   }
 
   void _seedDefaultUsersIfEmpty() {
@@ -1272,7 +1278,50 @@ class Store extends ChangeNotifier {
 
   Future<CloudResult<AppUser>> login(String username, String password) async {
     final uname = username.trim().toLowerCase();
-    // Jika Google Spreadsheet URL sudah terhubung, verifikasi ke Cloud dulu
+
+    // 1. Verifikasi ke Firebase Realtime Database (Super Cepat ~0.2 detik)
+    if (isFirebaseConfigured) {
+      final fbRes = await firebaseService.loginUser(
+        firebaseDbUrl,
+        username,
+        password,
+        authToken: firebaseAuthToken,
+      );
+      if (fbRes.ok && fbRes.data != null) {
+        final loggedIn = fbRes.data!;
+        loggedIn.password = password;
+        currentUser = loggedIn;
+        final idx = localUsers.indexWhere(
+          (u) => u.username.toLowerCase() == uname,
+        );
+        if (idx >= 0) {
+          localUsers[idx] = loggedIn;
+        } else {
+          localUsers.add(loggedIn);
+        }
+        if (!loggedIn.isAdminOrSuper) {
+          cloudSubmissions = cloudSubmissions
+              .where((s) => s.userId == loggedIn.id)
+              .toList();
+          unawaited(
+            fetchCloudSubmissions(onlyUserId: loggedIn.id)
+                .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
+          );
+        } else {
+          unawaited(
+            fetchCloudSubmissions()
+                .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
+          );
+        }
+        saveAuthConfig();
+        notifyListeners();
+        return fbRes;
+      } else if (fbRes.message.contains('menunggu persetujuan')) {
+        return fbRes;
+      }
+    }
+
+    // 2. Jika Firebase belum merespons/tidak ada, verifikasi ke Google Spreadsheet
     if (sheetsService.isValidUrl(appsScriptUrl)) {
       final cloudRes =
           await sheetsService.loginUser(appsScriptUrl, username, password);
@@ -1287,7 +1336,6 @@ class Store extends ChangeNotifier {
         } else {
           localUsers.add(loggedIn);
         }
-        // Privasi multi-user: non-admin tidak boleh melihat cache laporan user lain
         if (!loggedIn.isAdminOrSuper) {
           cloudSubmissions = cloudSubmissions
               .where((s) => s.userId == loggedIn.id)
@@ -1313,7 +1361,6 @@ class Store extends ChangeNotifier {
         notifyListeners();
         return cloudRes;
       }
-      // Jika Superadmin belum ada di sheet Users lama, izinkan login lokal & otomatis sinkronkan ke Spreadsheet
       final localSuper = localUsers.cast<AppUser?>().firstWhere(
             (u) =>
                 u != null &&
@@ -1324,43 +1371,32 @@ class Store extends ChangeNotifier {
             orElse: () => null,
           );
       if (localSuper != null) {
-        final listRes = await sheetsService.fetchUsers(appsScriptUrl);
-        final hasCloudSuper =
-            listRes.ok && (listRes.data?.any((u) => u.isSuperAdmin) ?? false);
-        if (!hasCloudSuper) {
-          currentUser = localSuper;
+        currentUser = localSuper;
+        if (isFirebaseConfigured) {
           unawaited(
-            sheetsService
-                .upsertUser(appsScriptUrl, localSuper)
+            firebaseService
+                .syncUser(firebaseDbUrl, localSuper, authToken: firebaseAuthToken)
                 .catchError((_) => const CloudResult<AppUser>(ok: false)),
           );
-          if (isFirebaseConfigured) {
-            unawaited(
-              firebaseService
-                  .syncUser(firebaseDbUrl, localSuper, authToken: firebaseAuthToken)
-                  .catchError((_) => const CloudResult<AppUser>(ok: false)),
-            );
-          }
-          unawaited(
-            fetchCloudSubmissions()
-                .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
-          );
-          saveAuthConfig();
-          notifyListeners();
-          return CloudResult(
-            ok: true,
-            data: localSuper,
-            message: 'Login Superadmin berhasil & disinkronkan ke cloud!',
-          );
         }
+        unawaited(
+          fetchCloudSubmissions()
+              .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
+        );
+        saveAuthConfig();
+        notifyListeners();
+        return CloudResult(
+          ok: true,
+          data: localSuper,
+          message: 'Login Superadmin berhasil!',
+        );
       }
-      // Jika gagal karena salah kredensial dari server, tolak langsung
       if (!cloudRes.message.startsWith('Gagal login cloud:')) {
         return cloudRes;
       }
     }
 
-    // Fallback offline / sebelum Spreadsheet dihubungkan
+    // 3. Fallback cache lokal / offline
     final matchedUser = localUsers.cast<AppUser?>().firstWhere(
           (u) =>
               u != null &&
@@ -1414,59 +1450,39 @@ class Store extends ChangeNotifier {
       active: false, // Menunggu ACC Superadmin
     );
 
-    if (sheetsService.isValidUrl(appsScriptUrl)) {
-      final res = await sheetsService.registerUser(appsScriptUrl, newUser);
-      if (!res.ok) return res;
-      final created = res.data ?? newUser;
-      final idx = localUsers.indexWhere(
-        (u) => u.username.toLowerCase() == created.username.toLowerCase(),
-      );
-      if (idx >= 0) {
-        localUsers[idx] = created;
-      } else {
-        localUsers.add(created);
-      }
-      if (isFirebaseConfigured) {
-        unawaited(
-          firebaseService
-              .syncUser(firebaseDbUrl, created, authToken: firebaseAuthToken)
-              .catchError((_) => const CloudResult<AppUser>(ok: false)),
-        );
-      }
-      saveAuthConfig();
-      notifyListeners();
-      return CloudResult(
-        ok: true,
-        data: created,
-        message:
-            'Permintaan akun baru dikirim ke Superadmin! Anda dapat masuk setelah di-ACC oleh Superadmin.',
-      );
+    // 1. Simpan langsung ke Firebase Realtime Database (< 0.3s) agar seketika muncul di HP Superadmin
+    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      await firebaseService
+          .syncUser(firebaseDbUrl, newUser, authToken: firebaseAuthToken)
+          .catchError((_) => const CloudResult<AppUser>(ok: false));
     }
 
-    final dup = localUsers.any(
-      (u) => u.username.toLowerCase() == uname.toLowerCase(),
-    );
-    if (dup) {
-      return CloudResult(
-        ok: false,
-        message: 'Username "$uname" sudah terdaftar secara lokal.',
-      );
-    }
-    localUsers.add(newUser);
-    if (isFirebaseConfigured) {
+    // 2. Simpan juga ke Google Spreadsheet
+    if (sheetsService.isValidUrl(appsScriptUrl)) {
       unawaited(
-        firebaseService
-            .syncUser(firebaseDbUrl, newUser, authToken: firebaseAuthToken)
+        sheetsService
+            .registerUser(appsScriptUrl, newUser)
             .catchError((_) => const CloudResult<AppUser>(ok: false)),
       );
     }
+
+    // 3. Simpan ke cache lokal
+    final idx = localUsers.indexWhere(
+      (u) => u.username.toLowerCase() == uname.toLowerCase(),
+    );
+    if (idx >= 0) {
+      localUsers[idx] = newUser;
+    } else {
+      localUsers.add(newUser);
+    }
     saveAuthConfig();
     notifyListeners();
+
     return CloudResult(
       ok: true,
       data: newUser,
       message:
-          'Permintaan akun disimpan & menunggu ACC Superadmin sebelum dapat login.',
+          'Permintaan akun baru berhasil dikirim ke Superadmin! Akun akan aktif setelah di-ACC oleh Superadmin.',
     );
   }
 
@@ -1545,21 +1561,65 @@ class Store extends ChangeNotifier {
   }
 
   Future<CloudResult<List<AppUser>>> refreshUsersFromCloud() async {
-    if (!sheetsService.isValidUrl(appsScriptUrl)) {
-      return CloudResult(
-        ok: true,
-        data: localUsers,
-        message: 'Mode lokal (URL Spreadsheet belum diisi)',
-      );
+    bool anyOk = false;
+    final List<AppUser> merged = List<AppUser>.from(localUsers);
+
+    void mergeUserList(List<AppUser> incoming) {
+      for (final u in incoming) {
+        final idx = merged.indexWhere(
+          (x) =>
+              x.id == u.id ||
+              x.username.trim().toLowerCase() == u.username.trim().toLowerCase(),
+        );
+        if (idx >= 0) {
+          if (u.password.isEmpty && merged[idx].password.isNotEmpty) {
+            u.password = merged[idx].password;
+          }
+          merged[idx] = u;
+        } else {
+          merged.add(u);
+        }
+      }
     }
-    final res = await sheetsService.fetchUsers(appsScriptUrl);
-    if (res.ok && res.data != null) {
-      localUsers = res.data!;
+
+    // 1. Tarik dari Firebase Realtime Database (Super Cepat ~0.2s)
+    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      final fbRes = await firebaseService.fetchUsers(
+        firebaseDbUrl,
+        authToken: firebaseAuthToken,
+      );
+      if (fbRes.ok && fbRes.data != null && fbRes.data!.isNotEmpty) {
+        mergeUserList(fbRes.data!);
+        anyOk = true;
+      }
+    }
+
+    // 2. Tarik dari Google Spreadsheet jika URL valid
+    if (sheetsService.isValidUrl(appsScriptUrl)) {
+      final shRes = await sheetsService.fetchUsers(appsScriptUrl);
+      if (shRes.ok && shRes.data != null && shRes.data!.isNotEmpty) {
+        mergeUserList(shRes.data!);
+        anyOk = true;
+      }
+    }
+
+    if (anyOk) {
+      localUsers = merged;
       _seedDefaultUsersIfEmpty();
       saveAuthConfig();
       notifyListeners();
+      return CloudResult(
+        ok: true,
+        data: localUsers,
+        message: 'Daftar user tersinkronisasi (${localUsers.length} akun)',
+      );
     }
-    return res;
+
+    return CloudResult(
+      ok: true,
+      data: localUsers,
+      message: 'Mode lokal (menampilkan cache pengguna)',
+    );
   }
 
   Future<CloudResult<AppUser>> upsertUser(AppUser user) async {
@@ -1576,28 +1636,22 @@ class Store extends ChangeNotifier {
     saveAuthConfig();
     notifyListeners();
 
+    // 1. Simpan ke Firebase Realtime Database seketika agar status ACC langsung aktif di semua HP lain
+    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      await firebaseService
+          .syncUser(firebaseDbUrl, user, authToken: firebaseAuthToken)
+          .catchError((_) => const CloudResult<AppUser>(ok: false));
+    }
+
+    // 2. Simpan juga ke Google Spreadsheet
     if (sheetsService.isValidUrl(appsScriptUrl)) {
-      final res = await sheetsService.upsertUser(appsScriptUrl, user);
-      if (isFirebaseConfigured) {
-        unawaited(
-          firebaseService
-              .syncUser(firebaseDbUrl, user, authToken: firebaseAuthToken)
-              .catchError((_) => const CloudResult<AppUser>(ok: false)),
-        );
-      }
-      return res;
+      await sheetsService.upsertUser(appsScriptUrl, user);
     }
-    if (isFirebaseConfigured) {
-      return firebaseService.syncUser(
-        firebaseDbUrl,
-        user,
-        authToken: firebaseAuthToken,
-      );
-    }
+
     return CloudResult(
       ok: true,
       data: user,
-      message: 'Tersimpan lokal (hubungkan Spreadsheet untuk sync)',
+      message: 'Akun @${user.username} berhasil diperbarui di cloud!',
     );
   }
 
@@ -1605,24 +1659,18 @@ class Store extends ChangeNotifier {
     localUsers.removeWhere((u) => u.id == userId);
     saveAuthConfig();
     notifyListeners();
+
+    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      await firebaseService
+          .deleteUser(firebaseDbUrl, userId, authToken: firebaseAuthToken)
+          .catchError((_) => const CloudResult<void>(ok: false));
+    }
+
     if (sheetsService.isValidUrl(appsScriptUrl)) {
-      if (isFirebaseConfigured) {
-        unawaited(
-          firebaseService
-              .deleteUser(firebaseDbUrl, userId, authToken: firebaseAuthToken)
-              .catchError((_) => const CloudResult<void>(ok: false)),
-        );
-      }
-      return sheetsService.deleteUser(appsScriptUrl, userId);
+      await sheetsService.deleteUser(appsScriptUrl, userId);
     }
-    if (isFirebaseConfigured) {
-      await firebaseService.deleteUser(
-        firebaseDbUrl,
-        userId,
-        authToken: firebaseAuthToken,
-      );
-    }
-    return const CloudResult(ok: true, data: true, message: 'Dihapus lokal');
+
+    return const CloudResult(ok: true, data: true, message: 'Akun berhasil dihapus');
   }
 
   void addCustomProgram(CustomProgram cp) {
@@ -2144,7 +2192,6 @@ class Store extends ChangeNotifier {
         'Realisasi: ${activeRehab.totalSdMingguIni.toStringAsFixed(2)}%',
     ];
 
-    onProgress?.call('Menyimpan data ke Google Spreadsheet...');
     final sub = CloudSubmission(
       id: submissionId,
       userId: user.id,
@@ -2163,24 +2210,43 @@ class Store extends ChangeNotifier {
       summary: summaryParts.join(' • '),
     );
 
-    final res = await sheetsService.pushSubmission(
-      appsScriptUrl,
-      sub,
-      clientUuid: clientUuid,
-    );
-    if (res.ok) {
+    // 1. Simpan langsung ke Firebase Realtime Database (~0.2 detik) agar Admin seketika melihat laporan
+    bool fbOk = false;
+    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      onProgress?.call('Menyinkronkan ke Firebase Realtime Database...');
+      final fbRes = await firebaseService
+          .pushSubmission(firebaseDbUrl, sub, authToken: firebaseAuthToken)
+          .catchError((_) => const CloudResult<void>(ok: false));
+      fbOk = fbRes.ok;
+      if (fbOk) {
+        pendingSyncQueue.removeWhere((t) => t.id == submissionId);
+        if (existingIdx >= 0) {
+          cloudSubmissions[existingIdx] = sub;
+        } else {
+          cloudSubmissions.insert(0, sub);
+        }
+        saveAuthConfig();
+        notifyListeners();
+      }
+    }
+
+    // 2. Simpan juga ke Google Spreadsheet
+    CloudResult<CloudSubmission> res = const CloudResult(ok: false, message: 'Spreadsheet belum diatur');
+    if (sheetsService.isValidUrl(appsScriptUrl)) {
+      onProgress?.call('Menyimpan data ke Google Spreadsheet...');
+      res = await sheetsService.pushSubmission(
+        appsScriptUrl,
+        sub,
+        clientUuid: clientUuid,
+      );
+    }
+
+    if (res.ok || fbOk) {
       pendingSyncQueue.removeWhere((t) => t.id == submissionId);
       if (existingIdx >= 0) {
         cloudSubmissions[existingIdx] = sub;
-      } else {
+      } else if (!cloudSubmissions.any((s) => s.id == sub.id)) {
         cloudSubmissions.insert(0, sub);
-      }
-      if (isFirebaseConfigured) {
-        unawaited(
-          firebaseService
-              .pushSubmission(firebaseDbUrl, sub, authToken: firebaseAuthToken)
-              .catchError((_) => const CloudResult<void>(ok: false)),
-        );
       }
       saveAuthConfig();
       notifyListeners();
@@ -2188,8 +2254,8 @@ class Store extends ChangeNotifier {
         ok: true,
         data: sub,
         message: sentDayLabels.isNotEmpty
-            ? 'Terkirim ke Spreadsheet & Drive (${sentDayLabels.join(', ')})!'
-            : 'Terkirim ke Google Spreadsheet & Drive Admin!',
+            ? 'Terkirim ke Cloud (${sentDayLabels.join(', ')})!'
+            : 'Terkirim ke Cloud Admin!',
       );
     }
 

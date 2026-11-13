@@ -131,19 +131,64 @@ Future<bool> showSendReportToAdminDialog(
                   ),
                 ],
                 const SizedBox(height: 10),
-                CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Sertakan berkas Excel (.xlsx) & PDF ke Drive (Opsional)',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: includeDocs ? Colors.amber.shade50 : Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: includeDocs ? Colors.amber.shade300 : Colors.green.shade300,
+                    ),
                   ),
-                  subtitle: const Text(
-                    'Biarkan tidak dicentang untuk pengiriman kilat (< 3 detik). Admin tetap bisa mengunduh Excel & PDF kapan saja dari dashboard.',
-                    style: TextStyle(fontSize: 11),
+                  child: CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            includeDocs
+                                ? 'Upload Excel & PDF ke Drive (Dokumen Lengkap)'
+                                : 'Mode Kilat (Rekomendasi Instan)',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: includeDocs ? Colors.amber.shade900 : Colors.green.shade900,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: includeDocs ? Colors.orange.shade100 : Colors.green.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            includeDocs ? '±20-30 dtk' : 'Instan (<2 dtk)',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: includeDocs ? Colors.orange.shade900 : Colors.green.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        includeDocs
+                            ? 'Membuat dan mengunggah berkas Excel 7-sheet dan PDF foto resolusi tinggi ke Drive (memerlukan waktu lebih lama).'
+                            : 'Cepat & hemat kuota. Data laporan & foto langsung tersinkron ke Admin. Admin tetap bisa unduh Excel & PDF kapan saja dari panel admin.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: includeDocs ? Colors.black87 : Colors.green.shade900,
+                        ),
+                      ),
+                    ),
+                    value: includeDocs,
+                    onChanged: (v) => setDlg(() => includeDocs = v ?? false),
                   ),
-                  value: includeDocs,
-                  onChanged: (v) => setDlg(() => includeDocs = v ?? false),
                 ),
                 const SizedBox(height: 6),
                 Container(
