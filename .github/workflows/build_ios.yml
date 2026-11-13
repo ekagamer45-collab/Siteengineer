@@ -2,12 +2,14 @@ name: Build iOS App
 
 on:
   push:
-    branches: [ master, main ]
-  workflow_dispatch: # Memungkinkan klik tombol "Run workflow" manual di GitHub
+    branches:
+      - master
+      - main
+  workflow_dispatch:
 
 jobs:
   build-ios:
-    name: Build iOS IPA (macOS Runner)
+    name: Build iOS IPA
     runs-on: macos-latest
 
     steps:
@@ -23,7 +25,7 @@ jobs:
       - name: Unduh Dependency
         run: flutter pub get
 
-      - name: Build iOS (No Codesign)
+      - name: Build iOS
         run: flutter build ios --release --no-codesign
 
       - name: Kemas Menjadi Berkas IPA
@@ -34,7 +36,7 @@ jobs:
           zip -r LaporanHarian.ipa Payload
           cd ../../..
 
-      - name: Unggah Hasil Berkas IPA (Siap Unduh)
+      - name: Unggah Berkas IPA
         uses: actions/upload-artifact@v4
         with:
           name: LaporanHarian-iOS
