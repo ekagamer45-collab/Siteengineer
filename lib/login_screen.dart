@@ -655,7 +655,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Laporan Lapangan Harian & Mingguan Terpadu',
+                      'Laporan Harian & Mingguan Terpadu Konsultan Pengawas',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.85),
