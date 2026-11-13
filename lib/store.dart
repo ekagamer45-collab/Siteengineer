@@ -159,6 +159,8 @@ class Store extends ChangeNotifier {
   AppUser? currentUser;
   List<AppUser> localUsers = [];
   List<CloudSubmission> cloudSubmissions = [];
+  final Set<String> deletedSubmissionIds = <String>{};
+  final Set<String> readSubmissionIds = <String>{};
   List<PendingSyncTask> pendingSyncQueue = [];
   Map<String, String> _photoFingerprints = {};
 
@@ -321,12 +323,23 @@ class Store extends ChangeNotifier {
               .map((e) => AppUser.fromJson(Map<String, dynamic>.from(e)))
               .toList();
         }
+        if (j['deletedSubmissionIds'] is List) {
+          deletedSubmissionIds.addAll(
+            (j['deletedSubmissionIds'] as List).map((e) => e.toString()),
+          );
+        }
+        if (j['readSubmissionIds'] is List) {
+          readSubmissionIds.addAll(
+            (j['readSubmissionIds'] as List).map((e) => e.toString()),
+          );
+        }
         if (j['cloudSubmissions'] is List) {
           cloudSubmissions = (j['cloudSubmissions'] as List)
               .whereType<Map>()
               .map(
                 (e) => CloudSubmission.fromJson(Map<String, dynamic>.from(e)),
               )
+              .where((s) => !deletedSubmissionIds.contains(s.id))
               .toList();
         }
         if (j['pendingSyncQueue'] is List) {
@@ -355,6 +368,8 @@ class Store extends ChangeNotifier {
       'firebaseAuthToken': firebaseAuthToken,
       'currentUser': currentUser?.toJson(),
       'localUsers': localUsers.map((e) => e.toJson()).toList(),
+      'deletedSubmissionIds': deletedSubmissionIds.toList(),
+      'readSubmissionIds': readSubmissionIds.toList(),
       'cloudSubmissions': cloudSubmissions.map((e) => e.toJson()).toList(),
       'pendingSyncQueue': pendingSyncQueue.map((e) => e.toJson()).toList(),
       'photoFingerprints': _photoFingerprints,
@@ -1575,6 +1590,10 @@ class Store extends ChangeNotifier {
           if (u.password.isEmpty && merged[idx].password.isNotEmpty) {
             u.password = merged[idx].password;
           }
+          // Jika akun di lokal/merged sudah aktif, jangan pernah ditimpa nonaktif oleh data lama
+          if (merged[idx].active && !u.active) {
+            continue;
+          }
           merged[idx] = u;
         } else {
           merged.add(u);
@@ -1623,6 +1642,17 @@ class Store extends ChangeNotifier {
   }
 
   Future<CloudResult<AppUser>> upsertUser(AppUser user) async {
+    final uname = user.username.trim().toLowerCase();
+    final oldDuplicates = localUsers.where(
+      (u) => u.username.trim().toLowerCase() == uname && u.id != user.id,
+    ).toList();
+    for (final old in oldDuplicates) {
+      localUsers.removeWhere((u) => u.id == old.id);
+      if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+        unawaited(firebaseService.deleteUser(firebaseDbUrl, old.id, authToken: firebaseAuthToken));
+      }
+    }
+
     final idx = localUsers.indexWhere(
       (u) =>
           u.id == user.id ||
@@ -2332,22 +2362,18 @@ class Store extends ChangeNotifier {
   Future<CloudResult<List<CloudSubmission>>> fetchCloudSubmissions({
     String? onlyUserId,
   }) async {
-    // 1. Coba ambil dari Google Spreadsheet jika URL valid
-    CloudResult<List<CloudSubmission>>? sheetsRes;
-    if (sheetsService.isValidUrl(appsScriptUrl)) {
-      sheetsRes = await sheetsService.fetchSubmissions(
-        appsScriptUrl,
-        userId: onlyUserId,
+    // 0. Sinkronkan daftar laporan yang sudah dihapus oleh Admin dari Firebase
+    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      final fbDeleted = await firebaseService.fetchDeletedSubmissionIds(
+        firebaseDbUrl,
+        authToken: firebaseAuthToken,
       );
-      if (sheetsRes.ok && sheetsRes.data != null && sheetsRes.data!.isNotEmpty) {
-        cloudSubmissions = sheetsRes.data!;
-        saveAuthConfig();
-        notifyListeners();
-        return sheetsRes;
-      }
+      deletedSubmissionIds.addAll(fbDeleted);
     }
+    // Bersihkan daftar lokal dari yang sudah dihapus
+    cloudSubmissions.removeWhere((s) => deletedSubmissionIds.contains(s.id));
 
-    // 2. Ambil dari Firebase Realtime Database
+    // 1. Ambil dari Firebase Realtime Database terlebih dahulu (Super Cepat ~0.2s)
     if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
       final fbRes = await firebaseService.fetchSubmissions(
         firebaseDbUrl,
@@ -2355,16 +2381,40 @@ class Store extends ChangeNotifier {
         authToken: firebaseAuthToken,
       );
       if (fbRes.ok && fbRes.data != null) {
-        cloudSubmissions = fbRes.data!;
+        final filtered = fbRes.data!
+            .where((s) => !deletedSubmissionIds.contains(s.id))
+            .toList();
+        cloudSubmissions = filtered;
         saveAuthConfig();
         notifyListeners();
-        return fbRes;
+        return CloudResult(ok: true, data: filtered);
+      }
+    }
+
+    // 2. Ambil dari Google Spreadsheet jika URL valid
+    CloudResult<List<CloudSubmission>>? sheetsRes;
+    if (sheetsService.isValidUrl(appsScriptUrl)) {
+      sheetsRes = await sheetsService.fetchSubmissions(
+        appsScriptUrl,
+        userId: onlyUserId,
+      );
+      if (sheetsRes.ok && sheetsRes.data != null && sheetsRes.data!.isNotEmpty) {
+        final filtered = sheetsRes.data!
+            .where((s) => !deletedSubmissionIds.contains(s.id))
+            .toList();
+        cloudSubmissions = filtered;
+        saveAuthConfig();
+        notifyListeners();
+        return CloudResult(ok: true, data: filtered);
       }
     }
 
     if (sheetsRes != null) {
       if (sheetsRes.ok && sheetsRes.data != null) {
-        cloudSubmissions = sheetsRes.data!;
+        final filtered = sheetsRes.data!
+            .where((s) => !deletedSubmissionIds.contains(s.id))
+            .toList();
+        cloudSubmissions = filtered;
         saveAuthConfig();
         notifyListeners();
       }
@@ -2380,17 +2430,24 @@ class Store extends ChangeNotifier {
 
   /// Hapus laporan (CRUD Admin) dari Firebase, Spreadsheet, dan daftar lokal.
   Future<CloudResult<void>> deleteSubmission(String submissionId) async {
+    deletedSubmissionIds.add(submissionId);
+    readSubmissionIds.add(submissionId);
     final idx = cloudSubmissions.indexWhere((s) => s.id == submissionId);
     final title = idx >= 0 ? cloudSubmissions[idx].title : submissionId;
 
     if (idx >= 0) {
       cloudSubmissions.removeAt(idx);
-      saveAuthConfig();
-      notifyListeners();
     }
+    saveAuthConfig();
+    notifyListeners();
 
     final List<String> sources = [];
     if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      unawaited(firebaseService.recordDeletedSubmission(
+        firebaseDbUrl,
+        submissionId,
+        authToken: firebaseAuthToken,
+      ));
       final fbRes = await firebaseService.deleteSubmission(
         firebaseDbUrl,
         submissionId,

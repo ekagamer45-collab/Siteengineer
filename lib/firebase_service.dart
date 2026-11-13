@@ -231,16 +231,31 @@ class FirebaseService {
       if (raw == null || raw is! Map) {
         return const CloudResult(ok: true, data: []);
       }
-      final out = <AppUser>[];
+      final mapByUsername = <String, AppUser>{};
       raw.forEach((k, v) {
         if (v is Map) {
           final m = Map<String, dynamic>.from(v);
           m['id'] ??= k.toString();
           // Password plain tidak disimpan di Firebase; jika ada passwordHash, simpan hash-nya sebagai penanda
           m['password'] ??= m['passwordHash'] ?? '';
-          out.add(AppUser.fromJson(m));
+          final user = AppUser.fromJson(m);
+          final uname = user.username.trim().toLowerCase();
+          if (uname.isNotEmpty) {
+            final existing = mapByUsername[uname];
+            if (existing == null) {
+              mapByUsername[uname] = user;
+            } else {
+              // Jika salah satu aktif, prioritaskan yang aktif
+              if (!existing.active && user.active) {
+                mapByUsername[uname] = user;
+              } else if (existing.active == user.active) {
+                mapByUsername[uname] = user;
+              }
+            }
+          }
         }
       });
+      final out = mapByUsername.values.toList();
       return CloudResult(ok: true, data: out);
     } catch (e) {
       return CloudResult(ok: false, message: 'Firebase fetchUsers error: $e');
@@ -264,26 +279,30 @@ class FirebaseService {
       }
       final uname = username.trim().toLowerCase();
       final inputHash = hashPassword(password);
-      final found = res.data!.cast<AppUser?>().firstWhere(
-            (u) => u != null && u.username.trim().toLowerCase() == uname,
-            orElse: () => null,
-          );
-      if (found == null) {
+      final matching = res.data!
+          .where((u) => u.username.trim().toLowerCase() == uname)
+          .toList();
+      if (matching.isEmpty) {
         return const CloudResult(ok: false, message: 'Nama pengguna atau kata sandi salah.');
       }
-      final match = (found.password == password) ||
-          (found.password == inputHash) ||
-          (found.password.isEmpty);
-      if (!match) {
+      final validPwd = matching.where((u) =>
+          u.password == password ||
+          u.password == inputHash ||
+          u.password.isEmpty).toList();
+      if (validPwd.isEmpty) {
         return const CloudResult(ok: false, message: 'Nama pengguna atau kata sandi salah.');
       }
-      if (!found.active) {
+      final activeUser = validPwd.firstWhere(
+        (u) => u.active,
+        orElse: () => validPwd.first,
+      );
+      if (!activeUser.active) {
         return const CloudResult(
           ok: false,
           message: 'Akun Anda masih menunggu persetujuan (ACC) Superadmin.',
         );
       }
-      return CloudResult(ok: true, data: found, message: 'Login Firebase berhasil');
+      return CloudResult(ok: true, data: activeUser, message: 'Login Firebase berhasil');
     } catch (e) {
       return CloudResult(ok: false, message: 'Firebase login error: $e');
     }
@@ -359,6 +378,50 @@ class FirebaseService {
       );
     } catch (e) {
       return CloudResult(ok: false, message: 'Firebase deleteSubmission error: $e');
+    }
+  }
+
+  Future<CloudResult<void>> recordDeletedSubmission(
+    String dbUrl,
+    String submissionId, {
+    String? authToken,
+  }) async {
+    final norm = normalizeDbUrl(dbUrl);
+    if (!isValidDbUrl(norm)) {
+      return const CloudResult(ok: false, message: 'Firebase belum dikonfigurasi.');
+    }
+    try {
+      await _client
+          .put(
+            _endpoint(norm, 'deleted_submissions/$submissionId', authToken: authToken),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'deletedAt': DateTime.now().toIso8601String(),
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      return const CloudResult(ok: true);
+    } catch (e) {
+      return CloudResult(ok: false, message: 'Firebase recordDeletedSubmission error: $e');
+    }
+  }
+
+  Future<Set<String>> fetchDeletedSubmissionIds(
+    String dbUrl, {
+    String? authToken,
+  }) async {
+    final norm = normalizeDbUrl(dbUrl);
+    if (!isValidDbUrl(norm)) return {};
+    try {
+      final resp = await _client
+          .get(_endpoint(norm, 'deleted_submissions', authToken: authToken))
+          .timeout(const Duration(seconds: 10));
+      if (resp.statusCode != 200) return {};
+      final raw = jsonDecode(resp.body);
+      if (raw == null || raw is! Map) return {};
+      return raw.keys.map((k) => k.toString()).toSet();
+    } catch (_) {
+      return {};
     }
   }
 

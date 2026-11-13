@@ -55,6 +55,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   void _seedSeenSubmissions() {
     final now = DateTime.now();
     for (final sub in s.cloudSubmissions) {
+      if (s.deletedSubmissionIds.contains(sub.id) ||
+          s.readSubmissionIds.contains(sub.id)) {
+        continue;
+      }
       final local = sub.updatedAt.toLocal();
       final isToday = local.year == now.year &&
           local.month == now.month &&
@@ -113,6 +117,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     final newlyArrived = <CloudSubmission>[];
     final now = DateTime.now();
     for (final sub in s.cloudSubmissions) {
+      if (s.deletedSubmissionIds.contains(sub.id) ||
+          s.readSubmissionIds.contains(sub.id)) {
+        continue;
+      }
       final prev = beforeMap[sub.id];
       final local = sub.updatedAt.toLocal();
       final isToday = local.year == now.year &&
@@ -1028,8 +1036,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         ),
                       ),
                       TextButton(
-                        onPressed: () =>
-                            setState(() => _unreadSubmissionIds.clear()),
+                        onPressed: () {
+                          setState(() {
+                            s.readSubmissionIds.addAll(_unreadSubmissionIds);
+                            _unreadSubmissionIds.clear();
+                          });
+                          s.saveAuthConfig();
+                        },
                         child: const Text('Tandai Dibaca', style: TextStyle(fontSize: 11.5)),
                       ),
                     ],
