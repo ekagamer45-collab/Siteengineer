@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'camera_screen.dart';
 import 'config.dart';
 import 'crop_screen.dart';
@@ -119,6 +123,206 @@ class _DataTabState extends State<DataTab> with AutomaticKeepAliveClientMixin {
     store.changed();
   }
 
+  Widget _buildWeatherCard(DayReport d) {
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.blue.shade100),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.wb_sunny_rounded,
+                    color: Colors.orange.shade800,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Kondisi Cuaca Lapangan',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Color(0xFF0B3C7D),
+                        ),
+                      ),
+                      Text(
+                        '5 sesi jam kerja harian • Simbol cuaca visual',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () {
+                    _upd(() {
+                      for (var i = 0; i < 5; i++) {
+                        d.weather[i] = 0;
+                      }
+                    });
+                  },
+                  icon: const Icon(Icons.wb_sunny_outlined, size: 16, color: Colors.orange),
+                  label: const Text(
+                    'Semua Cerah',
+                    style: TextStyle(fontSize: 11.5, color: Colors.orange, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < 5; i++) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.schedule_rounded, size: 14, color: Colors.blue.shade700),
+                        const SizedBox(width: 6),
+                        Text(
+                          jamCuaca[i],
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                        ),
+                        const Spacer(),
+                        if (d.weather[i] >= 0 && d.weather[i] < cuacaNama.length)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: d.weather[i] == 0
+                                  ? Colors.amber.shade100
+                                  : d.weather[i] == 1
+                                      ? Colors.lightBlue.shade100
+                                      : Colors.indigo.shade100,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              cuacaNama[d.weather[i]],
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: d.weather[i] == 0
+                                    ? Colors.amber.shade900
+                                    : d.weather[i] == 1
+                                        ? Colors.lightBlue.shade900
+                                        : Colors.indigo.shade900,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        for (var j = 0; j < 3; j++)
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(right: j < 2 ? 6.0 : 0.0),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  _upd(() {
+                                    d.weather[i] = (d.weather[i] == j) ? -1 : j;
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  padding: const EdgeInsets.symmetric(vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: d.weather[i] == j
+                                        ? (j == 0
+                                            ? const Color(0xFFFFB300)
+                                            : j == 1
+                                                ? const Color(0xFF4FC3F7)
+                                                : const Color(0xFF1E88E5))
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: d.weather[i] == j
+                                          ? Colors.transparent
+                                          : Colors.grey.shade300,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        j == 0
+                                            ? Icons.wb_sunny_rounded
+                                            : j == 1
+                                                ? Icons.grain_rounded
+                                                : Icons.thunderstorm_rounded,
+                                        size: 15,
+                                        color: d.weather[i] == j
+                                            ? Colors.white
+                                            : (j == 0
+                                                ? Colors.orange.shade700
+                                                : j == 1
+                                                    ? Colors.blue.shade600
+                                                    : Colors.indigo.shade700),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        cuacaNama[j],
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: d.weather[i] == j
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: d.weather[i] == j
+                                              ? Colors.white
+                                              : Colors.grey.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _title(String t, {String? sub}) => Padding(
         padding: const EdgeInsets.only(top: 20, bottom: 6),
         child: Row(children: [
@@ -221,24 +425,7 @@ class _DataTabState extends State<DataTab> with AutomaticKeepAliveClientMixin {
           _chips(p.materialsMaster, d.materials, maxMaterials, 'Nama material baru'),
 
           // ---- cuaca
-          _title('Cuaca'),
-          for (var i = 0; i < 5; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(children: [
-                SizedBox(width: 100, child: Text(jamCuaca[i])),
-                Expanded(
-                  child: SegmentedButton<int>(
-                    showSelectedIcon: false,
-                    emptySelectionAllowed: true,
-                    style: const ButtonStyle(visualDensity: VisualDensity.compact),
-                    segments: [for (var j = 0; j < 3; j++) ButtonSegment(value: j, label: Text(cuacaNama[j], style: const TextStyle(fontSize: 12)))],
-                    selected: d.weather[i] < 0 ? <int>{} : {d.weather[i]},
-                    onSelectionChanged: (s) => _upd(() => d.weather[i] = s.isEmpty ? -1 : s.first),
-                  ),
-                ),
-              ]),
-            ),
+          _buildWeatherCard(d),
 
           // ---- kegiatan
           _title('Kegiatan pelaksanaan hari ini', sub: 'maks. $maxActs'),
@@ -333,10 +520,28 @@ class PhotoTab extends StatelessWidget {
   final SheetCfg sheet;
 
   Future<void> _openCamera(BuildContext context, Slot s) async {
-    await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => CameraScreen(slot: s)),
-    );
+    try {
+      final ok = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => CameraScreen(slot: s)),
+      );
+      if (ok == true && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            content: Text('Foto ber-GPS berhasil disimpan.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Kamera GPS bermasalah: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _pickGallery(BuildContext context, Slot s) async {
@@ -344,23 +549,210 @@ class PhotoTab extends StatelessWidget {
     try {
       final x = await ImagePicker().pickImage(
         source: ImageSource.gallery,
-        maxWidth: 2000,
+        maxWidth: 2400,
         imageQuality: 90,
       );
       if (x == null) return;
-      final bytes = await x.readAsBytes();
+      final raw = await x.readAsBytes();
+      final normalized = await normalizeImageBytes(raw);
       if (!context.mounted) return;
       final crop = await PhotoCropDialog.show(
         context,
-        rawBytes: bytes,
+        rawBytes: normalized,
         aspect: s.aspect,
         title: s.label,
       );
       if (crop == null) return;
-      await store.setPhoto(s, bytes, crop: crop);
+      await store.setPhoto(s, normalized, crop: crop);
+      try {
+        await store.savePhotoToGallery(s);
+      } catch (_) {}
+      if (context.mounted) {
+        msg.showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            content: Text('Foto galeri berhasil disimpan.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       msg.showSnackBar(SnackBar(content: Text('Foto gagal diproses: $e')));
     }
+  }
+
+  Future<void> _pickDocument(BuildContext context, Slot s) async {
+    final msg = ScaffoldMessenger.of(context);
+    try {
+      final res = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'heic', 'heif'],
+        withData: false,
+      );
+      if (res == null || res.files.isEmpty) return;
+      final picked = res.files.first;
+      Uint8List? raw;
+      if (picked.path != null) {
+        raw = await File(picked.path!).readAsBytes();
+      }
+      if (raw == null) throw StateError('File dokumen tidak terbaca');
+      final normalized = await normalizeImageBytes(raw);
+      if (!context.mounted) return;
+      final crop = await PhotoCropDialog.show(
+        context,
+        rawBytes: normalized,
+        aspect: s.aspect,
+        title: s.label,
+      );
+      if (crop == null) return;
+      await store.setPhoto(s, normalized, crop: crop);
+      try {
+        await store.savePhotoToGallery(s);
+      } catch (_) {}
+      if (context.mounted) {
+        msg.showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            content: Text('Foto dokumen berhasil disimpan.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      msg.showSnackBar(SnackBar(content: Text('Dokumen gagal diproses: $e')));
+    }
+  }
+
+  void _confirmDeletePhoto(BuildContext context, Slot s) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Hapus Foto?'),
+          ],
+        ),
+        content: Text('Hapus foto "${s.label}"? Anda bisa menggunakan tombol UNDO jika ingin mengembalikan foto ini.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              store.removePhoto(s);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                      content: Text('Foto "${s.label}" berhasil dihapus.'),
+                      action: SnackBarAction(
+                        label: 'UNDO',
+                        onPressed: () => store.undo(),
+                      ),
+                    ),
+                  );
+              }
+            },
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _viewPhotoDialog(BuildContext context, Slot s) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Center(
+                child: Image.file(store.photoFile(s)),
+              ),
+            ),
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        s.label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      tooltip: 'Simpan ke Galeri HP',
+                      icon: const Icon(Icons.download),
+                      onPressed: () async {
+                        final ok = await store.savePhotoToGallery(s);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              duration: const Duration(seconds: 2),
+                              content: Text(ok
+                                  ? 'Foto tersimpan ke Galeri HP (Album: LaporanHarian)'
+                                  : 'Gagal menyimpan ke galeri'),
+                              backgroundColor: ok ? Colors.green : Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    IconButton.filledTonal(
+                      tooltip: 'Bagikan',
+                      icon: const Icon(Icons.share),
+                      onPressed: () {
+                        Share.shareXFiles([XFile(store.photoFile(s).path)], text: s.label);
+                      },
+                    ),
+                    IconButton.filled(
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.red.shade700,
+                        foregroundColor: Colors.white,
+                      ),
+                      tooltip: 'Hapus Foto Ini',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _confirmDeletePhoto(context, s);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _menu(BuildContext context, Slot s) {
@@ -371,31 +763,50 @@ class PhotoTab extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(title: Text(s.label, style: const TextStyle(fontWeight: FontWeight.bold))),
           ListTile(
-            leading: const Icon(Icons.photo_camera),
-            title: const Text('Ambil foto (Kamera GPS)'),
+            leading: const Icon(Icons.photo_camera, color: Color(0xFF0B3C7D)),
+            title: const Text('Foto dengan GPS (Kamera GPS)'),
             onTap: () {
               Navigator.pop(context);
               _openCamera(context, s);
             },
           ),
-          if (allowGallery)
+          if (allowGallery) ...[
             ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Pilih dari galeri (tanpa GPS)'),
+              leading: const Icon(Icons.photo_library, color: Colors.indigo),
+              title: const Text('Ambil dari galeri'),
               onTap: () {
                 Navigator.pop(context);
                 _pickGallery(context, s);
               },
             ),
-          if (store.hasPhoto(s))
             ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('Hapus foto'),
+              leading: const Icon(Icons.folder_open, color: Colors.orange),
+              title: const Text('Ambil dari folder'),
               onTap: () {
                 Navigator.pop(context);
-                store.removePhoto(s);
+                _pickDocument(context, s);
               },
             ),
+          ],
+          if (store.hasPhoto(s)) ...[
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.fullscreen, color: Colors.blueAccent),
+              title: const Text('Lihat Foto Layar Penuh'),
+              onTap: () {
+                Navigator.pop(context);
+                _viewPhotoDialog(context, s);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Hapus foto ini', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDeletePhoto(context, s);
+              },
+            ),
+          ],
         ]),
       ),
     );
@@ -427,13 +838,13 @@ class PhotoTab extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: Stack(fit: StackFit.expand, children: [
                 if (has)
-                  Image.file(store.photoFile(s), fit: BoxFit.cover, cacheWidth: 500)
+                  Image.file(store.photoFile(s), fit: BoxFit.cover, cacheWidth: 600)
                 else
                   const Center(child: Icon(Icons.add_a_photo_outlined, size: 36, color: Colors.black38)),
-                if (has)
+                if (has) ...[
                   Positioned(
                     top: 6,
-                    right: 6,
+                    left: 6,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
@@ -463,6 +874,22 @@ class PhotoTab extends StatelessWidget {
                       ),
                     ),
                   ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: InkWell(
+                      onTap: () => _confirmDeletePhoto(context, s),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
                 Positioned(
                   left: 0, right: 0, bottom: 0,
                   child: Container(

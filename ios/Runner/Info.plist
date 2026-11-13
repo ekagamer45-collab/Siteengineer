@@ -70,6 +70,8 @@
 	<string>Aplikasi membutuhkan akses kamera untuk mengambil foto dokumentasi proyek.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Aplikasi membutuhkan akses galeri untuk memilih foto dokumentasi proyek.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Aplikasi membutuhkan izin untuk menyimpan foto dokumentasi ke galeri perangkat.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Aplikasi membutuhkan akses lokasi GPS untuk membubuhkan koordinat dan alamat pada foto dokumentasi proyek.</string>
 </dict>

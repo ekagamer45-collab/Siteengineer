@@ -1,16 +1,7 @@
-import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
-import 'store.dart' show CropRect;
-
-Uint8List _normalizeExifBytes(Uint8List raw) {
-  final decoded = img.decodeImage(raw);
-  if (decoded == null) return raw;
-  final baked = img.bakeOrientation(decoded);
-  return Uint8List.fromList(img.encodeJpg(baked, quality: 92));
-}
+import 'store.dart' show CropRect, normalizeImageBytes;
 
 class PhotoCropDialog extends StatefulWidget {
   const PhotoCropDialog({
@@ -52,6 +43,7 @@ class _PhotoCropDialogState extends State<PhotoCropDialog> {
   Uint8List? _orientedBytes;
   Size? _imgSize;
   String? _err;
+  bool _isFitMode = false; // false = Isi Penuh (Crop), true = Muat Penuh (Fit Asli)
 
   @override
   void initState() {
@@ -62,12 +54,13 @@ class _PhotoCropDialogState extends State<PhotoCropDialog> {
   Future<void> _loadImage() async {
     try {
       final raw = widget.rawBytes;
-      final normalized = await Isolate.run(() => _normalizeExifBytes(raw));
+      final normalized = await normalizeImageBytes(raw);
       final codec = await ui.instantiateImageCodec(normalized);
       final frame = await codec.getNextFrame();
       final w = frame.image.width.toDouble();
       final h = frame.image.height.toDouble();
       frame.image.dispose();
+      codec.dispose();
       if (!mounted) return;
       setState(() {
         _orientedBytes = normalized;
@@ -174,60 +167,98 @@ class _PhotoCropDialogState extends State<PhotoCropDialog> {
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        // Pilihan mode: Muat Penuh (Fit Asli) vs Potong Pas (Fill)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(
+                                value: false,
+                                icon: Icon(Icons.crop),
+                                label: Text('Potong Pas (Fill)'),
+                              ),
+                              ButtonSegment(
+                                value: true,
+                                icon: Icon(Icons.fit_screen),
+                                label: Text('Muat Penuh (Fit Asli)'),
+                              ),
+                            ],
+                            selected: {_isFitMode},
+                            onSelectionChanged: (set) => setState(() => _isFitMode = set.first),
+                            style: SegmentedButton.styleFrom(
+                              selectedBackgroundColor: Colors.blueAccent,
+                              selectedForegroundColor: Colors.white,
+                              foregroundColor: Colors.white70,
+                              textStyle: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           child: Text(
-                            'Geser dan cubit (zoom) foto agar pas dengan bingkai slot',
-                            style: TextStyle(color: Colors.white70, fontSize: 13),
+                            _isFitMode
+                                ? 'Seluruh foto tampil utuh tanpa terpotong & bebas gepeng di Excel'
+                                : 'Geser & cubit (zoom) foto agar mengisi penuh bingkai slot',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
                             textAlign: TextAlign.center,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Center(
                           child: Container(
                             width: frameW,
                             height: frameH,
                             decoration: BoxDecoration(
+                              color: const Color(0xFF181A1F),
                               border: Border.all(color: Colors.white, width: 2),
                             ),
                             clipBehavior: Clip.hardEdge,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                InteractiveViewer(
-                                  transformationController: _ctrl,
-                                  minScale: 1.0,
-                                  maxScale: 5.0,
-                                  constrained: false,
-                                  boundaryMargin: EdgeInsets.symmetric(
-                                    horizontal: (renderedW - frameW) / 2,
-                                    vertical: (renderedH - frameH) / 2,
-                                  ),
-                                  child: SizedBox(
-                                    width: frameW,
-                                    height: frameH,
-                                    child: OverflowBox(
-                                      maxWidth: renderedW,
-                                      maxHeight: renderedH,
-                                      child: Image.memory(
-                                        _orientedBytes!,
-                                        width: renderedW,
-                                        height: renderedH,
-                                        fit: BoxFit.fill,
-                                      ),
+                            child: _isFitMode
+                                ? Center(
+                                    child: Image.memory(
+                                      _orientedBytes!,
+                                      fit: BoxFit.contain,
+                                      width: frameW,
+                                      height: frameH,
                                     ),
+                                  )
+                                : Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      InteractiveViewer(
+                                        transformationController: _ctrl,
+                                        minScale: 1.0,
+                                        maxScale: 5.0,
+                                        constrained: false,
+                                        boundaryMargin: EdgeInsets.symmetric(
+                                          horizontal: (renderedW - frameW) / 2,
+                                          vertical: (renderedH - frameH) / 2,
+                                        ),
+                                        child: SizedBox(
+                                          width: frameW,
+                                          height: frameH,
+                                          child: OverflowBox(
+                                            maxWidth: renderedW,
+                                            maxHeight: renderedH,
+                                            child: Image.memory(
+                                              _orientedBytes!,
+                                              width: renderedW,
+                                              height: renderedH,
+                                              fit: BoxFit.fill,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      IgnorePointer(
+                                        child: CustomPaint(
+                                          painter: _GridPainter(),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                IgnorePointer(
-                                  child: CustomPaint(
-                                    painter: _GridPainter(),
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 18),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Row(
@@ -246,8 +277,15 @@ class _PhotoCropDialogState extends State<PhotoCropDialog> {
                               Expanded(
                                 child: FilledButton.icon(
                                   onPressed: () {
-                                    final crop = _computeCrop(viewSize, imgSize);
-                                    Navigator.pop(context, crop);
+                                    if (_isFitMode) {
+                                      Navigator.pop(
+                                        context,
+                                        const CropRect(left: 0, top: 0, width: 1, height: 1, isFit: true),
+                                      );
+                                    } else {
+                                      final crop = _computeCrop(viewSize, imgSize);
+                                      Navigator.pop(context, crop);
+                                    }
                                   },
                                   icon: const Icon(Icons.check),
                                   label: const Text('Simpan Foto'),

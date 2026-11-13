@@ -4,13 +4,56 @@ import 'package:flutter/services.dart';
 
 /// Satu slot foto di template (posisi gambar di sheet).
 class Slot {
-  Slot(this.id, this.label, this.media, this.aspect);
+  Slot(
+    this.id,
+    this.label,
+    this.media,
+    this.aspect, {
+    this.row = 0,
+    this.col = 0,
+  });
   final String id; // mis. H2_05 -> nama file foto
   final String label; // mis. RUANG KELAS 1 (TAMPAK DEPAN)
   final String media; // path di dalam .xlsx
   final double aspect; // lebar / tinggi bingkai di Excel
-  factory Slot.fromJson(Map<String, dynamic> j) =>
-      Slot(j['id'], j['label'], j['media'], (j['aspect'] as num).toDouble());
+  final int row;
+  final int col;
+
+  Slot copyWith({
+    String? id,
+    String? label,
+    String? media,
+    double? aspect,
+    int? row,
+    int? col,
+  }) {
+    return Slot(
+      id ?? this.id,
+      label ?? this.label,
+      media ?? this.media,
+      aspect ?? this.aspect,
+      row: row ?? this.row,
+      col: col ?? this.col,
+    );
+  }
+
+  factory Slot.fromJson(Map<String, dynamic> j) => Slot(
+        j['id'],
+        j['label'],
+        j['media'],
+        (j['aspect'] as num).toDouble(),
+        row: (j['row'] as num?)?.toInt() ?? 0,
+        col: (j['col'] as num?)?.toInt() ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'label': label,
+        'media': media,
+        'aspect': aspect,
+        'row': row,
+        'col': col,
+      };
 }
 
 class SheetCfg {
