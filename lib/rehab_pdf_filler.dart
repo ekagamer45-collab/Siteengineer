@@ -902,7 +902,7 @@ class RehabPdfFiller {
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('LAPORAN HARIAN', style: pw.TextStyle(font: bold, fontSize: 11)),
+                pw.Text('DOKUMENTASI PEKERJAAN HARIAN', style: pw.TextStyle(font: bold, fontSize: 11)),
                 pw.Text(_safe(p.namaPekerjaan), style: pw.TextStyle(font: bold, fontSize: 8.5)),
                 pw.Text(_safe('Lokasi: ${p.lokasi} | No. SPK: ${p.nomorSpk}'), style: pw.TextStyle(font: regular, fontSize: 7.5)),
               ],

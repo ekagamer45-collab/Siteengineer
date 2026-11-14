@@ -224,9 +224,8 @@ Future<ui.Image?> _decodeUiImage(Uint8List? bytes) async {
   double overlayH,
   double scale,
 }) _computeStampMetrics(int targetW, int targetH) {
-  // Referensi desain 1000px untuk layar 4:3; proporsional pada 16:9 / 1.92:1.
-  // Kartu maptag dibuat sedikit lebih ramping & simetris di tengah (~84% lebar bingkai).
-  final scaleByW = targetW / 1000.0;
+  final isVertical = targetW < targetH;
+  final scaleByW = isVertical ? (targetW / 720.0) : (targetW / 1000.0);
   final maxOverlayRatio = targetH * 0.28;
   final rawScale = scaleByW;
   final estOverlay = 180.0 * rawScale;
@@ -234,7 +233,7 @@ Future<ui.Image?> _decodeUiImage(Uint8List? bytes) async {
       ? rawScale * (maxOverlayRatio / estOverlay)
       : rawScale;
 
-  final marginX = math.max(58.0 * scale, targetW * 0.08);
+  final marginX = isVertical ? math.max(16.0 * scale, targetW * 0.035) : math.max(58.0 * scale, targetW * 0.08);
   final marginBottom = 18.0 * scale;
   final mapSize = 136.0 * scale;
   final gap = 9.0 * scale;
@@ -762,8 +761,15 @@ Future<({Uint8List rgba, int width, int height})?> renderStampedPhotoRgba({
     final frame = await codec.getNextFrame();
     srcImg = frame.image;
 
-    const int targetW = 1920;
-    final int targetH = (targetW / aspect).round().clamp(120, 4000);
+    final int targetW;
+    final int targetH;
+    if (aspect >= 1.0) {
+      targetW = 3840;
+      targetH = (3840 / aspect).round().clamp(120, 6000);
+    } else {
+      targetH = 3840;
+      targetW = (3840 * aspect).round().clamp(120, 6000);
+    }
     final double w = srcImg.width.toDouble();
     final double h = srcImg.height.toDouble();
     if (w <= 0 || h <= 0) return null;

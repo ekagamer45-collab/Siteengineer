@@ -121,31 +121,16 @@ class PdfFiller {
     required DateTime date,
     required pw.Font regular,
     required pw.Font bold,
-    String? sectionTitle,
   }) {
     final styleTitle = pw.TextStyle(font: bold, fontSize: 13);
     final styleSub = pw.TextStyle(font: bold, fontSize: 8.5);
     final styleLabel = pw.TextStyle(font: bold, fontSize: 7.5);
     final styleVal = pw.TextStyle(font: regular, fontSize: 7.5);
 
-    pw.Widget infoRow(String label, String value) {
-      return pw.Padding(
-        padding: const pw.EdgeInsets.symmetric(vertical: 1.0),
-        child: pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.SizedBox(width: 78, child: pw.Text(_safe(label), style: styleLabel)),
-            pw.Text(': ', style: styleLabel),
-            pw.Expanded(child: pw.Text(_safe(value), maxLines: 1, style: styleVal)),
-          ],
-        ),
-      );
-    }
-
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        pw.Center(child: pw.Text('LAPORAN HARIAN', style: styleTitle)),
+        pw.Center(child: pw.Text('DOKUMENTASI PEKERJAAN HARIAN', style: styleTitle)),
         pw.SizedBox(height: 2),
         pw.Center(
           child: pw.Text(
@@ -159,50 +144,66 @@ class PdfFiller {
             border: pw.Border.all(color: PdfColors.black, width: 0.8),
             color: PdfColor.fromHex('#F7F9FC'),
           ),
-          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          child: pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: pw.Table(
+            columnWidths: const {
+              0: pw.FixedColumnWidth(85),
+              1: pw.FixedColumnWidth(10),
+              2: pw.FlexColumnWidth(3),
+              3: pw.FixedColumnWidth(16),
+              4: pw.FixedColumnWidth(70),
+              5: pw.FixedColumnWidth(10),
+              6: pw.FlexColumnWidth(2),
+            },
+            defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
             children: [
-              pw.Expanded(
-                flex: 3,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    infoRow('Nama Sekolah', '${project['school'] ?? ''}'),
-                    infoRow('NPSN', '${project['npsn'] ?? ''}'),
-                    infoRow('Kabupaten / Kota', '${project['kab'] ?? ''}'),
-                    infoRow('Provinsi', '${project['prov'] ?? ''}'),
-                  ],
-                ),
+              pw.TableRow(
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text('Nama Sekolah', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(':', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(_safe('${project['school'] ?? ''}'), maxLines: 1, style: styleVal)),
+                  pw.SizedBox(),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text('Hari', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(':', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(dayName, maxLines: 1, style: styleVal)),
+                ],
               ),
-              pw.SizedBox(width: 14),
-              pw.Expanded(
-                flex: 2,
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    infoRow('Hari', dayName),
-                    infoRow('Tanggal', _fmtDate(date)),
-                    infoRow('Minggu Ke-', angkaTerbilang((project['minggu'] as num?)?.toInt() ?? 1)),
-                    infoRow('Bulan', angkaTerbilang((project['bulan'] as num?)?.toInt() ?? 1)),
-                  ],
-                ),
+              pw.TableRow(
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text('NPSN', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(':', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(_safe('${project['npsn'] ?? ''}'), maxLines: 1, style: styleVal)),
+                  pw.SizedBox(),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text('Tanggal', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(':', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(_fmtDate(date), maxLines: 1, style: styleVal)),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text('Kabupaten / Kota', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(':', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(_safe('${project['kab'] ?? ''}'), maxLines: 1, style: styleVal)),
+                  pw.SizedBox(),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text('Minggu Ke-', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(':', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(angkaTerbilang((project['minggu'] as num?)?.toInt() ?? 1), maxLines: 1, style: styleVal)),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text('Provinsi', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(':', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(_safe('${project['prov'] ?? ''}'), maxLines: 1, style: styleVal)),
+                  pw.SizedBox(),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text('Bulan', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(':', style: styleLabel)),
+                  pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2.2), child: pw.Text(angkaTerbilang((project['bulan'] as num?)?.toInt() ?? 1), maxLines: 1, style: styleVal)),
+                ],
               ),
             ],
           ),
         ),
-        if (sectionTitle != null) ...[
-          pw.SizedBox(height: 5),
-          pw.Container(
-            color: PdfColor.fromHex('#DCE6F2'),
-            padding: const pw.EdgeInsets.symmetric(vertical: 3),
-            alignment: pw.Alignment.center,
-            child: pw.Text(
-              _safe(sectionTitle),
-              style: pw.TextStyle(font: bold, fontSize: 8.5),
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -455,8 +456,10 @@ class PdfFiller {
     pw.Widget buildKetuaSig() {
       if (sigKetuaMode == 'none') return pw.SizedBox(height: 48);
       if (sigKetuaMode == 'custom') {
-        final f = File('$photoDir/ttd_ketua.jpg');
-        if (f.existsSync()) {
+        final pngFile = File('$photoDir/ttd_ketua.png');
+        final jpgFile = File('$photoDir/ttd_ketua.jpg');
+        final f = pngFile.existsSync() ? pngFile : (jpgFile.existsSync() ? jpgFile : null);
+        if (f != null) {
           return pw.Image(
             pw.MemoryImage(f.readAsBytesSync()),
             height: 48,
@@ -474,8 +477,10 @@ class PdfFiller {
     pw.Widget buildPengawasSig() {
       if (sigPengawasMode == 'none') return pw.SizedBox(height: 48);
       if (sigPengawasMode == 'custom') {
-        final f = File('$photoDir/ttd_pengawas.jpg');
-        if (f.existsSync()) {
+        final pngFile = File('$photoDir/ttd_pengawas.png');
+        final jpgFile = File('$photoDir/ttd_pengawas.jpg');
+        final f = pngFile.existsSync() ? pngFile : (jpgFile.existsSync() ? jpgFile : null);
+        if (f != null) {
           return pw.Image(
             pw.MemoryImage(f.readAsBytesSync()),
             height: 48,
@@ -619,11 +624,11 @@ class PdfFiller {
               bottom: pw.BorderSide(color: PdfColors.black, width: 0.6),
             ),
           ),
+          padding: const pw.EdgeInsets.all(7.087), // Margin foto 0.25 cm di dalam kotak tabel
+          alignment: pw.Alignment.center,
           child: photoBytes != null
               ? pw.Image(
                   pw.MemoryImage(photoBytes),
-                  width: slotWidth,
-                  height: photoH,
                   fit: pw.BoxFit.contain,
                 )
               : pw.Center(
@@ -798,7 +803,6 @@ class PdfFiller {
                         date: date,
                         regular: regular,
                         bold: bold,
-                        sectionTitle: 'DOKUMENTASI FOTO PROYEK',
                       ),
                       pw.SizedBox(height: 6),
                       ...rows,

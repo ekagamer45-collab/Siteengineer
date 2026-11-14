@@ -300,7 +300,7 @@ class RehabXlsxFiller {
     final sh = _SheetData('H${dayIdx + 1}', landscape: true);
     sh.colWidths.addAll([24, 12, 26, 14, 14, 24, 38]);
 
-    sh.setText(1, 1, 'LAPORAN HARIAN - ${hariNama[dayIdx]} (${dt.day}/${dt.month}/${dt.year}) | MINGGU KE-${p.minggu}', style: 1);
+    sh.setText(1, 1, 'DOKUMENTASI PEKERJAAN HARIAN - ${hariNama[dayIdx]} (${dt.day}/${dt.month}/${dt.year}) | MINGGU KE-${p.minggu}', style: 1);
     sh.setText(2, 1, 'Pekerjaan: ${p.namaPekerjaan} | Lokasi: ${p.lokasi}', style: 2);
 
     if (day.isLibur) {

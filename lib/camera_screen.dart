@@ -46,6 +46,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   bool _waited15s = false;
   bool _loading = true;
   bool _processing = false;
+  bool _isVertical = false; // false = 16:9 Horizontal (3840x2160), true = 9:16 Vertikal (2160x3840)
 
   String? _errorTitle;
   String? _errorMessage;
@@ -414,10 +415,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         address: address,
         mapTileBytes: _cachedMapTile,
       );
+      final double targetAspect = _isVertical ? (9 / 16) : (16 / 9);
       if (widget.onCustomSave != null) {
         await widget.onCustomSave!(rawBytes, wm, null);
       } else {
-        await store.setCameraPhoto(widget.slot, rawBytes, wm);
+        await store.setCameraPhoto(widget.slot, rawBytes, wm, aspect: targetAspect);
         // Simpan ke Galeri HP di background agar kamera langsung kembali dalam hitungan detik
         unawaited(store.savePhotoToGallery(widget.slot).catchError((_) => false));
       }
@@ -536,6 +538,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           style: const TextStyle(fontSize: 15),
         ),
         actions: [
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.amberAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            icon: Icon(
+              _isVertical ? Icons.stay_current_portrait_rounded : Icons.stay_current_landscape_rounded,
+              size: 18,
+            ),
+            label: Text(
+              _isVertical ? '9:16' : '16:9',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            onPressed: () => setState(() => _isVertical = !_isVertical),
+          ),
           IconButton(
             tooltip: 'Muat Ulang Kamera',
             onPressed: _loading ? null : _initAll,
@@ -717,7 +734,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 ),
         ),
 
-        // Panduan Bingkai Slot Excel (Aspect Ratio persis bingkai Excel)
+        // Panduan Bingkai Kamera 16:9 (Horizontal / Vertikal Bebas Rotasi tanpa Kunci Frame Gelap)
         IgnorePointer(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -727,42 +744,31 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
               final screenH = constraints.maxHeight.isFinite
                   ? constraints.maxHeight
                   : MediaQuery.sizeOf(context).height;
-              final safeAspect = (widget.slot.aspect.isFinite &&
-                      widget.slot.aspect > 0.2)
-                  ? widget.slot.aspect
-                  : 1.92;
-              final frameW = (screenW - 24).clamp(180.0, screenW > 180.0 ? screenW : 180.0);
-              final frameH = (frameW / safeAspect).clamp(90.0, screenH * 0.78 > 90.0 ? screenH * 0.78 : 90.0);
-              final topOffset = ((screenH - frameH) / 2).clamp(0.0, screenH > 0.0 ? screenH : 0.0);
+              final activeAspect = _isVertical ? (9 / 16) : (16 / 9);
+
+              double frameW, frameH;
+              if (activeAspect >= 1.0) {
+                frameW = (screenW - 24).clamp(180.0, screenW);
+                frameH = (frameW / activeAspect).clamp(90.0, screenH * 0.75);
+              } else {
+                frameH = (screenH * 0.70).clamp(180.0, screenH - 120);
+                frameW = (frameH * activeAspect).clamp(120.0, screenW - 24);
+              }
+              final leftOffset = ((screenW - frameW) / 2).clamp(0.0, screenW);
+              final topOffset = ((screenH - frameH) / 2).clamp(0.0, screenH);
 
               return Stack(
                 children: [
-                  // Masking gelap atas
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: topOffset > 0 ? topOffset : 0,
-                    child: Container(color: Colors.black.withValues(alpha: 0.45)),
-                  ),
-                  // Masking gelap bawah
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: topOffset > 0 ? topOffset : 0,
-                    child: Container(color: Colors.black.withValues(alpha: 0.45)),
-                  ),
-                  // Bingkai fokus kamera
+                  // Bingkai fokus kamera 16:9 fleksibel (bebas rotasi, tanpa masking gelap yang mengunci pandangan)
                   Positioned(
                     top: topOffset,
-                    left: 12,
+                    left: leftOffset,
                     width: frameW,
                     height: frameH,
                     child: Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white, width: 2),
-                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 2),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Stack(
                         children: [
@@ -776,7 +782,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                'Bingkai Excel: ${widget.slot.label}',
+                                _isVertical
+                                    ? '9:16 Vertikal (2160×3840) • ${widget.slot.label}'
+                                    : '16:9 Horizontal (3840×2160) • ${widget.slot.label}',
                                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -787,7 +795,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                               left: 0,
                               right: 0,
                               child: GpsMapCameraPreviewOverlay(
-                                frameAspect: safeAspect,
+                                frameAspect: activeAspect,
                                 frameWidth: frameW,
                                 mapTileBytes: _cachedMapTile,
                                 stamp: GpsStampPayload(

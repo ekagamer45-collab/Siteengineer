@@ -177,6 +177,14 @@ class XlsxFiller {
       }
     }
 
+    // Hilangkan kotak strip "DOKUMENTASI FOTO PROYEK" (baris 34, 105, 176, 247)
+    for (final dokRow in [34, 105, 176, 247]) {
+      xml = xml.replaceAllMapped(
+        RegExp('<row r="$dokRow"[^>]*>.*?</row>', dotAll: true),
+        (m) => '<row r="$dokRow" hidden="1" ht="0" customHeight="1"/>',
+      );
+    }
+
     // Sel rumus (=K4 dst.) -> perbarui nilai cache supaya viewer tanpa kalkulasi ikut benar.
     return xml.replaceAllMapped(
       RegExp(r'<c r="([A-Z]+\d+)"((?:\s[^>/]*)?)><f>([A-Z]+\d+)</f>(?:<v>.*?</v>)?</c>', dotAll: true),
@@ -403,6 +411,16 @@ class XlsxFiller {
     wb = wb.replaceFirstMapped(RegExp(r'<calcPr([^>]*?)/>'), (m) =>
         '<calcPr${m.group(1)!.replaceAll(RegExp(r'\s*fullCalcOnLoad="[^"]*"'), '')} fullCalcOnLoad="1"/>');
     baseFiles['xl/workbook.xml'] = _utf8Bytes(wb);
+
+    // Perbarui judul dokumen di sharedStrings.xml
+    if (baseFiles.containsKey('xl/sharedStrings.xml')) {
+      var ss = _utf8(baseFiles['xl/sharedStrings.xml']!);
+      ss = ss.replaceAll(
+        '<si><t>LAPORAN HARIAN</t></si>',
+        '<si><t>DOKUMENTASI PEKERJAAN HARIAN</t></si>',
+      );
+      baseFiles['xl/sharedStrings.xml'] = _utf8Bytes(ss);
+    }
 
     return buildExportWithinMaxBytes(
       maxFileBytes: maxFileBytes,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
@@ -786,9 +787,21 @@ class Store extends ChangeNotifier {
   bool get hasTtdPengawas => ttdPengawasFile.existsSync();
 
   Future<void> setTtdKetua(Uint8List rawBytes) async {
-    final jpg = await normalizeSignatureBytes(rawBytes);
-    await FileImage(ttdKetuaFile).evict();
-    ttdKetuaFile.writeAsBytesSync(jpg);
+    final png = await normalizeSignatureBytes(rawBytes);
+    final pngFile = File('${photoDir.path}/ttd_ketua.png');
+    pngFile.writeAsBytesSync(png);
+
+    final decoded = img.decodeImage(png);
+    if (decoded != null) {
+      final whiteBg = img.Image(width: decoded.width, height: decoded.height);
+      img.fill(whiteBg, color: img.ColorRgb8(255, 255, 255));
+      img.compositeImage(whiteBg, decoded);
+      await FileImage(ttdKetuaFile).evict();
+      ttdKetuaFile.writeAsBytesSync(img.encodeJpg(whiteBg, quality: 92));
+    } else {
+      await FileImage(ttdKetuaFile).evict();
+      ttdKetuaFile.writeAsBytesSync(png);
+    }
     project.sigKetuaMode = 'custom';
     changed();
   }
@@ -804,9 +817,21 @@ class Store extends ChangeNotifier {
   }
 
   Future<void> setTtdPengawas(Uint8List rawBytes) async {
-    final jpg = await normalizeSignatureBytes(rawBytes);
-    await FileImage(ttdPengawasFile).evict();
-    ttdPengawasFile.writeAsBytesSync(jpg);
+    final png = await normalizeSignatureBytes(rawBytes);
+    final pngFile = File('${photoDir.path}/ttd_pengawas.png');
+    pngFile.writeAsBytesSync(png);
+
+    final decoded = img.decodeImage(png);
+    if (decoded != null) {
+      final whiteBg = img.Image(width: decoded.width, height: decoded.height);
+      img.fill(whiteBg, color: img.ColorRgb8(255, 255, 255));
+      img.compositeImage(whiteBg, decoded);
+      await FileImage(ttdPengawasFile).evict();
+      ttdPengawasFile.writeAsBytesSync(img.encodeJpg(whiteBg, quality: 92));
+    } else {
+      await FileImage(ttdPengawasFile).evict();
+      ttdPengawasFile.writeAsBytesSync(png);
+    }
     project.sigPengawasMode = 'custom';
     changed();
   }
@@ -951,8 +976,9 @@ class Store extends ChangeNotifier {
 
   /// Proses foto kamera ber-GPS di isolate (bakeOrientation -> crop tengah -> gambar watermark -> encode JPEG)
   /// dan simpan metadata GPS ke project.json.
-  Future<void> setCameraPhoto(Slot s, Uint8List raw, WatermarkData wm, {CropRect? crop}) async {
-    final out = await _encodeSlotBytes(raw, s.aspect, wm: wm, crop: crop);
+  Future<void> setCameraPhoto(Slot s, Uint8List raw, WatermarkData wm, {CropRect? crop, double? aspect}) async {
+    final photoAspect = aspect ?? s.aspect;
+    final out = await _encodeSlotBytes(raw, photoAspect, wm: wm, crop: crop);
     await FileImage(photoFile(s)).evict();
     photoFile(s).writeAsBytesSync(out);
     project.photoMeta[s.id] = PhotoMeta(
@@ -2792,8 +2818,79 @@ Future<Uint8List> normalizeImageBytes(Uint8List raw) async {
   throw StateError('Gambar tidak bisa dibaca atau format tidak didukung');
 }
 
-/// Normalisasi gambar tanda tangan ke latar belakang putih #FFFFFF
-/// sehingga filter warna Excel `<a:clrChange>` otomatis menjadikannya transparan di sheet.
+/// Otomatis hapus latar belakang putih / abu terang dari gambar tanda tangan
+/// (membuat background 100% transparan pada PNG dan #FFFFFF murni pada JPEG)
+/// sehingga tanda tangan bersih tanpa kotak putih saat dipasang di sheet atau PDF.
+img.Image removeSignatureBackground(img.Image src) {
+  var im = img.bakeOrientation(src);
+  if (im.width > 800) {
+    im = img.copyResize(im, width: 800, interpolation: img.Interpolation.average);
+  }
+  final w = im.width;
+  final h = im.height;
+  final out = img.Image(width: w, height: h, numChannels: 4);
+
+  // Estimasi warna kertas/latar dari titik tepi & sudut
+  double bgR = 255, bgG = 255, bgB = 255;
+  int sampleCount = 0;
+  final samplePoints = [
+    [0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1],
+    [w ~/ 2, 0], [w ~/ 2, h - 1], [0, h ~/ 2], [w - 1, h ~/ 2],
+  ];
+  for (final pt in samplePoints) {
+    final p = im.getPixel(pt[0], pt[1]);
+    bgR += p.r; bgG += p.g; bgB += p.b;
+    sampleCount++;
+  }
+  bgR /= (sampleCount + 1);
+  bgG /= (sampleCount + 1);
+  bgB /= (sampleCount + 1);
+  final bgLum = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB;
+  final threshold = math.max(180.0, bgLum - 35.0);
+
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final p = im.getPixel(x, y);
+      final r = p.r.toDouble();
+      final g = p.g.toDouble();
+      final b = p.b.toDouble();
+      final a = p.a.toDouble();
+
+      if (a < 30) {
+        out.setPixelRgba(x, y, 255, 255, 255, 0);
+        continue;
+      }
+
+      final lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      final maxC = math.max(r, math.max(g, b));
+      final minC = math.min(r, math.min(g, b));
+      final sat = maxC - minC;
+
+      // Kertas putih / abu terang: saturasi rendah dan kecerahan tinggi
+      if (lum >= threshold && sat < 35) {
+        out.setPixelRgba(x, y, 255, 255, 255, 0);
+      } else if (lum > (threshold - 45) && sat < 35) {
+        // Anti-aliasing halus pada pinggiran coretan tinta
+        final factor = ((threshold - lum) / 45.0).clamp(0.0, 1.0);
+        final alpha = (factor * 255).round().clamp(0, 255);
+        final inkR = (r * (1.0 - factor * 0.35)).round().clamp(0, 255);
+        final inkG = (g * (1.0 - factor * 0.35)).round().clamp(0, 255);
+        final inkB = (b * (1.0 - factor * 0.35)).round().clamp(0, 255);
+        out.setPixelRgba(x, y, inkR, inkG, inkB, alpha);
+      } else {
+        // Coretan tinta asli (gelapkan sedikit agar tegas & jernih)
+        final inkR = (r * 0.85).round().clamp(0, 255);
+        final inkG = (g * 0.85).round().clamp(0, 255);
+        final inkB = (b * 0.85).round().clamp(0, 255);
+        out.setPixelRgba(x, y, inkR, inkG, inkB, 255);
+      }
+    }
+  }
+  return out;
+}
+
+/// Normalisasi gambar tanda tangan: otomatis menghapus background putih/abu-abu kertas
+/// dan mengembalikan gambar transparan bersih tanpa kotak latar belakang.
 Future<Uint8List> normalizeSignatureBytes(Uint8List raw) async {
   img.Image? im;
   try {
@@ -2819,17 +2916,8 @@ Future<Uint8List> normalizeSignatureBytes(Uint8List raw) async {
   }
 
   if (im == null) throw StateError('Tanda tangan tidak valid');
-  im = img.bakeOrientation(im);
-
-  final canvas = img.Image(width: im.width, height: im.height);
-  img.fill(canvas, color: img.ColorRgb8(255, 255, 255));
-  img.compositeImage(canvas, im);
-
-  var res = canvas;
-  if (res.width > 500) {
-    res = img.copyResize(res, width: 500);
-  }
-  return Uint8List.fromList(img.encodeJpg(res, quality: 90));
+  final cleaned = removeSignatureBackground(im);
+  return Uint8List.fromList(img.encodePng(cleaned));
 }
 
 img.Image _cropAndResize(Uint8List raw, double aspect, [CropRect? crop]) {

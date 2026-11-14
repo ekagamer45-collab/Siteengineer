@@ -183,6 +183,7 @@ class FirebaseService {
         'active': user.active,
         'avatarType': user.avatarType,
         'avatarBase64': user.avatarBase64,
+        'password': user.password,
         'passwordHash': hashPassword(user.password),
         'updatedAt': DateTime.now().toIso8601String(),
       };
@@ -236,8 +237,10 @@ class FirebaseService {
         if (v is Map) {
           final m = Map<String, dynamic>.from(v);
           m['id'] ??= k.toString();
-          // Password plain tidak disimpan di Firebase; jika ada passwordHash, simpan hash-nya sebagai penanda
-          m['password'] ??= m['passwordHash'] ?? '';
+          // Simpan password asli jika ada; fallback ke passwordHash jika pendaftar lama
+          final plain = (m['password'] as String?)?.trim() ?? '';
+          final hash = (m['passwordHash'] as String?)?.trim() ?? '';
+          m['password'] = plain.isNotEmpty ? plain : hash;
           final user = AppUser.fromJson(m);
           final uname = user.username.trim().toLowerCase();
           if (uname.isNotEmpty) {

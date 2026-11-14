@@ -144,21 +144,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     });
 
     if (newlyArrived.isNotEmpty) {
-      final first = newlyArrived.first;
-      final notifText = newlyArrived.length == 1
-          ? 'Notifikasi: ${first.displayName} mengirim data ${first.programName}!'
-          : 'Notifikasi: ${newlyArrived.length} laporan baru masuk dari user!';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(notifText),
-          backgroundColor: Colors.green.shade700,
-          action: SnackBarAction(
-            label: 'Lihat',
-            textColor: Colors.amberAccent,
-            onPressed: () => _tabs.animateTo(0),
-          ),
-        ),
-      );
+      _showIncomingReportPopup(newlyArrived);
       return;
     }
 
@@ -172,6 +158,96 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         ),
       );
     }
+  }
+
+  void _showIncomingReportPopup(List<CloudSubmission> reports) {
+    if (!mounted || reports.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.mark_email_unread_rounded, color: Colors.blue.shade700, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Pesan Masuk!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                    Text(
+                      reports.length == 1
+                          ? '1 Laporan Baru Masuk'
+                          : '${reports.length} Laporan Baru Masuk',
+                      style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600, fontWeight: FontWeight.normal),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: reports.length,
+              separatorBuilder: (_, __) => const Divider(height: 12),
+              itemBuilder: (_, i) {
+                final rep = reports[i];
+                final localTime = rep.updatedAt.toLocal().toString().substring(11, 16);
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.blue.shade100,
+                    child: Text(
+                      rep.displayName.isNotEmpty ? rep.displayName[0].toUpperCase() : 'U',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                    ),
+                  ),
+                  title: Text(
+                    rep.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    '${rep.title.isNotEmpty ? rep.title : rep.programName.toUpperCase()} • Pukul $localTime WIB',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Nanti Saja'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _tabs.animateTo(0);
+                if (reports.length == 1) {
+                  _openSubmissionEditor(reports.first);
+                }
+              },
+              icon: const Icon(Icons.visibility_rounded, size: 18),
+              label: Text(reports.length == 1 ? 'Buka Laporan' : 'Lihat Semua'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _openSubmissionEditor(CloudSubmission sub) async {
