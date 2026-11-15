@@ -830,6 +830,50 @@ class _RehabDayScreenState extends State<RehabDayScreen>
               icon: const Icon(Icons.copy_all),
               onPressed: _copyPreviousDay,
             ),
+          IconButton(
+            tooltip: 'Reset Foto Hari Ini',
+            icon: const Icon(Icons.delete_sweep_outlined),
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Reset Foto Hari Ini?'),
+                  content: Text('Semua foto dokumentasi pada ${hariNama[widget.dayIndex]} akan dihapus bersih.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                    FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Reset Bersih'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                for (var s = 0; s < 6; s++) {
+                  final slotId = 'rehab_H${widget.dayIndex + 1}_${s + 1}';
+                  final file = File('${widget.photoDir.path}/$slotId.jpg');
+                  try {
+                    FileImage(file).evict();
+                  } catch (_) {}
+                  if (file.existsSync()) file.deleteSync();
+                  _proj.photoMeta.remove(slotId);
+                }
+                try {
+                  PaintingBinding.instance.imageCache.clear();
+                  PaintingBinding.instance.imageCache.clearLiveImages();
+                } catch (_) {}
+                widget.store.incrementPhotoVersion();
+                widget.onChanged(_proj);
+                setState(() {});
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Semua foto hari ini telah dibersihkan.')),
+                  );
+                }
+              }
+            },
+          ),
         ],
         bottom: TabBar(
           controller: _tabs,
@@ -1109,8 +1153,14 @@ class _RehabDayScreenState extends State<RehabDayScreen>
             label: '${hariNama[widget.dayIndex]} • $label',
             onTakeCamera: () => _openCamera(idx),
             onDelete: () {
+              try {
+                FileImage(file).evict();
+                PaintingBinding.instance.imageCache.clear();
+                PaintingBinding.instance.imageCache.clearLiveImages();
+              } catch (_) {}
               if (file.existsSync()) file.deleteSync();
               _proj.photoMeta.remove(slotId);
+              widget.store.incrementPhotoVersion();
               widget.onChanged(_proj);
               setState(() {});
             },
@@ -1138,6 +1188,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                           children: [
                             Image.file(
                               file,
+                              key: ValueKey('${slotId}_${file.existsSync() ? file.lastModifiedSync().millisecondsSinceEpoch : 0}'),
                               fit: BoxFit.cover,
                               cacheWidth: 900,
                             ),
@@ -1170,8 +1221,14 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                                       tooltip: 'Hapus',
                                       icon: const Icon(Icons.delete, size: 16, color: Colors.white),
                                       onPressed: () {
-                                        file.deleteSync();
+                                        try {
+                                          FileImage(file).evict();
+                                          PaintingBinding.instance.imageCache.clear();
+                                          PaintingBinding.instance.imageCache.clearLiveImages();
+                                        } catch (_) {}
+                                        if (file.existsSync()) file.deleteSync();
                                         _proj.photoMeta.remove(slotId);
+                                        widget.store.incrementPhotoVersion();
                                         widget.onChanged(_proj);
                                         setState(() {});
                                       },

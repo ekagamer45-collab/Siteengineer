@@ -532,7 +532,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       context,
       title: 'Ekspor ${sub.programName}',
       subtitle: '${sub.title} • Pengirim: ${sub.displayName}',
-      photoCount: sub.photoDriveMap.length,
+      photoCount: sub.totalPhotos,
       onBuildXlsx: (size) {
         if (isCustomFree) {
           final cp = CustomProgram.fromJson(sub.payloadJson);
@@ -1385,7 +1385,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               style: const TextStyle(fontSize: 12.5),
                             ),
                             Text(
-                              'Update: ${sub.updatedAt.toLocal().toString().substring(0, 16)} • ${sub.photoDriveMap.length} foto di Drive',
+                              'Update: ${sub.updatedAt.toLocal().toString().substring(0, 16)} • ${sub.totalPhotos} foto tersinkron',
                               style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                             ),
                             if (sub.summary.isNotEmpty) ...[

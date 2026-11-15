@@ -586,6 +586,14 @@ class CloudSubmission {
   /// Ringkasan isi laporan yang mudah dibaca Admin di UI & Spreadsheet
   String summary;
 
+  /// Total foto yang tersinkron (baik via Google Drive maupun Realtime Cloud Thumbnail)
+  int get totalPhotos {
+    if (photoDriveMap.isNotEmpty) return photoDriveMap.length;
+    final thumbs = payloadJson['photoThumbnails'];
+    if (thumbs is Map) return thumbs.length;
+    return 0;
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'userId': userId,

@@ -766,11 +766,11 @@ Future<({Uint8List rgba, int width, int height})?> renderStampedPhotoRgba({
     final int targetW;
     final int targetH;
     if (aspect >= 1.0) {
-      targetW = 3840;
-      targetH = (3840 / aspect).round().clamp(120, 6000);
+      targetW = 1920;
+      targetH = (1920 / aspect).round().clamp(120, 4000);
     } else {
-      targetH = 3840;
-      targetW = (3840 * aspect).round().clamp(120, 6000);
+      targetH = 1920;
+      targetW = (1920 * aspect).round().clamp(120, 4000);
     }
     final double w = srcImg.width.toDouble();
     final double h = srcImg.height.toDouble();

@@ -33,6 +33,35 @@ class DayScreen extends StatelessWidget {
                   store.changed();
                 },
               ),
+            IconButton(
+              tooltip: 'Reset Foto Hari Ini',
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Reset Foto Hari Ini?'),
+                    content: Text('Semua foto dokumentasi pada ${sh.name} (${hariNama[index]}) akan dihapus bersih.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Reset Bersih'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await store.resetDayPhotos(index);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Semua foto hari ini telah dibersihkan.')),
+                    );
+                  }
+                }
+              },
+            ),
           ],
           bottom: const TabBar(tabs: [Tab(text: 'Data'), Tab(text: 'Foto')]),
         ),
@@ -682,7 +711,10 @@ class PhotoTab extends StatelessWidget {
               minScale: 0.5,
               maxScale: 4.0,
               child: Center(
-                child: Image.file(store.photoFile(s)),
+                child: Image.file(
+                  store.photoFile(s),
+                  key: ValueKey('${s.id}_${store.photoVersion(s)}'),
+                ),
               ),
             ),
             Positioned(
@@ -838,7 +870,12 @@ class PhotoTab extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: Stack(fit: StackFit.expand, children: [
                 if (has)
-                  Image.file(store.photoFile(s), fit: BoxFit.cover, cacheWidth: 600)
+                  Image.file(
+                    store.photoFile(s),
+                    key: ValueKey('${s.id}_${store.photoVersion(s)}'),
+                    fit: BoxFit.cover,
+                    cacheWidth: 600,
+                  )
                 else
                   const Center(child: Icon(Icons.add_a_photo_outlined, size: 36, color: Colors.black38)),
                 if (has) ...[

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'models.dart';
 import 'rehab_models.dart';
@@ -48,8 +49,35 @@ Future<bool> showSendReportToAdminDialog(
   }
 
   final hasDailySplit = effectiveType != 'custom';
+
+  int photosCountForDay(int d) {
+    if (effectiveType == 'rehabilitasi') {
+      return List.generate(
+        6,
+        (s) => File('${store.rehabPhotoDir.path}/rehab_H${d + 1}_${s + 1}.jpg').existsSync(),
+      ).where((e) => e).length;
+    }
+    if (revitProj != null) {
+      return store.activeSlotsForSheet(d).where(store.hasPhoto).length;
+    }
+    return 0;
+  }
+
+  int totalProjectPhotos() {
+    int total = 0;
+    for (var d = 0; d < 7; d++) {
+      total += photosCountForDay(d);
+    }
+    return total;
+  }
+
   // `selectedDay`: -1 = Semua Hari Aktif, 0..6 = Senin..Minggu
-  int selectedDay = hasDailySplit ? (initialDayIndex ?? -1) : -1;
+  // Jika hari yang dipilih saat ini belum ada foto tetapi hari lain ada foto, default ke -1 (Semua Hari)
+  int initialDay = initialDayIndex ?? -1;
+  if (initialDay >= 0 && photosCountForDay(initialDay) == 0 && totalProjectPhotos() > 0) {
+    initialDay = -1;
+  }
+  int selectedDay = hasDailySplit ? initialDay : -1;
   // Default false agar pengiriman sangat kilat (< 3 detik). Admin bisa export file kapan saja dari dashboard.
   bool includeDocs = false;
 
@@ -57,7 +85,9 @@ Future<bool> showSendReportToAdminDialog(
     final dt = effectiveType == 'rehabilitasi' && rehabProj != null
         ? rehabProj.dateOf(d)
         : (revitProj != null ? revitProj.dateOf(d) : DateTime.now());
-    return Store.formatDriveDayFolderName(dt);
+    final folderName = Store.formatDriveDayFolderName(dt);
+    final count = photosCountForDay(d);
+    return count > 0 ? '$folderName • $count Foto' : '$folderName • Kosong';
   }
 
   final confirmed = await showDialog<bool>(
@@ -119,9 +149,13 @@ Future<bool> showSendReportToAdminDialog(
                       isDense: true,
                     ),
                     items: [
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                         value: -1,
-                        child: Text('Semua Hari Aktif (Mingguan)'),
+                        child: Text(
+                          totalProjectPhotos() > 0
+                              ? 'Semua Hari Aktif (Mingguan) • ${totalProjectPhotos()} Foto'
+                              : 'Semua Hari Aktif (Mingguan)',
+                        ),
                       ),
                       for (var d = 0; d < 7; d++)
                         DropdownMenuItem(
@@ -400,7 +434,7 @@ Future<bool> showSendReportToAdminDialog(
                 ),
               ),
             Text(
-              '• ${sub.photoDriveMap.length} foto tersinkron\n• ${sub.reportFileUrls.length} file Excel/PDF tersimpan di Drive',
+              '• ${sub.totalPhotos} foto tersinkron ke Admin\n• ${sub.reportFileUrls.length} file Excel/PDF tersimpan di Drive',
               style: const TextStyle(fontSize: 12),
             ),
           ],

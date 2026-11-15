@@ -177,36 +177,6 @@ class XlsxFiller {
       }
     }
 
-    // Hilangkan kotak strip "DOKUMENTASI FOTO PROYEK" (baris 34, 105, 176, 247)
-    // dengan mengosongkan nilai sel dan menyembunyikan baris tanpa menghapus tag <c>
-    // agar deklarasi mergeCells tetap 100% valid dan Excel tidak menampilkan error "Repaired".
-    for (final dokRow in [34, 105, 176, 247]) {
-      // Kosongkan nilai di sel-sel baris dokRow dan sembunyikan barisnya
-      xml = xml.replaceAllMapped(
-        RegExp('<row r="$dokRow"([^>]*)>(.*?)</row>', dotAll: true),
-        (m) {
-          final rowAttrs = m.group(1)!;
-          var innerCells = m.group(2)!;
-          // Ubah semua sel menjadi sel kosong murni (<c r="..." s="..."/>) tanpa t="..." ataupun isi <v>/<is>
-          innerCells = innerCells.replaceAllMapped(
-            RegExp(r'<c r="([A-Z]+\d+)"([^>]*)>(?:<v>.*?</v>|<is>.*?</is>)?</c>', dotAll: true),
-            (cm) {
-              final ref = cm.group(1)!;
-              var attrs = cm.group(2) ?? '';
-              attrs = attrs.replaceAll(RegExp(r'\s+t="[^"]*"'), '');
-              return '<c r="$ref"$attrs/>';
-            },
-          );
-          // Tambahkan hidden="1" ht="0" customHeight="1" pada atribut row
-          final cleanedAttrs = rowAttrs
-              .replaceAll(RegExp(r'\s+hidden="[^"]*"'), '')
-              .replaceAll(RegExp(r'\s+ht="[^"]*"'), '')
-              .replaceAll(RegExp(r'\s+customHeight="[^"]*"'), '');
-          return '<row r="$dokRow"$cleanedAttrs hidden="1" ht="0" customHeight="1">$innerCells</row>';
-        },
-      );
-    }
-
     // Sel rumus (=K4 dst.) -> perbarui nilai cache supaya viewer tanpa kalkulasi ikut benar.
     return xml.replaceAllMapped(
       RegExp(r'<c r="([A-Z]+\d+)"((?:\s[^>/]*)?)><f>([A-Z]+\d+)</f>(?:<v>.*?</v>)?</c>', dotAll: true),
@@ -309,13 +279,27 @@ class XlsxFiller {
     final keepPath = keepSh['path'] as String; // misal "xl/worksheets/sheet1.xml"
     final keepTarget = keepPath.replaceFirst('xl/', ''); // "worksheets/sheet1.xml"
 
-    // 1. Bersihkan xl/workbook.xml: hanya sisakan <sheet name="keepName" .../> dan activeTab="0"
+    // 1. Bersihkan xl/workbook.xml: hanya sisakan <sheet name="keepName" .../>, activeTab="0", dan definedNames yang relevan
     var wb = _utf8(files['xl/workbook.xml']!);
     wb = wb.replaceAllMapped(
       RegExp(r'<sheet\s[^>]*?name="([^"]+)"[^>]*?/>'),
       (m) => m.group(1) == keepName ? m.group(0)! : '',
     );
     wb = wb.replaceAll(RegExp(r'\s+activeTab="\d+"'), '');
+    wb = wb.replaceAllMapped(
+      RegExp(r'<definedNames>.*?</definedNames>', dotAll: true),
+      (m) {
+        final defNamesXml = m.group(0)!;
+        final keepMatch = RegExp(
+          r'<definedName\s[^>]*?>.*?' + RegExp.escape("'$keepName'") + r'.*?</definedName>',
+          dotAll: true,
+        ).firstMatch(defNamesXml);
+        if (keepMatch == null) return '';
+        var singleDef = keepMatch.group(0)!;
+        singleDef = singleDef.replaceAll(RegExp(r'localSheetId="\d+"'), 'localSheetId="0"');
+        return '<definedNames>$singleDef</definedNames>';
+      },
+    );
     files['xl/workbook.xml'] = _utf8Bytes(wb);
 
     // 2. Bersihkan xl/_rels/workbook.xml.rels: hapus relationship ke worksheets/sheetX.xml lain
@@ -434,13 +418,14 @@ class XlsxFiller {
         '<calcPr${m.group(1)!.replaceAll(RegExp(r'\s*fullCalcOnLoad="[^"]*"'), '')} fullCalcOnLoad="1"/>');
     baseFiles['xl/workbook.xml'] = _utf8Bytes(wb);
 
-    // Perbarui judul dokumen di sharedStrings.xml
+    // Perbarui judul dokumen di sharedStrings.xml dan bersihkan karakter ilegal
     if (baseFiles.containsKey('xl/sharedStrings.xml')) {
       var ss = _utf8(baseFiles['xl/sharedStrings.xml']!);
       ss = ss.replaceAll(
         '<si><t>LAPORAN HARIAN</t></si>',
         '<si><t>DOKUMENTASI PEKERJAAN HARIAN</t></si>',
       );
+      ss = ss.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), ' ');
       baseFiles['xl/sharedStrings.xml'] = _utf8Bytes(ss);
     }
 
@@ -478,4 +463,7 @@ class XlsxFiller {
 }
 
 String _utf8(List<int> b) => const Utf8Decoder().convert(b);
-List<int> _utf8Bytes(String s) => const Utf8Encoder().convert(s);
+List<int> _utf8Bytes(String s) {
+  final clean = s.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), ' ');
+  return const Utf8Encoder().convert(clean);
+}

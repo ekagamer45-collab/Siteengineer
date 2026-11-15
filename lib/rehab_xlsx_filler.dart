@@ -512,9 +512,9 @@ class RehabXlsxFiller {
             mediaPath: 'xl/media/$slotId.jpeg',
             bytes: scaled,
             fromCol: isRight ? 4 : 0,
-            fromRow: rowIdx,
+            fromRow: rowIdx + 1,
             toCol: isRight ? 8 : 4,
-            toRow: rowIdx + 14,
+            toRow: rowIdx + 15,
             name: slotId,
           ),
         );
@@ -668,6 +668,7 @@ class RehabXlsxFiller {
       if (sh.pics.isNotEmpty) {
         wsBuf.write('<drawing r:id="rIdDraw"/>');
       }
+      wsBuf.write('<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>');
       if (sh.landscape) {
         wsBuf.write('<pageSetup paperSize="9" orientation="landscape"/>');
       } else {

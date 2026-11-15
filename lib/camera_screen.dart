@@ -532,33 +532,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       final double targetAspect = _isVertical ? (9 / 16) : (16 / 9);
 
       if (widget.onCustomSave != null) {
-        unawaited(() async {
-          try {
-            await widget.onCustomSave!(rawBytes, wm, null);
-          } catch (_) {}
-        }());
+        await widget.onCustomSave!(rawBytes, wm, null);
       } else {
-        // Tulis foto awal seketika agar store.hasPhoto() langsung true tanpa delay (<5ms)
-        final targetFile = store.photoFile(widget.slot);
-        targetFile.writeAsBytesSync(rawBytes);
-        store.project.photoMeta[widget.slot.id] = PhotoMeta(
-          hasGps: true,
-          lat: wm.lat,
-          lng: wm.lng,
-          accuracy: wm.accuracy,
-          address: wm.address,
-          time: wm.time,
-        );
-        store.changed(forceCheckpoint: true);
-
-        // Lakukan watermarking 3840x2160 piksel di background Isolate tanpa menahan layar kamera
-        unawaited(() async {
-          try {
-            await store.setCameraPhoto(widget.slot, rawBytes, wm, aspect: targetAspect);
-            await store.savePhotoToGallery(widget.slot).catchError((_) => false);
-          } catch (_) {}
-        }());
+        await store.setCameraPhoto(widget.slot, rawBytes, wm, aspect: targetAspect);
+        unawaited(store.savePhotoToGallery(widget.slot).catchError((_) => false));
       }
+
+      // Pastikan cache gambar dibersihkan seketika agar saat kembali ke layar pratinjau langsung tampil foto 16:9 yang baru
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      store.incrementPhotoVersion();
 
       if (!mounted) return;
       Navigator.pop(context, true);

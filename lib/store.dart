@@ -6,7 +6,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart' show FileImage;
+import 'package:flutter/painting.dart' show FileImage, PaintingBinding;
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:image/image.dart' as img;
@@ -1012,9 +1012,30 @@ class Store extends ChangeNotifier {
     changed(forceCheckpoint: true);
   }
 
+  int _photoVersion = 0;
+  int get photoVersionCounter => _photoVersion;
+  void incrementPhotoVersion() {
+    _photoVersion++;
+    notifyListeners();
+  }
+
+  int photoVersion(Slot s) {
+    final f = photoFile(s);
+    if (!f.existsSync()) return 0;
+    try {
+      return f.lastModifiedSync().millisecondsSinceEpoch;
+    } catch (_) {
+      return _photoVersion;
+    }
+  }
+
   void removePhoto(Slot s) {
     final f = photoFile(s);
-    FileImage(f).evict();
+    try {
+      FileImage(f).evict();
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    } catch (_) {}
     if (f.existsSync()) {
       try {
         final bak = File('${f.path}.undo_bak');
@@ -1026,7 +1047,69 @@ class Store extends ChangeNotifier {
         } catch (_) {}
       }
     }
+    try {
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
     project.photoMeta.remove(s.id);
+    incrementPhotoVersion();
+    changed(forceCheckpoint: true);
+  }
+
+  /// Reset semua foto pada 1 hari tertentu di Revitalisasi
+  Future<void> resetDayPhotos(int sheetIndex) async {
+    for (final s in activeSlotsForSheet(sheetIndex)) {
+      final f = photoFile(s);
+      try {
+        FileImage(f).evict();
+      } catch (_) {}
+      if (f.existsSync()) {
+        try {
+          f.deleteSync();
+        } catch (_) {}
+      }
+      final bak = File('${f.path}.undo_bak');
+      if (bak.existsSync()) {
+        try {
+          bak.deleteSync();
+        } catch (_) {}
+      }
+      project.photoMeta.remove(s.id);
+    }
+    try {
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    } catch (_) {}
+    incrementPhotoVersion();
+    changed(forceCheckpoint: true);
+  }
+
+  /// Reset semua foto 1 minggu penuh di Revitalisasi
+  Future<void> resetAllRevitalisasiPhotos() async {
+    for (int i = 0; i < cfg.sheets.length; i++) {
+      for (final s in activeSlotsForSheet(i)) {
+        final f = photoFile(s);
+        try {
+          FileImage(f).evict();
+        } catch (_) {}
+        if (f.existsSync()) {
+          try {
+            f.deleteSync();
+          } catch (_) {}
+        }
+        final bak = File('${f.path}.undo_bak');
+        if (bak.existsSync()) {
+          try {
+            bak.deleteSync();
+          } catch (_) {}
+        }
+        project.photoMeta.remove(s.id);
+      }
+    }
+    try {
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    } catch (_) {}
+    incrementPhotoVersion();
     changed(forceCheckpoint: true);
   }
 
@@ -1064,13 +1147,14 @@ class Store extends ChangeNotifier {
   }) async {
     targetDir.createSync(recursive: true);
     final file = File('${targetDir.path}/$slotId.jpg');
-    try {
-      file.writeAsBytesSync(raw);
-      notifyListeners();
-    } catch (_) {}
     final out = await _encodeSlotBytes(raw, aspect, wm: wm, crop: crop);
-    await FileImage(file).evict();
+    try {
+      await FileImage(file).evict();
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    } catch (_) {}
     file.writeAsBytesSync(out);
+    incrementPhotoVersion();
     notifyListeners();
   }
 
@@ -2138,11 +2222,11 @@ class Store extends ChangeNotifier {
         }
       }
 
-      // Upload paralel 2 foto sekaligus untuk kecepatan maksimal
-      for (var b = 0; b < pendingUploads.length; b += 2) {
+      // Upload paralel 4 foto sekaligus untuk kecepatan maksimal
+      for (var b = 0; b < pendingUploads.length; b += 4) {
         final chunk = pendingUploads.sublist(
           b,
-          (b + 2).clamp(0, pendingUploads.length),
+          (b + 4).clamp(0, pendingUploads.length),
         );
         onProgress?.call(
           'Mengunggah foto ${b + 1}–${b + chunk.length} dari ${pendingUploads.length}...',
@@ -2153,7 +2237,7 @@ class Store extends ChangeNotifier {
           // Hanya re-encode jika file mentah > 800 KB agar hemat CPU & waktu
           if (raw.lengthInBytes > 800 * 1024) {
             bytesToUpload = await Isolate.run(
-              () => resizeJpegBytesForExport(raw, 1400, 82),
+              () => resizeJpegBytesForExport(raw, 1280, 80),
             );
           }
           final up = await sheetsService.uploadPhotoBytes(
@@ -2241,114 +2325,138 @@ class Store extends ChangeNotifier {
             mimeType: 'application/pdf',
           );
         } catch (_) {}
+      } else if (singleDayIndex != null) {
+        final dIdx = singleDayIndex.clamp(0, 6);
+        final dt = _dateForProgramDay(
+          programType: effectiveProgramType,
+          dayIndex: dIdx,
+          revitProj: activeRevit,
+          rehabProj: activeRehab,
+        );
+        final dayFolder = formatDriveDayFolderName(dt);
+        sentDayLabels.add(dayFolder);
+        final dayTag = 'H${dIdx + 1}_${hariNama[dIdx].toUpperCase()}';
+
+        try {
+          onProgress?.call('Menyiapkan Excel & PDF $dayFolder...');
+          if (effectiveProgramType == 'rehabilitasi') {
+            final xlsxPath = await exportRehabXlsx(
+              singleDayIndex: dIdx,
+              size: cloudDocSize,
+              overrideProject: activeRehab,
+              overridePhotoDir: srcPhotoDir?.path,
+            );
+            final pdfPath = await exportRehabPdf(
+              singleDayIndex: dIdx,
+              size: cloudDocSize,
+              overrideProject: activeRehab,
+              overridePhotoDir: srcPhotoDir?.path,
+            );
+            onProgress?.call('Mengunggah Excel & PDF ke Drive...');
+            await uploadDoc(
+              dayFolder: dayFolder,
+              filePath: xlsxPath,
+              driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.xlsx',
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            );
+            await uploadDoc(
+              dayFolder: dayFolder,
+              filePath: pdfPath,
+              driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.pdf',
+              mimeType: 'application/pdf',
+            );
+          } else {
+            final xlsxPath = await exportXlsx(
+              singleDayIndex: dIdx,
+              size: cloudDocSize,
+              overrideProject: activeRevit,
+              overridePhotoDir: srcPhotoDir?.path,
+            );
+            final pdfPath = await exportPdf(
+              singleDayIndex: dIdx,
+              size: cloudDocSize,
+              overrideProject: activeRevit,
+              overridePhotoDir: srcPhotoDir?.path,
+            );
+            onProgress?.call('Mengunggah Excel & PDF ke Drive...');
+            await uploadDoc(
+              dayFolder: dayFolder,
+              filePath: xlsxPath,
+              driveName: '${safeUserPrefix}_REVITALISASI_M${week}_$dayTag.xlsx',
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            );
+            await uploadDoc(
+              dayFolder: dayFolder,
+              filePath: pdfPath,
+              driveName: '${safeUserPrefix}_REVITALISASI_M${week}_$dayTag.pdf',
+              mimeType: 'application/pdf',
+            );
+          }
+        } catch (_) {}
       } else {
-        final targetDays = <int>[];
-        if (singleDayIndex != null) {
-          targetDays.add(singleDayIndex.clamp(0, 6));
-        } else if (effectiveProgramType == 'rehabilitasi' &&
-            activeRehab != null) {
-          for (var d = 0; d < 7; d++) {
-            final day = activeRehab.days[d];
-            final hasPhotos = List.generate(
-              6,
-              (s) => File('${srcPhotoDir?.path}/rehab_H${d + 1}_${s + 1}.jpg')
-                  .existsSync(),
-            ).any((e) => e);
-            if (day.activities.any((a) => a.trim().isNotEmpty) ||
-                day.workers.isNotEmpty ||
-                hasPhotos) {
-              targetDays.add(d);
-            }
+        // Mode Berkas Mingguan Lengkap (1 Berkas Excel Multi-Sheet + 1 Berkas PDF Lengkap)
+        final weekFolder = 'Minggu_$week';
+        sentDayLabels.add(weekFolder);
+        try {
+          onProgress?.call('Menyiapkan Berkas Mingguan Lengkap Excel & PDF...');
+          if (effectiveProgramType == 'rehabilitasi') {
+            final xlsxPath = await exportRehabXlsx(
+              singleDayIndex: null,
+              size: cloudDocSize,
+              overrideProject: activeRehab,
+              overridePhotoDir: srcPhotoDir?.path,
+            );
+            final pdfPath = await exportRehabPdf(
+              singleDayIndex: null,
+              size: cloudDocSize,
+              overrideProject: activeRehab,
+              overridePhotoDir: srcPhotoDir?.path,
+            );
+            onProgress?.call('Mengunggah Berkas Mingguan ke Drive...');
+            await uploadDoc(
+              dayFolder: weekFolder,
+              filePath: xlsxPath,
+              driveName: '${safeUserPrefix}_REHABILITASI_MINGGU_$week.xlsx',
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            );
+            await uploadDoc(
+              dayFolder: weekFolder,
+              filePath: pdfPath,
+              driveName: '${safeUserPrefix}_REHABILITASI_MINGGU_$week.pdf',
+              mimeType: 'application/pdf',
+            );
+          } else {
+            final xlsxPath = await exportXlsx(
+              singleDayIndex: null,
+              size: cloudDocSize,
+              overrideProject: activeRevit,
+              overridePhotoDir: srcPhotoDir?.path,
+            );
+            final pdfPath = await exportPdf(
+              singleDayIndex: null,
+              size: cloudDocSize,
+              overrideProject: activeRevit,
+              overridePhotoDir: srcPhotoDir?.path,
+            );
+            onProgress?.call('Mengunggah Berkas Mingguan ke Drive...');
+            await uploadDoc(
+              dayFolder: weekFolder,
+              filePath: xlsxPath,
+              driveName: '${safeUserPrefix}_REVITALISASI_MINGGU_$week.xlsx',
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            );
+            await uploadDoc(
+              dayFolder: weekFolder,
+              filePath: pdfPath,
+              driveName: '${safeUserPrefix}_REVITALISASI_MINGGU_$week.pdf',
+              mimeType: 'application/pdf',
+            );
           }
-          if (targetDays.isEmpty) {
-            targetDays.add((DateTime.now().weekday - 1).clamp(0, 6));
-          }
-        } else if (activeRevit != null) {
-          for (var d = 0; d < 7; d++) {
-            final day = activeRevit.days[d];
-            final hasPhotos = photoDriveMap.keys
-                .any((k) => k.startsWith('H${d + 1}_'));
-            if (day.acts.any((a) => a.text.trim().isNotEmpty) ||
-                day.workers.isNotEmpty ||
-                hasPhotos) {
-              targetDays.add(d);
-            }
-          }
-          if (targetDays.isEmpty) {
-            targetDays.add((DateTime.now().weekday - 1).clamp(0, 6));
-          }
-        }
-
-        for (final dIdx in targetDays) {
-          final dt = _dateForProgramDay(
-            programType: effectiveProgramType,
-            dayIndex: dIdx,
-            revitProj: activeRevit,
-            rehabProj: activeRehab,
-          );
-          final dayFolder = formatDriveDayFolderName(dt);
-          sentDayLabels.add(dayFolder);
-          final dayTag = 'H${dIdx + 1}_${hariNama[dIdx].toUpperCase()}';
-
-          try {
-            onProgress?.call('Menyiapkan Excel & PDF $dayFolder...');
-            if (effectiveProgramType == 'rehabilitasi') {
-              final xlsxPath = await exportRehabXlsx(
-                singleDayIndex: dIdx,
-                size: cloudDocSize,
-                overrideProject: activeRehab,
-                overridePhotoDir: srcPhotoDir?.path,
-              );
-              final pdfPath = await exportRehabPdf(
-                singleDayIndex: dIdx,
-                size: cloudDocSize,
-                overrideProject: activeRehab,
-                overridePhotoDir: srcPhotoDir?.path,
-              );
-              onProgress?.call('Mengunggah Excel & PDF ke Drive ($dayFolder)...');
-              await uploadDoc(
-                dayFolder: dayFolder,
-                filePath: xlsxPath,
-                driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.xlsx',
-                mimeType:
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              );
-              await uploadDoc(
-                dayFolder: dayFolder,
-                filePath: pdfPath,
-                driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.pdf',
-                mimeType: 'application/pdf',
-              );
-            } else {
-              final xlsxPath = await exportXlsx(
-                singleDayIndex: dIdx,
-                size: cloudDocSize,
-                overrideProject: activeRevit,
-                overridePhotoDir: srcPhotoDir?.path,
-              );
-              final pdfPath = await exportPdf(
-                singleDayIndex: dIdx,
-                size: cloudDocSize,
-                overrideProject: activeRevit,
-                overridePhotoDir: srcPhotoDir?.path,
-              );
-              onProgress?.call('Mengunggah Excel & PDF ke Drive ($dayFolder)...');
-              await uploadDoc(
-                dayFolder: dayFolder,
-                filePath: xlsxPath,
-                driveName: '${safeUserPrefix}_REVITALISASI_M${week}_$dayTag.xlsx',
-                mimeType:
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              );
-              await uploadDoc(
-                dayFolder: dayFolder,
-                filePath: pdfPath,
-                driveName: '${safeUserPrefix}_REVITALISASI_M${week}_$dayTag.pdf',
-                mimeType: 'application/pdf',
-              );
-            }
-          } catch (_) {}
-        }
+        } catch (_) {}
       }
     }
 
@@ -2360,13 +2468,15 @@ class Store extends ChangeNotifier {
           .whereType<File>()
           .where((f) => f.path.toLowerCase().endsWith('.jpg'))
           .toList();
-      final targetPhotos = singleDayIndex == null
+      final matchingDayPhotos = singleDayIndex == null
           ? allPhotos
           : allPhotos.where((f) {
               final name = f.uri.pathSegments.last;
               final idx = _dayIndexFromPhotoFilename(name);
               return idx == null || idx == singleDayIndex;
             }).toList();
+      // Jika hari yang dipilih belum memiliki foto tetapi hari lain ada foto, sertakan semua foto agar Admin tidak menerima laporan kosongan
+      final targetPhotos = matchingDayPhotos.isNotEmpty ? matchingDayPhotos : allPhotos;
 
       for (final pf in targetPhotos) {
         try {
