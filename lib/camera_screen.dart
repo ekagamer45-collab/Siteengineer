@@ -51,6 +51,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   bool _shutterFlash = false;
   bool _isVertical = false; // false = 16:9 Horizontal (3840x2160), true = 9:16 Vertikal (2160x3840)
 
+  Offset? _focusPointScreen;
+  bool _showFocusRing = false;
+  Timer? _focusRingTimer;
+
   List<CameraDescription> _availableCameras = [];
   int _selectedCameraIndex = 0;
   CameraLensDirection _currentLens = CameraLensDirection.back;
@@ -71,10 +75,50 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _focusRingTimer?.cancel();
     _waitTimer?.cancel();
     _posSub?.cancel();
     _controller?.dispose();
     super.dispose();
+  }
+
+  Future<void> _onTapToFocus(TapDownDetails details, Size boxSize) async {
+    final ctrl = _controller;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
+
+    final screenPoint = details.localPosition;
+    final normalizedPoint = Offset(
+      (screenPoint.dx / boxSize.width).clamp(0.0, 1.0),
+      (screenPoint.dy / boxSize.height).clamp(0.0, 1.0),
+    );
+
+    HapticFeedback.selectionClick();
+
+    setState(() {
+      _focusPointScreen = screenPoint;
+      _showFocusRing = true;
+    });
+
+    _focusRingTimer?.cancel();
+    _focusRingTimer = Timer(const Duration(milliseconds: 2000), () {
+      if (mounted) {
+        setState(() => _showFocusRing = false);
+      }
+    });
+
+    try {
+      if (ctrl.value.focusPointSupported) {
+        await ctrl.setFocusPoint(normalizedPoint);
+      }
+      await ctrl.setFocusMode(FocusMode.auto);
+    } catch (_) {}
+
+    try {
+      if (ctrl.value.exposurePointSupported) {
+        await ctrl.setExposurePoint(normalizedPoint);
+      }
+      await ctrl.setExposureMode(ExposureMode.auto);
+    } catch (_) {}
   }
 
   @override
@@ -834,59 +878,75 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         return Stack(
           fit: StackFit.expand,
           children: [
-            // 1. Kamera Pratinjau Terbuka Penuh (Full View Tanpa Bingkai Gelap / Box Mengunci)
-            Center(
-              child: ctrl == null
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : ValueListenableBuilder<CameraValue>(
-                      valueListenable: ctrl,
-                      builder: (context, val, _) {
-                        if (val.hasError) {
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.videocam_off_outlined,
-                                color: Colors.orangeAccent,
-                                size: 40,
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Pratinjau kamera terhenti.',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                              const SizedBox(height: 8),
-                              OutlinedButton.icon(
-                                onPressed: _initAll,
-                                icon: const Icon(Icons.refresh, color: Colors.white),
-                                label: const Text(
-                                  'Muat Ulang Kamera',
-                                  style: TextStyle(color: Colors.white),
+            // 1. Kamera Pratinjau Terbuka Penuh dengan Klik Titik Fokus (Tap-to-Focus)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (details) => _onTapToFocus(details, Size(screenW, screenH)),
+              child: Center(
+                child: ctrl == null
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : ValueListenableBuilder<CameraValue>(
+                        valueListenable: ctrl,
+                        builder: (context, val, _) {
+                          if (val.hasError) {
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.videocam_off_outlined,
+                                  color: Colors.orangeAccent,
+                                  size: 40,
                                 ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Pratinjau kamera terhenti.',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                                const SizedBox(height: 8),
+                                OutlinedButton.icon(
+                                  onPressed: _initAll,
+                                  icon: const Icon(Icons.refresh, color: Colors.white),
+                                  label: const Text(
+                                    'Muat Ulang Kamera',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+                          final hasSize = val.previewSize != null &&
+                              val.aspectRatio.isFinite &&
+                              val.aspectRatio > 0;
+                          if (!val.isInitialized || !hasSize) {
+                            return const CircularProgressIndicator(color: Colors.white);
+                          }
+                          return SizedBox.expand(
+                            child: FittedBox(
+                              fit: BoxFit.cover,
+                              clipBehavior: Clip.hardEdge,
+                              child: SizedBox(
+                                width: 1080,
+                                height: 1080 / (isLandscape ? ctrl.value.aspectRatio : (1 / (ctrl.value.aspectRatio == 0 ? 1 : ctrl.value.aspectRatio))),
+                                child: CameraPreview(ctrl),
                               ),
-                            ],
-                          );
-                        }
-                        final hasSize = val.previewSize != null &&
-                            val.aspectRatio.isFinite &&
-                            val.aspectRatio > 0;
-                        if (!val.isInitialized || !hasSize) {
-                          return const CircularProgressIndicator(color: Colors.white);
-                        }
-                        return SizedBox.expand(
-                          child: FittedBox(
-                            fit: BoxFit.cover,
-                            clipBehavior: Clip.hardEdge,
-                            child: SizedBox(
-                              width: 1080,
-                              height: 1080 / (isLandscape ? ctrl.value.aspectRatio : (1 / (ctrl.value.aspectRatio == 0 ? 1 : ctrl.value.aspectRatio))),
-                              child: CameraPreview(ctrl),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
+              ),
             ),
+
+            // Indikator Titik Fokus Animasi (Tap-to-Focus Reticle)
+            if (_showFocusRing && _focusPointScreen != null)
+              Positioned(
+                left: (_focusPointScreen!.dx - 36).clamp(0.0, screenW - 72),
+                top: (_focusPointScreen!.dy - 36).clamp(0.0, screenH - 72),
+                child: IgnorePointer(
+                  child: _FocusReticleWidget(
+                    key: ValueKey('${_focusPointScreen!.dx.toInt()}_${_focusPointScreen!.dy.toInt()}'),
+                  ),
+                ),
+              ),
 
             // 2. Chip Akurasi GPS Kecil & Elegan di Bagian Atas (Tidak Menghalangi Pandangan)
             Positioned(
@@ -1149,4 +1209,156 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       ),
     );
   }
+}
+
+/// Widget Reticle Titik Fokus Animasi (Snap-in bounce + Amber Glow + Sun icon)
+class _FocusReticleWidget extends StatefulWidget {
+  const _FocusReticleWidget({super.key});
+
+  @override
+  State<_FocusReticleWidget> createState() => _FocusReticleWidgetState();
+}
+
+class _FocusReticleWidgetState extends State<_FocusReticleWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _anim;
+  late Animation<double> _scale;
+  late Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _scale = Tween<double>(begin: 1.45, end: 1.0).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeOutBack),
+    );
+    _opacity = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _anim, curve: Curves.easeIn),
+    );
+    _anim.forward();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scale.value,
+          child: Opacity(
+            opacity: _opacity.value,
+            child: SizedBox(
+              width: 72,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(64, 64),
+                    painter: _FocusBoxPainter(),
+                  ),
+                  Container(
+                    width: 5,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFFFD54F),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black45,
+                          blurRadius: 3,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Positioned(
+                    right: 0,
+                    child: Icon(
+                      Icons.wb_sunny_rounded,
+                      color: Color(0xFFFFD54F),
+                      size: 14,
+                      shadows: [
+                        Shadow(color: Colors.black54, blurRadius: 4),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FocusBoxPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    const corner = 14.0;
+
+    // Bayangan tepi agar terlihat sangat jelas di latar belakang terang/gelap
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.4)
+      ..strokeWidth = 3.2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final paint = Paint()
+      ..color = const Color(0xFFFFD54F) // Kuning emas amber terang khas kamera pro
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    void drawBrackets(Paint p) {
+      // Sudut Kiri-Atas
+      final p1 = Path()
+        ..moveTo(0, corner)
+        ..lineTo(0, 4)
+        ..quadraticBezierTo(0, 0, 4, 0)
+        ..lineTo(corner, 0);
+      canvas.drawPath(p1, p);
+
+      // Sudut Kanan-Atas
+      final p2 = Path()
+        ..moveTo(w - corner, 0)
+        ..lineTo(w - 4, 0)
+        ..quadraticBezierTo(w, 0, w, 4)
+        ..lineTo(w, corner);
+      canvas.drawPath(p2, p);
+
+      // Sudut Kanan-Bawah
+      final p3 = Path()
+        ..moveTo(w, h - corner)
+        ..lineTo(w, h - 4)
+        ..quadraticBezierTo(w, h, w - 4, h)
+        ..lineTo(w - corner, h);
+      canvas.drawPath(p3, p);
+
+      // Sudut Kiri-Bawah
+      final p4 = Path()
+        ..moveTo(corner, h)
+        ..lineTo(4, h)
+        ..quadraticBezierTo(0, h, 0, h - 4)
+        ..lineTo(0, h - corner);
+      canvas.drawPath(p4, p);
+    }
+
+    drawBrackets(shadowPaint);
+    drawBrackets(paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
