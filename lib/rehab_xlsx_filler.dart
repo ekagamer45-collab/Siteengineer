@@ -546,10 +546,21 @@ class RehabXlsxFiller {
     final dayIdx = dayIndex.clamp(0, 6);
     final dt = project.dateOf(dayIdx);
 
-    // Kumpulkan foto spesifik progres: slot rehab_0pct_1..6, rehab_50pct_1..6, rehab_100pct_1..6
+    final stageStage = project.progressStages.cast<RehabProgressStage?>().firstWhere(
+      (st) => st != null && st.percentage == stagePct,
+      orElse: () => null,
+    );
+    final stageLabels = stageStage?.photoLabels ??
+        (stagePct == 0
+            ? project.photoLabels0
+            : stagePct == 50
+                ? project.photoLabels50
+                : project.photoLabels100);
+
+    // Kumpulkan foto spesifik progres: slot rehab_0pct_1..n, rehab_50pct_1..n, rehab_100pct_1..n
     // Jika belum ada foto khusus progres, fallback ke foto harian rehab_H${dayIdx+1}_${s+1}
     final photoPaths = <String, String>{};
-    for (var s = 0; s < 6; s++) {
+    for (var s = 0; s < stageLabels.length; s++) {
       final stageSlotId = 'rehab_${stagePct}pct_${s + 1}';
       final stageFile = File('$photoDir/$stageSlotId.jpg');
       if (stageFile.existsSync()) {
@@ -569,12 +580,6 @@ class RehabXlsxFiller {
       desiredQuality: exportJpegQuality,
       photoBudgetBytes: maxFileBytes != null ? (maxFileBytes - 250 * 1024) : null,
     );
-
-    final stageLabels = stagePct == 0
-        ? project.photoLabels0
-        : stagePct == 50
-            ? project.photoLabels50
-            : project.photoLabels100;
 
     final sh = _SheetData('Progres $stagePct%', landscape: false);
     sh.colWidths.addAll([12, 12, 12, 12, 12, 12, 12, 12]);
@@ -598,16 +603,14 @@ class RehabXlsxFiller {
     sh.setText(6, 3, '$stagePct.00%', style: 2);
     sh.merge(6, 3, 6, 8);
 
-    // 6 slot foto
-    for (var s = 0; s < 6; s++) {
+    // Slot foto sesuai jumlah label
+    for (var s = 0; s < stageLabels.length; s++) {
       final stageSlotId = 'rehab_${stagePct}pct_${s + 1}';
       final photoBytes = packed.photos[stageSlotId];
       final isRight = s % 2 == 1;
       final rowIdx = 8 + (s ~/ 2) * 16;
       final labelCol = isRight ? 5 : 1;
-      final label = s < stageLabels.length
-          ? stageLabels[s]
-          : 'Dokumentasi Foto ${s + 1} ($stagePct%)';
+      final label = stageLabels[s];
 
       sh.setText(rowIdx, labelCol, label, style: 4);
       if (isRight) {

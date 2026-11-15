@@ -1,5 +1,54 @@
 import 'models.dart';
 
+/// Tahapan progres fisik khusus pengawas (0%, 50%, 100%, atau kustom).
+class RehabProgressStage {
+  RehabProgressStage({
+    required this.id,
+    required this.percentage,
+    required this.name,
+    this.description = '',
+    List<String>? photoLabels,
+  }) : photoLabels = photoLabels ?? [
+          'Dokumentasi Foto 1',
+          'Dokumentasi Foto 2',
+          'Dokumentasi Foto 3',
+          'Dokumentasi Foto 4',
+          'Dokumentasi Foto 5',
+          'Dokumentasi Foto 6',
+        ];
+
+  String id;
+  int percentage;
+  String name;
+  String description;
+  List<String> photoLabels;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'percentage': percentage,
+        'name': name,
+        'description': description,
+        'photoLabels': photoLabels,
+      };
+
+  factory RehabProgressStage.fromJson(Map<String, dynamic> j) =>
+      RehabProgressStage(
+        id: j['id'] as String? ?? '0',
+        percentage: (j['percentage'] as num?)?.toInt() ?? 0,
+        name: j['name'] as String? ?? '',
+        description: j['description'] as String? ?? '',
+        photoLabels: (j['photoLabels'] as List?)?.cast<String>(),
+      );
+
+  RehabProgressStage copy() => RehabProgressStage(
+        id: id,
+        percentage: percentage,
+        name: name,
+        description: description,
+        photoLabels: List<String>.from(photoLabels),
+      );
+}
+
 /// Satu baris bahan yang didatangkan pada Laporan Harian Rehabilitasi.
 class RehabMaterialItem {
   RehabMaterialItem({
@@ -282,11 +331,13 @@ class RehabProject {
     List<String>? photoLabels0,
     List<String>? photoLabels50,
     List<String>? photoLabels100,
+    List<RehabProgressStage>? progressStages,
     Map<String, PhotoMeta>? photoMeta,
   })  : mulai = mulai ?? DateTime(2026, 10, 12),
         realisasiKumulatifMingguan = realisasiKumulatifMingguan ?? [0.0, 0.0, 6.95, 32.93, 44.60, 83.09],
         sections = sections ?? _defaultSections(),
         days = days ?? _defaultDays(),
+        progressStages = progressStages ?? defaultProgressStages(photoLabels0, photoLabels50, photoLabels100),
         photoLabels = photoLabels ??
             [
               'Dokumentasi Foto 1 (0% / Awal)',
@@ -361,6 +412,7 @@ class RehabProject {
   List<String> photoLabels0; // 6 label foto progres 0% (Kondisi Awal / Lahan Kosong)
   List<String> photoLabels50; // 6 label foto progres 50% (Pondasi & Pembangunan)
   List<String> photoLabels100; // 6 label foto progres 100% (Bangunan Utuh Selesai)
+  List<RehabProgressStage> progressStages; // Tahapan progres fisik (0%, 50%, 100%, dll) yang fleksibel CRUD
   Map<String, PhotoMeta> photoMeta;
 
   DateTime dateOf(int i) => DateTime(mulai.year, mulai.month, mulai.day + i);
@@ -458,6 +510,7 @@ class RehabProject {
         'photoLabels0': photoLabels0,
         'photoLabels50': photoLabels50,
         'photoLabels100': photoLabels100,
+        'progressStages': progressStages.map((e) => e.toJson()).toList(),
         'photoMeta': photoMeta.map((k, v) => MapEntry(k, v.toJson())),
       };
 
@@ -500,11 +553,67 @@ class RehabProject {
         photoLabels0: (j['photoLabels0'] as List?)?.cast<String>(),
         photoLabels50: (j['photoLabels50'] as List?)?.cast<String>(),
         photoLabels100: (j['photoLabels100'] as List?)?.cast<String>(),
+        progressStages: (j['progressStages'] as List?)
+            ?.map((e) => RehabProgressStage.fromJson(e as Map<String, dynamic>))
+            .toList(),
         photoMeta: j['photoMeta'] is Map
             ? (j['photoMeta'] as Map<String, dynamic>)
                 .map((k, v) => MapEntry(k, PhotoMeta.fromJson(v as Map<String, dynamic>)))
             : {},
       );
+
+  static List<RehabProgressStage> defaultProgressStages(
+    List<String>? l0,
+    List<String>? l50,
+    List<String>? l100,
+  ) =>
+      [
+        RehabProgressStage(
+          id: '0',
+          percentage: 0,
+          name: 'Kondisi 0% (Awal / Lahan)',
+          description: 'Lahan kosong, patok, tapak awal',
+          photoLabels: l0 ??
+              [
+                'Kondisi Awal Lahan 1 (0%)',
+                'Batas Tapak & Pengukuran (0%)',
+                'Kondisi Lahan Samping Kiri (0%)',
+                'Kondisi Lahan Samping Kanan (0%)',
+                'Akses Masuk & Lokasi Proyek (0%)',
+                'Dokumentasi Titik Nol Lahan (0%)',
+              ],
+        ),
+        RehabProgressStage(
+          id: '50',
+          percentage: 50,
+          name: 'Kondisi 50% (Pondasi & Bangun)',
+          description: 'Pekerjaan pondasi, cor struktur, dinding',
+          photoLabels: l50 ??
+              [
+                'Pekerjaan Galian & Pondasi (50%)',
+                'Pekerjaan Pembesian & Bekisting (50%)',
+                'Pekerjaan Cor Struktur Kolom (50%)',
+                'Pekerjaan Pasangan Dinding Bata (50%)',
+                'Pekerjaan Rangka Atap/Plafon (50%)',
+                'Pekerjaan Utilitas & Pemipaan (50%)',
+              ],
+        ),
+        RehabProgressStage(
+          id: '100',
+          percentage: 100,
+          name: 'Kondisi 100% (Selesai Utuh)',
+          description: 'Bangunan utuh selesai, tampak luar & dalam',
+          photoLabels: l100 ??
+              [
+                'Tampak Depan Bangunan Selesai (100%)',
+                'Tampak Samping Bangunan Selesai (100%)',
+                'Tampak Belakang Bangunan (100%)',
+                'Interior / Ruang Utama Selesai (100%)',
+                'Penyelesaian Finishing & Cat (100%)',
+                'Serah Terima Pertama Fisik Utuh (100%)',
+              ],
+        ),
+      ];
 
   static List<RehabSection> _defaultSections() => [
         RehabSection(

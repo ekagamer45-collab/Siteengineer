@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'camera_screen.dart';
 import 'config.dart';
+import 'crop_screen.dart';
 import 'export_ui.dart';
 import 'history_controls.dart';
 import 'models.dart';
@@ -2609,21 +2611,48 @@ class RehabProgressStagesScreen extends StatefulWidget {
 
 class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
   late RehabProject _proj;
-  int _selectedStage = 0; // 0, 50, atau 100
+  int _selectedStageIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _proj = widget.project;
+    _ensureStagesInitialized();
   }
 
-  List<String> get _currentLabels {
-    if (_selectedStage == 0) return _proj.photoLabels0;
-    if (_selectedStage == 50) return _proj.photoLabels50;
-    return _proj.photoLabels100;
+  void _ensureStagesInitialized() {
+    if (_proj.progressStages.isEmpty) {
+      _proj.progressStages = RehabProject.defaultProgressStages(
+        _proj.photoLabels0,
+        _proj.photoLabels50,
+        _proj.photoLabels100,
+      );
+    }
+  }
+
+  RehabProgressStage get _currentStage {
+    _ensureStagesInitialized();
+    if (_selectedStageIndex >= _proj.progressStages.length) {
+      _selectedStageIndex = _proj.progressStages.length - 1;
+    }
+    if (_selectedStageIndex < 0) {
+      _selectedStageIndex = 0;
+    }
+    return _proj.progressStages[_selectedStageIndex];
   }
 
   void _saveProject() {
+    // Sinkronisasi backward compatibility untuk label default 0, 50, 100
+    for (final st in _proj.progressStages) {
+      if (st.percentage == 0) {
+        _proj.photoLabels0 = List<String>.from(st.photoLabels);
+      } else if (st.percentage == 50) {
+        _proj.photoLabels50 = List<String>.from(st.photoLabels);
+      } else if (st.percentage == 100) {
+        _proj.photoLabels100 = List<String>.from(st.photoLabels);
+      }
+    }
+
     if (widget.customProgramId != null) {
       final idx = widget.store.customPrograms
           .indexWhere((e) => e.id == widget.customProgramId);
@@ -2642,14 +2671,263 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
     setState(() {});
   }
 
+  // ================= CRUD TAHAPAN PROGRES FISIK =================
+
+  Future<void> _addStageDialog() async {
+    final nameCtrl = TextEditingController(text: 'Tahap Baru');
+    final pctCtrl = TextEditingController(text: '25');
+    final descCtrl = TextEditingController(text: 'Pekerjaan Struktur');
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.add_chart_rounded, color: Colors.blueAccent),
+            SizedBox(width: 8),
+            Text('Tambah Tahapan Progres', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Tahapan',
+                  hintText: 'Contoh: Kondisi 25% (Pondasi)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: pctCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Persentase Fisik (%)',
+                  hintText: '0 - 100',
+                  suffixText: '%',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Deskripsi Singkat',
+                  hintText: 'Contoh: Galian, pondasi, dan sloof',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Tambah'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true && nameCtrl.text.trim().isNotEmpty) {
+      final pct = int.tryParse(pctCtrl.text.trim()) ?? 0;
+      final newStage = RehabProgressStage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        percentage: pct,
+        name: nameCtrl.text.trim(),
+        description: descCtrl.text.trim(),
+        photoLabels: [
+          'Dokumentasi 1 ($pct%)',
+          'Dokumentasi 2 ($pct%)',
+          'Dokumentasi 3 ($pct%)',
+          'Dokumentasi 4 ($pct%)',
+          'Dokumentasi 5 ($pct%)',
+          'Dokumentasi 6 ($pct%)',
+        ],
+      );
+      _proj.progressStages.add(newStage);
+      _selectedStageIndex = _proj.progressStages.length - 1;
+      _saveProject();
+    }
+  }
+
+  Future<void> _editStageDialog(int stageIndex) async {
+    if (stageIndex >= _proj.progressStages.length) return;
+    final stage = _proj.progressStages[stageIndex];
+    final nameCtrl = TextEditingController(text: stage.name);
+    final pctCtrl = TextEditingController(text: stage.percentage.toString());
+    final descCtrl = TextEditingController(text: stage.description);
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.edit_note_rounded, color: Colors.blueAccent),
+            SizedBox(width: 8),
+            Text('Edit Tahapan Progres', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Tahapan',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: pctCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Persentase Fisik (%)',
+                  suffixText: '%',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Deskripsi Singkat',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Simpan Perubahan'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true && nameCtrl.text.trim().isNotEmpty) {
+      stage.name = nameCtrl.text.trim();
+      stage.percentage = int.tryParse(pctCtrl.text.trim()) ?? stage.percentage;
+      stage.description = descCtrl.text.trim();
+      _saveProject();
+    }
+  }
+
+  Future<void> _deleteStageDialog(int stageIndex) async {
+    if (_proj.progressStages.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Minimal harus ada 1 tahapan progres fisik.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    final stage = _proj.progressStages[stageIndex];
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Tahapan?'),
+        content: Text(
+          'Yakin ingin menghapus tahapan "${stage.name}" (${stage.percentage}%) beserta foto-fotonya?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      // Hapus file foto terkait tahapan ini
+      for (var s = 0; s < stage.photoLabels.length; s++) {
+        final slotId = 'rehab_${stage.percentage}pct_${s + 1}';
+        final f1 = File('${widget.photoDir.path}/$slotId.jpg');
+        final f2 = File('${widget.photoDir.path}/${slotId}_raw.jpg');
+        final f3 = File('${widget.photoDir.path}/${slotId}_hd.jpg');
+        try {
+          if (f1.existsSync()) f1.deleteSync();
+          if (f2.existsSync()) f2.deleteSync();
+          if (f3.existsSync()) f3.deleteSync();
+        } catch (_) {}
+      }
+      _proj.progressStages.removeAt(stageIndex);
+      if (_selectedStageIndex >= _proj.progressStages.length) {
+        _selectedStageIndex = _proj.progressStages.length - 1;
+      }
+      _saveProject();
+    }
+  }
+
+  // ================= CRUD SLOT FOTO =================
+
+  Future<void> _addPhotoSlot() async {
+    final stage = _currentStage;
+    final nextNum = stage.photoLabels.length + 1;
+    final ctrl = TextEditingController(
+      text: 'Dokumentasi Foto $nextNum (${stage.percentage}%)',
+    );
+    final res = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tambah Slot Foto Baru'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Keterangan Slot Foto',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Tambah Slot'),
+          ),
+        ],
+      ),
+    );
+
+    if (res != null && res.isNotEmpty) {
+      stage.photoLabels.add(res);
+      _saveProject();
+    }
+  }
+
   Future<void> _editLabel(int index) async {
-    final labels = _currentLabels;
-    final current = index < labels.length ? labels[index] : '';
+    final stage = _currentStage;
+    final current = index < stage.photoLabels.length ? stage.photoLabels[index] : '';
     final ctrl = TextEditingController(text: current);
     final res = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Ubah Label Foto ${index + 1} ($_selectedStage%)'),
+        title: Text('Ubah Label Slot ${index + 1} (${stage.percentage}%)'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -2671,17 +2949,118 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
       ),
     );
     if (res != null && res.isNotEmpty) {
-      if (index < labels.length) {
-        labels[index] = res;
+      if (index < stage.photoLabels.length) {
+        stage.photoLabels[index] = res;
       }
       _saveProject();
     }
   }
 
-  Future<void> _takePhoto(int index) async {
-    final slotId = 'rehab_${_selectedStage}pct_${index + 1}';
-    final labels = _currentLabels;
-    final label = index < labels.length ? labels[index] : 'Foto ${index + 1}';
+  Future<void> _deletePhotoSlot(int index) async {
+    final stage = _currentStage;
+    if (stage.photoLabels.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Minimal harus ada 1 slot foto.')),
+      );
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Slot Foto?'),
+        content: Text(
+          'Hapus Slot ${index + 1} ("${stage.photoLabels[index]}") beserta fotonya?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus Slot'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      _deletePhoto(index);
+      stage.photoLabels.removeAt(index);
+      _saveProject();
+    }
+  }
+
+  // ================= PILIH KAMERA ATAU GALERI =================
+
+  Future<void> _choosePhotoSource(int index) async {
+    final stage = _currentStage;
+    final label = index < stage.photoLabels.length
+        ? stage.photoLabels[index]
+        : 'Foto ${index + 1}';
+
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Pilih Sumber Foto (Slot ${index + 1})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.teal.shade50,
+                  child: Icon(Icons.camera_alt_rounded, color: Colors.teal.shade800),
+                ),
+                title: const Text('Ambil dari Kamera', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Gunakan kamera langsung dengan grid dan fokus'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _takePhotoFromCamera(index);
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.shade50,
+                  child: const Icon(Icons.photo_library_rounded, color: Colors.blueAccent),
+                ),
+                title: const Text('Pilih dari Galeri HP', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Pilih foto proyek yang sudah ada di galeri ponsel'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickPhotoFromGallery(index);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _takePhotoFromCamera(int index) async {
+    final stage = _currentStage;
+    final slotId = 'rehab_${stage.percentage}pct_${index + 1}';
+    final label = index < stage.photoLabels.length
+        ? stage.photoLabels[index]
+        : 'Foto ${index + 1}';
     final slot = Slot(
       slotId,
       label,
@@ -2694,7 +3073,7 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
       MaterialPageRoute(
         builder: (_) => CameraScreen(
           slot: slot,
-          projectTitle: '${_proj.namaPekerjaan} - Progres $_selectedStage%',
+          projectTitle: '${_proj.namaPekerjaan} - Progres ${stage.percentage}%',
           onCustomSave: (rawBytes, wm, crop) async {
             await widget.store.saveSlotPhotoToDir(
               widget.photoDir,
@@ -2711,8 +3090,61 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _pickPhotoFromGallery(int index) async {
+    final stage = _currentStage;
+    final slotId = 'rehab_${stage.percentage}pct_${index + 1}';
+    final label = index < stage.photoLabels.length
+        ? stage.photoLabels[index]
+        : 'Foto ${index + 1}';
+
+    try {
+      final x = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2400,
+        imageQuality: 90,
+      );
+      if (x == null) return;
+      final raw = await x.readAsBytes();
+      final normalized = await normalizeImageBytes(raw);
+      if (!mounted) return;
+
+      final crop = await PhotoCropDialog.show(
+        context,
+        rawBytes: normalized,
+        aspect: 16.0 / 9.0,
+        title: label,
+      );
+      if (crop == null) return;
+
+      await widget.store.saveSlotPhotoToDir(
+        widget.photoDir,
+        slotId,
+        normalized,
+        16.0 / 9.0,
+        crop: crop,
+      );
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto dari galeri berhasil disimpan.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memproses foto galeri: $e')),
+        );
+      }
+    }
+  }
+
   void _deletePhoto(int index) {
-    final slotId = 'rehab_${_selectedStage}pct_${index + 1}';
+    final stage = _currentStage;
+    final slotId = 'rehab_${stage.percentage}pct_${index + 1}';
     final files = [
       File('${widget.photoDir.path}/$slotId.jpg'),
       File('${widget.photoDir.path}/${slotId}_raw.jpg'),
@@ -2728,25 +3160,84 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
     setState(() {});
   }
 
+  // ================= PRATINJAU FULLSCREEN (ZOOM IN/OUT) =================
+
+  void _previewPhoto(File photoFile, String label, int slotNum) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: Image.file(
+                  photoFile,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              left: 16,
+              right: 16,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Slot $slotNum: $label',
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  CircleAvatar(
+                    backgroundColor: Colors.white24,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _exportExcel() async {
+    final stage = _currentStage;
     await showCanvaExportSheet(
       context,
-      title: 'Unduh Excel Progres $_selectedStage%',
+      title: 'Unduh Excel Progres ${stage.percentage}%',
       subtitle: _proj.namaPekerjaan,
-      photoCount: 6,
+      photoCount: stage.photoLabels.length,
       folderContext: ExportFolderContext(
-        programName: '$_selectedStage%-Pengawas',
+        programName: '${stage.percentage}%-Pengawas',
         weekNumber: _proj.minggu,
         dayName: 'Progres',
       ),
       onBuildXlsx: (size) => widget.store.exportRehabSingleProgressXlsx(
-        stagePct: _selectedStage,
+        stagePct: stage.percentage,
         size: size,
         overrideProject: _proj,
         overridePhotoDir: widget.photoDir.path,
       ),
       onBuildPdf: (size) => widget.store.exportRehabSingleProgressPdf(
-        stagePct: _selectedStage,
+        stagePct: stage.percentage,
         size: size,
         overrideProject: _proj,
         overridePhotoDir: widget.photoDir.path,
@@ -2756,7 +3247,8 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final labels = _currentLabels;
+    final stage = _currentStage;
+    final labels = stage.photoLabels;
 
     return Scaffold(
       appBar: AppBar(
@@ -2783,59 +3275,120 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
       ),
       body: Column(
         children: [
+          // BAR TAHAPAN PROGRES FISIK (CRUD)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
             color: const Color(0xFF062C65),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Pilih Tahapan Progres Fisik:',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: _buildStageButton(
-                        pct: 0,
-                        title: '0%',
-                        desc: 'Lahan Kosong',
-                        color: Colors.blueAccent,
-                      ),
+                    const Text(
+                      'Pilih Tahapan Progres Fisik:',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildStageButton(
-                        pct: 50,
-                        title: '50%',
-                        desc: 'Pondasi & Bangun',
-                        color: Colors.orangeAccent,
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: Colors.lightBlueAccent,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildStageButton(
-                        pct: 100,
-                        title: '100%',
-                        desc: 'Rumah Utuh Selesai',
-                        color: Colors.greenAccent,
-                      ),
+                      onPressed: _addStageDialog,
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('+ Tahap Baru', style: TextStyle(fontSize: 12)),
                     ),
                   ],
+                ),
+                const SizedBox(height: 6),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < _proj.progressStages.length; i++) ...[
+                        _buildStageTab(
+                          index: i,
+                          stage: _proj.progressStages[i],
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                // Panel kontrol tahapan aktif
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${stage.name} (${stage.percentage}%) • ${labels.length} Slot Foto',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Edit Tahapan',
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.edit_outlined, size: 16, color: Colors.white70),
+                        onPressed: () => _editStageDialog(_selectedStageIndex),
+                      ),
+                      if (_proj.progressStages.length > 1)
+                        IconButton(
+                          tooltip: 'Hapus Tahapan',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
+                          onPressed: () => _deleteStageDialog(_selectedStageIndex),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+
+          // DAFTAR SLOT FOTO (CRUD SLOT FOTO)
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(14),
-              itemCount: 6,
+              itemCount: labels.length + 1,
               itemBuilder: (ctx, idx) {
-                final slotId = 'rehab_${_selectedStage}pct_${idx + 1}';
+                // Tombol Tambah Slot Foto di bagian paling bawah
+                if (idx == labels.length) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: BorderSide(color: Colors.teal.shade700, width: 1.2),
+                      ),
+                      onPressed: _addPhotoSlot,
+                      icon: Icon(Icons.add_photo_alternate_rounded, color: Colors.teal.shade800),
+                      label: Text(
+                        '+ Tambah Slot Foto Progres ${stage.percentage}%',
+                        style: TextStyle(
+                          color: Colors.teal.shade900,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                final slotId = 'rehab_${stage.percentage}pct_${idx + 1}';
                 final photoFile = File('${widget.photoDir.path}/$slotId.jpg');
                 final hasPhoto = photoFile.existsSync();
-                final label = idx < labels.length ? labels[idx] : 'Foto ${idx + 1}';
+                final label = labels[idx];
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -2843,7 +3396,7 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
-                      color: hasPhoto ? Colors.teal.shade300 : Colors.grey.shade300,
+                      color: hasPhoto ? Colors.teal.shade400 : Colors.grey.shade300,
                       width: 1,
                     ),
                   ),
@@ -2877,26 +3430,28 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
                               ),
                             ),
                             IconButton(
-                              tooltip: 'Ubah Label',
+                              tooltip: 'Ubah Keterangan Slot',
                               visualDensity: VisualDensity.compact,
                               onPressed: () => _editLabel(idx),
                               icon: const Icon(Icons.edit_outlined, size: 18),
                             ),
-                            if (hasPhoto)
+                            if (labels.length > 1)
                               IconButton(
-                                tooltip: 'Hapus Foto',
+                                tooltip: 'Hapus Slot Foto',
                                 visualDensity: VisualDensity.compact,
-                                onPressed: () => _deletePhoto(idx),
+                                onPressed: () => _deletePhotoSlot(idx),
                                 icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
                               ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         InkWell(
-                          onTap: () => _takePhoto(idx),
+                          onTap: hasPhoto
+                              ? () => _previewPhoto(photoFile, label, idx + 1)
+                              : () => _choosePhotoSource(idx),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            height: 180,
+                            height: 185,
                             decoration: BoxDecoration(
                               color: Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(8),
@@ -2912,32 +3467,38 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
                                         fit: BoxFit.cover,
                                         key: ValueKey(photoFile.lastModifiedSync()),
                                       ),
+                                      // Tombol aksi di atas gambar
                                       Positioned(
                                         right: 8,
                                         bottom: 8,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.65),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                'Ganti Foto',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 11,
-                                                ),
+                                        child: Row(
+                                          children: [
+                                            // Tombol Preview Zoom
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.black.withValues(alpha: 0.65),
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                visualDensity: VisualDensity.compact,
                                               ),
-                                            ],
-                                          ),
+                                              onPressed: () => _previewPhoto(photoFile, label, idx + 1),
+                                              icon: const Icon(Icons.zoom_in_rounded, size: 14),
+                                              label: const Text('Zoom', style: TextStyle(fontSize: 11)),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            // Tombol Ganti Foto
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.teal.shade800,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                visualDensity: VisualDensity.compact,
+                                              ),
+                                              onPressed: () => _choosePhotoSource(idx),
+                                              icon: const Icon(Icons.swap_horiz_rounded, size: 14),
+                                              label: const Text('Ganti', style: TextStyle(fontSize: 11)),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -2945,30 +3506,37 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
                                 : Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(
-                                        Icons.add_a_photo_rounded,
-                                        size: 38,
-                                        color: Colors.teal.shade700,
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.camera_alt_rounded,
+                                            size: 34,
+                                            color: Colors.teal.shade700,
+                                          ),
+                                          const SizedBox(width: 14),
+                                          Icon(
+                                            Icons.photo_library_rounded,
+                                            size: 34,
+                                            color: Colors.blue.shade700,
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 6),
+                                      const SizedBox(height: 8),
                                       Text(
-                                        'Ambil Foto Progres $_selectedStage% (Slot ${idx + 1})',
+                                        'Ambil Kamera atau Pilih dari Galeri',
                                         style: TextStyle(
                                           color: Colors.teal.shade900,
-                                          fontSize: 12,
+                                          fontSize: 12.5,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
+                                      const SizedBox(height: 3),
                                       Text(
-                                        _selectedStage == 0
-                                            ? 'Kondisi awal / batas tapak / tanah kosong'
-                                            : _selectedStage == 50
-                                                ? 'Pondasi / kolom beton / dinding berdiri'
-                                                : 'Fisik bangunan utuh, cat rapi, siap pakai',
+                                        'Ketuk untuk memilih foto Progres ${stage.percentage}%',
                                         style: TextStyle(
                                           color: Colors.grey.shade600,
-                                          fontSize: 10.5,
+                                          fontSize: 11,
                                         ),
                                       ),
                                     ],
@@ -3003,7 +3571,10 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _exportExcel,
                   icon: const Icon(Icons.download_rounded, size: 16),
-                  label: Text('Unduh ($_selectedStage%)', style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    'Unduh (${stage.percentage}%)',
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -3029,20 +3600,27 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
     );
   }
 
-  Widget _buildStageButton({
-    required int pct,
-    required String title,
-    required String desc,
-    required Color color,
+  Widget _buildStageTab({
+    required int index,
+    required RehabProgressStage stage,
   }) {
-    final isSel = _selectedStage == pct;
+    final isSel = _selectedStageIndex == index;
+    final color = stage.percentage == 0
+        ? Colors.blueAccent
+        : stage.percentage == 50
+            ? Colors.orangeAccent
+            : stage.percentage == 100
+                ? Colors.greenAccent
+                : Colors.purpleAccent;
+
     return InkWell(
-      onTap: () => setState(() => _selectedStage = pct),
+      onTap: () => setState(() => _selectedStageIndex = index),
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        constraints: const BoxConstraints(minWidth: 90),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         decoration: BoxDecoration(
-          color: isSel ? color.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.08),
+          color: isSel ? color.withValues(alpha: 0.28) : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSel ? color : Colors.white24,
@@ -3052,16 +3630,16 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
         child: Column(
           children: [
             Text(
-              title,
+              '${stage.percentage}%',
               style: TextStyle(
                 color: isSel ? Colors.white : Colors.white70,
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
+                fontSize: 14.5,
               ),
             ),
             const SizedBox(height: 2),
             Text(
-              desc,
+              stage.name.replaceAll(RegExp(r'Kondisi \d+% \('), '').replaceAll(')', ''),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

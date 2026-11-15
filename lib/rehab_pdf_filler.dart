@@ -1406,8 +1406,19 @@ class RehabPdfFiller {
     final dayIdx = (singleDayIndex ?? 0).clamp(0, 6);
     final dt = p.dateOf(dayIdx);
 
+    final stageStage = p.progressStages.cast<RehabProgressStage?>().firstWhere(
+      (st) => st != null && st.percentage == stagePct,
+      orElse: () => null,
+    );
+    final stageLabels = stageStage?.photoLabels ??
+        (stagePct == 0
+            ? p.photoLabels0
+            : stagePct == 50
+                ? p.photoLabels50
+                : p.photoLabels100);
+
     final photoPaths = <String, String>{};
-    for (var s = 0; s < 6; s++) {
+    for (var s = 0; s < stageLabels.length; s++) {
       final stageSlotId = 'rehab_${stagePct}pct_${s + 1}';
       final stageFile = File('$photoDir/$stageSlotId.jpg');
       if (stageFile.existsSync()) {
@@ -1420,12 +1431,6 @@ class RehabPdfFiller {
         }
       }
     }
-
-    final stageLabels = stagePct == 0
-        ? p.photoLabels0
-        : stagePct == 50
-            ? p.photoLabels50
-            : p.photoLabels100;
 
     return buildExportWithinMaxBytesAsync(
       maxFileBytes: maxFileBytes,
@@ -1447,92 +1452,101 @@ class RehabPdfFiller {
         final cardW = (PdfPageFormat.a4.width - 2 * pageMargin - 10) / 2;
         final cardH = (PdfPageFormat.a4.height - 2 * pageMargin - 150) / 3;
 
-        doc.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            margin: const pw.EdgeInsets.all(pageMargin),
-            build: (_) {
-              return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: [
-                  pw.Text(
-                    'DOKUMENTASI PEKERJAAN - PROGRES $stagePct%',
-                    textAlign: pw.TextAlign.center,
-                    style: pw.TextStyle(font: bold, fontSize: 11),
-                  ),
-                  pw.SizedBox(height: 6),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.black, width: 0.5),
-                      color: PdfColor.fromHex('#F9FAFB'),
+        final totalSlots = stageLabels.length;
+        for (var pageStart = 0; pageStart < totalSlots; pageStart += 6) {
+          final pageEnd = (pageStart + 6 < totalSlots) ? pageStart + 6 : totalSlots;
+          final pageNum = (pageStart ~/ 6) + 1;
+          final totalPages = ((totalSlots + 5) ~/ 6);
+
+          doc.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4,
+              margin: const pw.EdgeInsets.all(pageMargin),
+              build: (_) {
+                return pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    pw.Text(
+                      'DOKUMENTASI PEKERJAAN - PROGRES $stagePct%${totalPages > 1 ? " (HAL $pageNum/$totalPages)" : ""}',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(font: bold, fontSize: 11),
                     ),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Row(
-                          children: [
-                            pw.SizedBox(width: 90, child: pw.Text('KEGIATAN', style: pw.TextStyle(font: bold, fontSize: 7.5))),
-                            pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
-                            pw.Expanded(child: pw.Text(_safe(p.kegiatanDokumentasi), style: pw.TextStyle(font: regular, fontSize: 7.5))),
-                          ],
-                        ),
-                        pw.SizedBox(height: 2),
-                        pw.Row(
-                          children: [
-                            pw.SizedBox(width: 90, child: pw.Text('LOKASI', style: pw.TextStyle(font: bold, fontSize: 7.5))),
-                            pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
-                            pw.Expanded(child: pw.Text('${_safe(p.lokasi)} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}', style: pw.TextStyle(font: regular, fontSize: 7.5))),
-                          ],
-                        ),
-                        pw.SizedBox(height: 2),
-                        pw.Row(
-                          children: [
-                            pw.SizedBox(width: 90, child: pw.Text('PROGRES (%)', style: pw.TextStyle(font: bold, fontSize: 7.5))),
-                            pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
-                            pw.Expanded(child: pw.Text('$stagePct.00%', style: pw.TextStyle(font: bold, fontSize: 7.5))),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.SizedBox(height: 10),
-                  for (var r = 0; r < 6; r += 2)
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.only(bottom: 8),
-                      child: pw.Row(
+                    pw.SizedBox(height: 6),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.black, width: 0.5),
+                        color: PdfColor.fromHex('#F9FAFB'),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.SizedBox(
-                            width: cardW,
-                            child: _buildProgressSlotCard(
-                              r < stageLabels.length ? stageLabels[r] : 'Dokumentasi Foto ${r + 1} ($stagePct%)',
-                              packed.photos['rehab_${stagePct}pct_${r + 1}'],
-                              cardW,
-                              cardH,
-                              regular,
-                              bold,
-                            ),
+                          pw.Row(
+                            children: [
+                              pw.SizedBox(width: 90, child: pw.Text('KEGIATAN', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                              pw.Expanded(child: pw.Text(_safe(p.kegiatanDokumentasi), style: pw.TextStyle(font: regular, fontSize: 7.5))),
+                            ],
                           ),
-                          pw.SizedBox(width: 10),
-                          pw.SizedBox(
-                            width: cardW,
-                            child: _buildProgressSlotCard(
-                              (r + 1) < stageLabels.length ? stageLabels[r + 1] : 'Dokumentasi Foto ${r + 2} ($stagePct%)',
-                              packed.photos['rehab_${stagePct}pct_${r + 2}'],
-                              cardW,
-                              cardH,
-                              regular,
-                              bold,
-                            ),
+                          pw.SizedBox(height: 2),
+                          pw.Row(
+                            children: [
+                              pw.SizedBox(width: 90, child: pw.Text('LOKASI', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                              pw.Expanded(child: pw.Text('${_safe(p.lokasi)} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}', style: pw.TextStyle(font: regular, fontSize: 7.5))),
+                            ],
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Row(
+                            children: [
+                              pw.SizedBox(width: 90, child: pw.Text('PROGRES (%)', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                              pw.Expanded(child: pw.Text('$stagePct.00%', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                ],
-              );
-            },
-          ),
-        );
+                    pw.SizedBox(height: 10),
+                    for (var r = pageStart; r < pageEnd; r += 2)
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(bottom: 8),
+                        child: pw.Row(
+                          children: [
+                            pw.SizedBox(
+                              width: cardW,
+                              child: _buildProgressSlotCard(
+                                r < stageLabels.length ? stageLabels[r] : 'Dokumentasi Foto ${r + 1} ($stagePct%)',
+                                packed.photos['rehab_${stagePct}pct_${r + 1}'],
+                                cardW,
+                                cardH,
+                                regular,
+                                bold,
+                              ),
+                            ),
+                            pw.SizedBox(width: 10),
+                            pw.SizedBox(
+                              width: cardW,
+                              child: (r + 1 < pageEnd)
+                                  ? _buildProgressSlotCard(
+                                      (r + 1) < stageLabels.length ? stageLabels[r + 1] : 'Dokumentasi Foto ${r + 2} ($stagePct%)',
+                                      packed.photos['rehab_${stagePct}pct_${r + 2}'],
+                                      cardW,
+                                      cardH,
+                                      regular,
+                                      bold,
+                                    )
+                                  : pw.Container(),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          );
+        }
 
         final docBytes = await doc.save();
         return (docBytes: docBytes, photoBytesUsed: packed.totalBytes);

@@ -2216,7 +2216,6 @@ class Store extends ChangeNotifier {
     CustomProgram? activeCustom;
 
     if (programType == 'rehabilitasi') {
-      submissionId = '${user.id}_rehabilitasi';
       programName = 'Rehabilitasi';
       title = rehabProject.namaPekerjaan;
       week = rehabProject.minggu;
@@ -2233,7 +2232,6 @@ class Store extends ChangeNotifier {
       }
       final cp = customPrograms[cpIdx];
       activeCustom = cp;
-      submissionId = '${user.id}_custom_${cp.id}';
       programName = cp.name;
       title = cp.institution.isNotEmpty ? cp.institution : cp.name;
       if (cp.templateType == 'revitalisasi') {
@@ -2255,13 +2253,36 @@ class Store extends ChangeNotifier {
       payload = cp.toJson();
       srcPhotoDir = _hasDir ? customPhotoDir(cp.id) : null;
     } else {
-      submissionId = '${user.id}_revitalisasi';
       programName = 'Revitalisasi';
       title = project.school;
       week = project.minggu;
       payload = project.toJson();
       srcPhotoDir = _hasDir ? photoDir : null;
       activeRevit = project;
+    }
+
+    final daySuffix = singleDayIndex != null ? '_H${singleDayIndex + 1}' : '_all';
+    final weekSuffix = '_M$week';
+    if (programType == 'rehabilitasi') {
+      submissionId = '${user.id}_rehab$weekSuffix$daySuffix';
+    } else if (programType == 'custom' && activeCustom != null) {
+      submissionId = '${user.id}_custom_${activeCustom.id}$weekSuffix$daySuffix';
+    } else {
+      submissionId = '${user.id}_revit$weekSuffix$daySuffix';
+    }
+
+    // Deteksi jika laporan tanggal lampau / susulan (kemarin atau minggu lalu)
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    DateTime? reportDate;
+    if (effectiveProgramType == 'rehabilitasi' && activeRehab != null) {
+      reportDate = activeRehab.dateOf((singleDayIndex ?? 0).clamp(0, 6));
+    } else if (activeRevit != null) {
+      reportDate = activeRevit.dateOf((singleDayIndex ?? 0).clamp(0, 6));
+    }
+    final isLate = reportDate != null && reportDate.isBefore(todayStart);
+    if (isLate) {
+      title = '[Laporan Susulan] $title';
     }
 
     final existingQueueIdx =
@@ -2709,6 +2730,7 @@ class Store extends ChangeNotifier {
 
     // 5. Susun ringkasan akhir dan simpan ke Spreadsheet + Firebase secara paralel
     final summaryParts = <String>[
+      if (isLate) '⚠️ SUSULAN/TERLAMBAT',
       if (sentDayLabels.isNotEmpty) 'Hari: ${sentDayLabels.join(', ')}',
       'Foto: ${photoDriveMap.isNotEmpty ? photoDriveMap.length : photoThumbnails.length}',
       if (reportFileUrls.isNotEmpty) 'File Drive: ${reportFileUrls.length}',
@@ -2848,61 +2870,87 @@ class Store extends ChangeNotifier {
   }) async {
     // 0. Sinkronkan daftar laporan yang sudah dihapus oleh Admin dari Firebase
     if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
-      final fbDeleted = await firebaseService.fetchDeletedSubmissionIds(
-        firebaseDbUrl,
-        authToken: firebaseAuthToken,
-      );
-      deletedSubmissionIds.addAll(fbDeleted);
+      try {
+        final fbDeleted = await firebaseService.fetchDeletedSubmissionIds(
+          firebaseDbUrl,
+          authToken: firebaseAuthToken,
+        );
+        deletedSubmissionIds.addAll(fbDeleted);
+      } catch (_) {}
     }
     // Bersihkan daftar lokal dari yang sudah dihapus
     cloudSubmissions.removeWhere((s) => deletedSubmissionIds.contains(s.id));
 
-    // 1. Ambil dari Firebase Realtime Database terlebih dahulu (Super Cepat ~0.2s)
+    // 1. Ambil data secara paralel dari Firebase DAN Google Spreadsheet
+    final fetchTasks = <Future<CloudResult<List<CloudSubmission>>>>[];
+
     if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
-      final fbRes = await firebaseService.fetchSubmissions(
-        firebaseDbUrl,
-        onlyUserId: onlyUserId,
-        authToken: firebaseAuthToken,
+      fetchTasks.add(
+        firebaseService
+            .fetchSubmissions(
+              firebaseDbUrl,
+              onlyUserId: onlyUserId,
+              authToken: firebaseAuthToken,
+            )
+            .catchError(
+              (e) => CloudResult<List<CloudSubmission>>(
+                ok: false,
+                message: '$e',
+              ),
+            ),
       );
-      if (fbRes.ok && fbRes.data != null) {
-        final filtered = fbRes.data!
-            .where((s) => !deletedSubmissionIds.contains(s.id))
-            .toList();
-        cloudSubmissions = filtered;
-        saveAuthConfig();
-        notifyListeners();
-        return CloudResult(ok: true, data: filtered);
-      }
     }
 
-    // 2. Ambil dari Google Spreadsheet jika URL valid
-    CloudResult<List<CloudSubmission>>? sheetsRes;
     if (sheetsService.isValidUrl(appsScriptUrl)) {
-      sheetsRes = await sheetsService.fetchSubmissions(
-        appsScriptUrl,
-        userId: onlyUserId,
+      fetchTasks.add(
+        sheetsService
+            .fetchSubmissions(
+              appsScriptUrl,
+              userId: onlyUserId,
+            )
+            .catchError(
+              (e) => CloudResult<List<CloudSubmission>>(
+                ok: false,
+                message: '$e',
+              ),
+            ),
       );
-      if (sheetsRes.ok && sheetsRes.data != null && sheetsRes.data!.isNotEmpty) {
-        final filtered = sheetsRes.data!
-            .where((s) => !deletedSubmissionIds.contains(s.id))
-            .toList();
-        cloudSubmissions = filtered;
-        saveAuthConfig();
-        notifyListeners();
-        return CloudResult(ok: true, data: filtered);
-      }
     }
 
-    if (sheetsRes != null) {
-      if (sheetsRes.ok && sheetsRes.data != null) {
-        final filtered = sheetsRes.data!
-            .where((s) => !deletedSubmissionIds.contains(s.id))
-            .toList();
-        cloudSubmissions = filtered;
+    if (fetchTasks.isNotEmpty) {
+      final results = await Future.wait(fetchTasks);
+      final map = <String, CloudSubmission>{};
+
+      // Pertahankan submission lokal yang valid
+      for (final s in cloudSubmissions) {
+        if (!deletedSubmissionIds.contains(s.id)) {
+          map[s.id] = s;
+        }
+      }
+
+      bool anyOk = false;
+      for (final r in results) {
+        if (r.ok && r.data != null) {
+          anyOk = true;
+          for (final s in r.data!) {
+            if (deletedSubmissionIds.contains(s.id)) continue;
+            final existing = map[s.id];
+            // Merge: jika baru atau lebih mutakhir dari yang ada, gunakan yang baru
+            if (existing == null || s.updatedAt.isAfter(existing.updatedAt)) {
+              map[s.id] = s;
+            }
+          }
+        }
+      }
+
+      if (anyOk || map.isNotEmpty) {
+        final sorted = map.values.toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        cloudSubmissions = sorted;
         saveAuthConfig();
         notifyListeners();
+        return CloudResult(ok: true, data: sorted);
       }
-      return sheetsRes;
     }
 
     return CloudResult(

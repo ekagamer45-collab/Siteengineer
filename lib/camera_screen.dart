@@ -52,8 +52,6 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   Offset? _focusPointScreen;
   bool _showFocusRing = false;
   Timer? _focusRingTimer;
-  bool _isFocusing = false;
-  DateTime _lastTapFocusTime = DateTime.fromMillisecondsSinceEpoch(0);
   double _currentExposure = 0.0;
   double _minExposure = -2.0;
   double _maxExposure = 2.0;
@@ -90,14 +88,6 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     final ctrl = _controller;
     if (ctrl == null || !ctrl.value.isInitialized) return;
 
-    final now = DateTime.now();
-    if (now.difference(_lastTapFocusTime).inMilliseconds < 350) {
-      return; // Debounce rapid double taps to prevent CameraX preview freeze
-    }
-    _lastTapFocusTime = now;
-    if (_isFocusing) return;
-    _isFocusing = true;
-
     final screenPoint = details.localPosition;
     final normalizedPoint = Offset(
       (screenPoint.dx / boxSize.width).clamp(0.0, 1.0),
@@ -124,17 +114,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       if (ctrl.value.focusPointSupported) {
         await ctrl.setFocusPoint(normalizedPoint);
       }
-      await ctrl.setFocusMode(FocusMode.auto);
     } catch (_) {}
 
     try {
       if (ctrl.value.exposurePointSupported) {
         await ctrl.setExposurePoint(normalizedPoint);
       }
-      await ctrl.setExposureMode(ExposureMode.auto);
     } catch (_) {}
-
-    _isFocusing = false;
   }
 
   Future<void> _onExposureDrag(double deltaDy) async {
@@ -937,36 +923,36 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                     : ValueListenableBuilder<CameraValue>(
                         valueListenable: ctrl,
                         builder: (context, val, _) {
-                          if (val.hasError) {
-                            return Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.videocam_off_outlined,
-                                  color: Colors.orangeAccent,
-                                  size: 40,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Pratinjau kamera terhenti.',
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                                const SizedBox(height: 8),
-                                OutlinedButton.icon(
-                                  onPressed: _initAll,
-                                  icon: const Icon(Icons.refresh, color: Colors.white),
-                                  label: const Text(
-                                    'Muat Ulang Kamera',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            );
-                          }
                           final hasSize = val.previewSize != null &&
                               val.aspectRatio.isFinite &&
                               val.aspectRatio > 0;
                           if (!val.isInitialized || !hasSize) {
+                            if (val.hasError) {
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.videocam_off_outlined,
+                                    color: Colors.orangeAccent,
+                                    size: 40,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Pratinjau kamera terhenti.',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  OutlinedButton.icon(
+                                    onPressed: _initAll,
+                                    icon: const Icon(Icons.refresh, color: Colors.white),
+                                    label: const Text(
+                                      'Muat Ulang Kamera',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
                             return const CircularProgressIndicator(color: Colors.white);
                           }
                           return SizedBox.expand(

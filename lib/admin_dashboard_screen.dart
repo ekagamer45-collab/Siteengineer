@@ -1620,6 +1620,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
                                 ),
+                                if (sub.title.contains('Susulan') || sub.summary.contains('SUSULAN'))
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                    margin: const EdgeInsets.only(right: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade100,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.orange.shade400, width: 0.8),
+                                    ),
+                                    child: Text(
+                                      'TERLAMBAT / SUSULAN',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade900,
+                                      ),
+                                    ),
+                                  ),
                                 if (isUnread || isToday)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
