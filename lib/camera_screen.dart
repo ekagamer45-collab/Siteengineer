@@ -5,12 +5,14 @@ import 'package:camera/camera.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'config.dart';
 import 'crop_screen.dart';
 import 'gps_stamp.dart';
+import 'models.dart';
 import 'store.dart';
 
 class CameraScreen extends StatefulWidget {
@@ -46,6 +48,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   bool _waited15s = false;
   bool _loading = true;
   bool _processing = false;
+  bool _shutterFlash = false;
   bool _isVertical = false; // false = 16:9 Horizontal (3840x2160), true = 9:16 Vertikal (2160x3840)
 
   List<CameraDescription> _availableCameras = [];
@@ -496,17 +499,25 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       return;
     }
 
-    setState(() => _processing = true);
+    setState(() {
+      _processing = true;
+      _shutterFlash = true;
+    });
+    HapticFeedback.mediumImpact();
+    Future.delayed(const Duration(milliseconds: 90), () {
+      if (mounted) setState(() => _shutterFlash = false);
+    });
+
     final msg = ScaffoldMessenger.of(context);
     try {
       final xfile = await ctrl.takePicture();
       final rawBytes = await xfile.readAsBytes();
 
-      // Gunakan alamat cache jika sudah selesai di latar belakang; bila belum tunggu maks 350ms
+      // Gunakan alamat cache jika sudah selesai di latar belakang; bila belum tunggu maks 150ms
       final address = _cachedAddress.isNotEmpty
           ? _cachedAddress
           : await _resolveAddress(pos.latitude, pos.longitude)
-              .timeout(const Duration(milliseconds: 350), onTimeout: () => '');
+              .timeout(const Duration(milliseconds: 150), onTimeout: () => '');
 
       final wm = WatermarkData(
         lat: pos.latitude,
@@ -519,19 +530,44 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         mapTileBytes: _cachedMapTile,
       );
       final double targetAspect = _isVertical ? (9 / 16) : (16 / 9);
+
       if (widget.onCustomSave != null) {
-        await widget.onCustomSave!(rawBytes, wm, null);
+        unawaited(() async {
+          try {
+            await widget.onCustomSave!(rawBytes, wm, null);
+          } catch (_) {}
+        }());
       } else {
-        await store.setCameraPhoto(widget.slot, rawBytes, wm, aspect: targetAspect);
-        // Simpan ke Galeri HP di background agar kamera langsung kembali dalam hitungan detik
-        unawaited(store.savePhotoToGallery(widget.slot).catchError((_) => false));
+        // Tulis foto awal seketika agar store.hasPhoto() langsung true tanpa delay (<5ms)
+        final targetFile = store.photoFile(widget.slot);
+        targetFile.writeAsBytesSync(rawBytes);
+        store.project.photoMeta[widget.slot.id] = PhotoMeta(
+          hasGps: true,
+          lat: wm.lat,
+          lng: wm.lng,
+          accuracy: wm.accuracy,
+          address: wm.address,
+          time: wm.time,
+        );
+        store.changed(forceCheckpoint: true);
+
+        // Lakukan watermarking 3840x2160 piksel di background Isolate tanpa menahan layar kamera
+        unawaited(() async {
+          try {
+            await store.setCameraPhoto(widget.slot, rawBytes, wm, aspect: targetAspect);
+            await store.savePhotoToGallery(widget.slot).catchError((_) => false);
+          } catch (_) {}
+        }());
       }
 
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _processing = false);
+      setState(() {
+        _processing = false;
+        _shutterFlash = false;
+      });
       msg.showSnackBar(
         SnackBar(content: Text('Gagal menyimpan foto: $e')),
       );
@@ -1078,6 +1114,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                     ],
                   ),
                 ),
+              ),
+            if (_shutterFlash)
+              Positioned.fill(
+                child: Container(color: Colors.white.withValues(alpha: 0.85)),
               ),
           ],
         );

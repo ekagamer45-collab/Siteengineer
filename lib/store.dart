@@ -1063,8 +1063,12 @@ class Store extends ChangeNotifier {
     CropRect? crop,
   }) async {
     targetDir.createSync(recursive: true);
-    final out = await _encodeSlotBytes(raw, aspect, wm: wm, crop: crop);
     final file = File('${targetDir.path}/$slotId.jpg');
+    try {
+      file.writeAsBytesSync(raw);
+      notifyListeners();
+    } catch (_) {}
+    final out = await _encodeSlotBytes(raw, aspect, wm: wm, crop: crop);
     await FileImage(file).evict();
     file.writeAsBytesSync(out);
     notifyListeners();
