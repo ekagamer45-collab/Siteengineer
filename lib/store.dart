@@ -127,8 +127,9 @@ class Store extends ChangeNotifier {
   late Project project;
   late RehabProject rehabProject;
   List<CustomProgram> customPrograms = [];
-  late final Directory _dir;
+  late Directory _dir;
   bool _hasDir = false;
+  bool get hasDir => _hasDir;
   List<String> templateIssues = const [];
 
   // ---- Undo / Redo & Reset ke Setelan Awal ----
@@ -2702,6 +2703,12 @@ class Store extends ChangeNotifier {
       data: cloudSubmissions,
       message: 'Koneksi Cloud (Spreadsheet / Firebase) belum diatur',
     );
+  }
+
+  void markSubmissionRead(String submissionId) {
+    readSubmissionIds.add(submissionId);
+    saveAuthConfig();
+    notifyListeners();
   }
 
   /// Hapus laporan (CRUD Admin) dari Firebase, Spreadsheet, dan daftar lokal.

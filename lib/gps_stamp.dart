@@ -488,7 +488,7 @@ void _drawBadgePill(Canvas canvas, Rect pillRect, double scale) {
   final pillRRect = RRect.fromRectAndRadius(pillRect, Radius.circular(5.0 * scale));
   canvas.drawRRect(
     pillRRect,
-    Paint()..color = const Color(0xC8101216),
+    Paint()..color = const Color(0x88101216),
   );
 
   // Mini ikon aplikasi GPS Map Camera (biru-hijau + pin kuning)
@@ -766,11 +766,11 @@ Future<({Uint8List rgba, int width, int height})?> renderStampedPhotoRgba({
     final int targetW;
     final int targetH;
     if (aspect >= 1.0) {
-      targetW = 1920;
-      targetH = (1920 / aspect).round().clamp(120, 4000);
+      targetW = 3840;
+      targetH = (3840 / aspect).round().clamp(120, 8000);
     } else {
-      targetH = 1920;
-      targetW = (1920 * aspect).round().clamp(120, 4000);
+      targetH = 3840;
+      targetW = (3840 * aspect).round().clamp(120, 8000);
     }
     final double w = srcImg.width.toDouble();
     final double h = srcImg.height.toDouble();
@@ -1160,7 +1160,7 @@ class GpsMapCameraPreviewOverlay extends StatelessWidget {
                 horizontal: (5.0 * scale).clamp(2.0, 8.0),
               ),
               decoration: BoxDecoration(
-                color: const Color(0xC8101216),
+                color: const Color(0x88101216),
                 borderRadius: BorderRadius.circular(5.0 * scale),
               ),
               child: Row(

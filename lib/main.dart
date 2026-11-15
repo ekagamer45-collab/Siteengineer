@@ -8,6 +8,7 @@ import 'export_ui.dart';
 import 'history_controls.dart';
 import 'login_screen.dart';
 import 'models.dart';
+import 'notification_service.dart';
 import 'rooms_screen.dart';
 import 'send_report_ui.dart';
 import 'signature_dialog.dart';
@@ -17,6 +18,7 @@ import 'user_dashboard_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   ErrorWidget.builder = (FlutterErrorDetails details) => const SizedBox.shrink();
+  await NotificationService.instance.init();
   await store.init();
   runApp(const App());
 }

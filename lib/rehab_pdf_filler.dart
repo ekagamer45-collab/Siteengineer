@@ -1206,6 +1206,7 @@ class RehabPdfFiller {
                 bottom: pw.BorderSide(color: PdfColors.black, width: 0.6),
               ),
             ),
+            padding: const pw.EdgeInsets.all(2.83), // 0.10 cm margin
             child: photoBytes != null
                 ? pw.Image(
                     pw.MemoryImage(photoBytes),

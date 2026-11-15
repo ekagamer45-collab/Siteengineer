@@ -6,6 +6,7 @@ import 'custom_report_screen.dart';
 import 'custom_xlsx_importer.dart';
 import 'export_ui.dart';
 import 'models.dart';
+import 'notification_service.dart';
 import 'rehab_screens.dart';
 import 'send_report_ui.dart';
 import 'store.dart';
@@ -45,6 +46,30 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
           s.pendingSyncQueue.isNotEmpty &&
           !_busyCloud) {
         _flushOfflineQueue(silentIfEmpty: true);
+      }
+
+      // Tampilkan notifikasi heads-up pengingat otomatis di luar aplikasi jika tugas hari ini belum dikirim
+      final now = DateTime.now();
+      final isRevitSent = s.cloudSubmissions.any((sub) =>
+          sub.programType == 'revitalisasi' &&
+          sub.userId == s.currentUser?.id &&
+          sub.updatedAt.day == now.day &&
+          sub.updatedAt.month == now.month);
+      final isRehabSent = s.cloudSubmissions.any((sub) =>
+          sub.programType == 'rehabilitasi' &&
+          sub.userId == s.currentUser?.id &&
+          sub.updatedAt.day == now.day &&
+          sub.updatedAt.month == now.month);
+      if (!isRevitSent || !isRehabSent) {
+        final missing = [
+          if (!isRevitSent) 'Revitalisasi',
+          if (!isRehabSent) 'Rehabilitasi',
+        ].join(' & ');
+        NotificationService.instance.showDailyReminderNotification(
+          dayName: hariNama[(now.weekday - 1).clamp(0, 6)],
+          dateStr: '${now.day}/${now.month}/${now.year}',
+          missingPrograms: missing,
+        );
       }
     });
   }
@@ -567,6 +592,198 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     }
   }
 
+  Widget _buildTodayTaskReminderCard() {
+    final now = DateTime.now();
+    final todayIdx = (now.weekday - 1).clamp(0, 6);
+    final dayName = hariNama[todayIdx];
+    final dateStr = '${now.day}/${now.month}/${now.year}';
+
+    // Status Revitalisasi
+    final revitPhotos = s.hasDir
+        ? s.activeSlotsForSheet(todayIdx).where(s.hasPhoto).length
+        : 0;
+    final revitActs = todayIdx < s.project.days.length
+        ? s.project.days[todayIdx].acts.where((a) => a.note.trim().isNotEmpty).length
+        : 0;
+    final isRevitSent = s.cloudSubmissions.any((sub) =>
+        sub.programType == 'revitalisasi' &&
+        sub.userId == s.currentUser?.id &&
+        sub.updatedAt.day == now.day &&
+        sub.updatedAt.month == now.month);
+
+    // Status Rehabilitasi
+    final rehabPhotos = s.hasDir
+        ? List.generate(
+            6,
+            (k) => File('${s.rehabPhotoDir.path}/rehab_H${todayIdx + 1}_${k + 1}.jpg').existsSync(),
+          ).where((e) => e).length
+        : 0;
+    final rehabActs = todayIdx < s.rehabProject.days.length
+        ? s.rehabProject.days[todayIdx].activities.where((a) => a.trim().isNotEmpty).length
+        : 0;
+    final isRehabSent = s.cloudSubmissions.any((sub) =>
+        sub.programType == 'rehabilitasi' &&
+        sub.userId == s.currentUser?.id &&
+        sub.updatedAt.day == now.day &&
+        sub.updatedAt.month == now.month);
+
+    final allSent = isRevitSent && isRehabSent;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: allSent ? Colors.green.shade300 : Colors.blue.shade200,
+        ),
+      ),
+      color: allSent ? Colors.green.shade50 : Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  allSent ? Icons.check_circle_rounded : Icons.pending_actions_rounded,
+                  color: allSent ? Colors.green.shade700 : const Color(0xFF0F4C97),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Tugas Laporan Hari Ini ($dayName, $dateStr)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: allSent ? Colors.green.shade900 : const Color(0xFF062C65),
+                    ),
+                  ),
+                ),
+                if (!allSent)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Wajib Kirim',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber.shade900,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Item 1: Revitalisasi
+            if (_isAllowed('revitalisasi'))
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isRevitSent ? Colors.green.withValues(alpha: 0.1) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isRevitSent ? Icons.cloud_done_rounded : Icons.school_outlined,
+                      size: 18,
+                      color: isRevitSent ? Colors.green.shade800 : Colors.blue.shade800,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Revitalisasi • ${s.project.school}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          Text(
+                            isRevitSent
+                                ? 'Sudah terkirim ke Admin'
+                                : '$revitActs kegiatan • $revitPhotos foto',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isRevitSent ? Colors.green.shade800 : Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        minimumSize: const Size(0, 28),
+                      ),
+                      onPressed: () => _syncProgram('revitalisasi'),
+                      child: Text(isRevitSent ? 'Kirim Ulang' : 'Kirim Sekarang', style: const TextStyle(fontSize: 11)),
+                    ),
+                  ],
+                ),
+              ),
+            // Item 2: Rehabilitasi
+            if (_isAllowed('rehabilitasi'))
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isRehabSent ? Colors.green.withValues(alpha: 0.1) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isRehabSent ? Icons.cloud_done_rounded : Icons.build_circle_outlined,
+                      size: 18,
+                      color: isRehabSent ? Colors.green.shade800 : Colors.teal.shade800,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rehabilitasi • ${s.rehabProject.namaPekerjaan}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          Text(
+                            isRehabSent
+                                ? 'Sudah terkirim ke Admin'
+                                : '$rehabActs uraian • $rehabPhotos/6 foto',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isRehabSent ? Colors.green.shade800 : Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        minimumSize: const Size(0, 28),
+                      ),
+                      onPressed: () => _syncProgram('rehabilitasi'),
+                      child: Text(isRehabSent ? 'Kirim Ulang' : 'Kirim Sekarang', style: const TextStyle(fontSize: 11)),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = s.currentUser;
@@ -776,6 +993,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                     ),
                   ),
                 ],
+                _buildTodayTaskReminderCard(),
                 // Grid 3 Menu Utama gaya BCA Mobile
                 const Text(
                   'PILIH MENU LAPORAN (m-Laporan)',

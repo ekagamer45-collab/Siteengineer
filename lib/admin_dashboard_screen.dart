@@ -8,6 +8,7 @@ import 'export_ui.dart';
 import 'google_sheets_service.dart';
 import 'main.dart' show HomeScreen;
 import 'models.dart';
+import 'notification_service.dart';
 import 'rehab_models.dart';
 import 'rehab_screens.dart';
 import 'store.dart';
@@ -143,6 +144,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   void _showIncomingReportPopup(List<CloudSubmission> reports) {
     if (!mounted || reports.isEmpty) return;
+
+    // Ambil seluruh kiriman yang belum diperiksa (agar akumulasi kiriman baru muncul semua)
+    final allUnread = s.cloudSubmissions.where((sub) {
+      return !s.deletedSubmissionIds.contains(sub.id) &&
+          !s.readSubmissionIds.contains(sub.id);
+    }).toList();
+    final reportsToShow = allUnread.isNotEmpty ? allUnread : reports;
+
+    // Picu notifikasi heads-up melayang di atas layar HP seperti WhatsApp
+    NotificationService.instance.showIncomingReportNotification(
+      senderName: reports.first.displayName,
+      projectName: reports.map((e) => e.programName).toSet().join(' & '),
+      count: reportsToShow.length,
+    );
+
     showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -169,9 +185,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   children: [
                     const Text('Pesan Masuk!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
                     Text(
-                      reports.length == 1
+                      reportsToShow.length == 1
                           ? '1 Laporan Baru Masuk'
-                          : '${reports.length} Laporan Baru Masuk',
+                          : '${reportsToShow.length} Laporan Baru Masuk',
                       style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600, fontWeight: FontWeight.normal),
                     ),
                   ],
@@ -183,28 +199,56 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             width: double.maxFinite,
             child: ListView.separated(
               shrinkWrap: true,
-              itemCount: reports.length,
+              itemCount: reportsToShow.length,
               separatorBuilder: (_, __) => const Divider(height: 12),
               itemBuilder: (_, i) {
-                final rep = reports[i];
+                final rep = reportsToShow[i];
                 final localTime = rep.updatedAt.toLocal().toString().substring(11, 16);
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
-                    backgroundColor: Colors.blue.shade100,
+                    backgroundColor: rep.programType == 'rehabilitasi'
+                        ? Colors.teal.shade100
+                        : Colors.blue.shade100,
                     child: Text(
                       rep.displayName.isNotEmpty ? rep.displayName[0].toUpperCase() : 'U',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: rep.programType == 'rehabilitasi'
+                            ? Colors.teal.shade900
+                            : Colors.blue.shade900,
+                      ),
                     ),
                   ),
-                  title: Text(
-                    rep.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          rep.displayName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          rep.programName.toUpperCase(),
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                        ),
+                      ),
+                    ],
                   ),
                   subtitle: Text(
-                    '${rep.title.isNotEmpty ? rep.title : rep.programName.toUpperCase()} • Pukul $localTime WIB',
+                    '${rep.title.isNotEmpty ? rep.title : rep.programName} • Pukul $localTime WIB (${rep.totalPhotos} foto)',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openSubmissionEditor(rep);
+                  },
                 );
               },
             ),
@@ -218,16 +262,224 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               onPressed: () {
                 Navigator.pop(ctx);
                 _tabs.animateTo(0);
-                if (reports.length == 1) {
-                  _openSubmissionEditor(reports.first);
+                if (reportsToShow.length == 1) {
+                  _openSubmissionEditor(reportsToShow.first);
+                } else {
+                  _openNotificationSheet();
                 }
               },
               icon: const Icon(Icons.visibility_rounded, size: 18),
-              label: Text(reports.length == 1 ? 'Buka Laporan' : 'Lihat Semua'),
+              label: Text(reportsToShow.length == 1 ? 'Buka Laporan' : 'Lihat Semua (${reportsToShow.length})'),
             ),
           ],
         );
       },
+    );
+  }
+
+  void _openNotificationSheet() {
+    final unread = s.cloudSubmissions.where((sub) {
+      return !s.deletedSubmissionIds.contains(sub.id) &&
+          !s.readSubmissionIds.contains(sub.id);
+    }).toList();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (_, scrollController) => Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.notifications_active_rounded,
+                        color: Colors.blue.shade800, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Pemberitahuan Laporan Masuk',
+                          style: TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          unread.isEmpty
+                              ? 'Tidak ada laporan baru yang belum dibaca'
+                              : '${unread.length} kiriman belum diperiksa',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (unread.isNotEmpty)
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          for (final u in unread) {
+                            s.markSubmissionRead(u.id);
+                          }
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('Tandai Semua Dibaca'),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: unread.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.mark_email_read_outlined,
+                              size: 48, color: Colors.grey.shade400),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Semua laporan telah dibaca & diperiksa.',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      itemCount: unread.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, idx) {
+                        final sub = unread[idx];
+                        final localTime = sub.updatedAt
+                            .toLocal()
+                            .toString()
+                            .substring(11, 16);
+                        final dateStr =
+                            '${sub.updatedAt.day}/${sub.updatedAt.month}/${sub.updatedAt.year}';
+                        final isRehab = sub.programType == 'rehabilitasi';
+                        final isCustom = sub.programType == 'custom';
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 6),
+                          leading: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: isRehab
+                                ? Colors.teal.shade100
+                                : (isCustom
+                                    ? Colors.purple.shade100
+                                    : Colors.blue.shade100),
+                            child: Icon(
+                              isRehab
+                                  ? Icons.build_rounded
+                                  : (isCustom
+                                      ? Icons.dashboard_customize_rounded
+                                      : Icons.apartment_rounded),
+                              size: 20,
+                              color: isRehab
+                                  ? Colors.teal.shade900
+                                  : (isCustom
+                                      ? Colors.purple.shade900
+                                      : Colors.blue.shade900),
+                            ),
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  sub.displayName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  sub.programName.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 3),
+                              Text(
+                                sub.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '$dateStr • $localTime WIB • ${sub.totalPhotos} foto',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          trailing: FilledButton.tonal(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _openSubmissionEditor(sub);
+                            },
+                            child: const Text('Buka'),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -869,6 +1121,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Notifikasi Laporan Masuk',
+            visualDensity: VisualDensity.compact,
+            onPressed: _openNotificationSheet,
+            icon: Badge(
+              isLabelVisible: unreadCount > 0,
+              label: Text('$unreadCount'),
+              backgroundColor: Colors.redAccent,
+              child: const Icon(Icons.notifications_rounded, size: 22),
+            ),
+          ),
           IconButton(
             tooltip: 'Muat Ulang dari Spreadsheet',
             visualDensity: VisualDensity.compact,

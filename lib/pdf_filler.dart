@@ -624,7 +624,7 @@ class PdfFiller {
               bottom: pw.BorderSide(color: PdfColors.black, width: 0.6),
             ),
           ),
-          padding: const pw.EdgeInsets.all(2.5), // Rekomendasi margin presisi ~0.9 mm agar foto penuh & proporsional
+          padding: const pw.EdgeInsets.all(2.83), // Margin presisi 0.10 cm (1 mm) agar foto full sekotak dan proporsional
           alignment: pw.Alignment.center,
           child: photoBytes != null
               ? pw.Image(

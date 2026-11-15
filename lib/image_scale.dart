@@ -6,8 +6,8 @@ import 'package:image/image.dart' as img;
 /// Sisi terpanjang foto lapangan: 16:9 -> 3840 x 2160 (horizontal) atau 2160 x 3840 (vertikal).
 const int kPhotoLongSide = 3840;
 
-/// Sisi terpanjang salinan HD pendamping (dipakai ekspor Excel/PDF/Cloud agar cepat).
-const int kHdLongSide = 1920;
+/// Sisi terpanjang salinan HD pendamping (3840 x 2160 piksel resolusi 4K Ultra HD).
+const int kHdLongSide = 3840;
 
 const double kAspectLandscape169 = 16 / 9;
 const double kAspectPortrait169 = 9 / 16;
@@ -118,17 +118,17 @@ File exportSourceFor(File f, int desiredMaxWidth) {
   return sc.existsSync() ? sc : f;
 }
 
-/// Menyesuaikan foto ke kanvas bingkai slot Excel dengan margin presisi ~0.8 mm (0.08 cm) di sekelilingnya
-/// sehingga foto tampil penuh (full), jernih, dan pas tanpa gepeng / stretch.
+/// Menyesuaikan foto ke kanvas bingkai slot Excel dengan margin presisi 0.10 cm (1 mm) di sekelilingnya
+/// sehingga foto tampil penuh (full sekotak), jernih, dan pas tanpa gepeng / stretch.
 img.Image fitPhotoInSlotCanvas(
   img.Image photo, {
   double slotAspect = 1.9246,
-  int canvasWidth = 1920,
-  double marginCm = 0.08,
+  int canvasWidth = 3840,
+  double marginCm = 0.10,
   double slotWidthCm = 14.138,
   double slotHeightCm = 7.346,
 }) {
-  final canvasHeight = (canvasWidth / slotAspect).round().clamp(64, 4000);
+  final canvasHeight = (canvasWidth / slotAspect).round().clamp(64, 8000);
   final canvas = img.Image(width: canvasWidth, height: canvasHeight);
   img.fill(canvas, color: img.ColorRgb8(255, 255, 255));
 
@@ -177,7 +177,7 @@ Uint8List prepareSlotJpegForExcel(
     decoded,
     slotAspect: slotAspect,
     canvasWidth: maxWidth,
-    marginCm: 0.08,
+    marginCm: 0.10,
   );
   return Uint8List.fromList(
     img.encodeJpg(fitted, quality: quality.clamp(45, 95)),

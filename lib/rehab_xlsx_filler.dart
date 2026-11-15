@@ -665,14 +665,14 @@ class RehabXlsxFiller {
         }
         wsBuf.write('</mergeCells>');
       }
-      if (sh.pics.isNotEmpty) {
-        wsBuf.write('<drawing r:id="rIdDraw"/>');
-      }
       wsBuf.write('<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>');
       if (sh.landscape) {
         wsBuf.write('<pageSetup paperSize="9" orientation="landscape"/>');
       } else {
         wsBuf.write('<pageSetup paperSize="9" orientation="portrait"/>');
+      }
+      if (sh.pics.isNotEmpty) {
+        wsBuf.write('<drawing r:id="rIdDraw"/>');
       }
       wsBuf.write('</worksheet>');
       addXml('xl/worksheets/sheet$idx.xml', wsBuf.toString());

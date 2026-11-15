@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'models.dart';
+import 'notification_service.dart';
 import 'rehab_models.dart';
 import 'store.dart';
 
@@ -78,8 +79,8 @@ Future<bool> showSendReportToAdminDialog(
     initialDay = -1;
   }
   int selectedDay = hasDailySplit ? initialDay : -1;
-  // Default false agar pengiriman sangat kilat (< 3 detik). Admin bisa export file kapan saja dari dashboard.
-  bool includeDocs = false;
+  // includeDocs selalu true agar dokumen Excel, PDF, dan seluruh foto dokumentasi terkirim lengkap
+  bool includeDocs = true;
 
   String dayOptionLabel(int d) {
     final dt = effectiveType == 'rehabilitasi' && rehabProj != null
@@ -167,153 +168,41 @@ Future<bool> showSendReportToAdminDialog(
                   ),
                 ],
                 const SizedBox(height: 10),
-                const Text(
-                  'Pilih Mode Pengiriman ke Admin:',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-
-                // 1. OPSI HIJAU: Kirim Cepat (Rekomendasi - Data & Foto Langsung Masuk)
-                InkWell(
-                  onTap: () => setDlg(() => includeDocs = false),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: !includeDocs ? Colors.green.shade50 : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: !includeDocs ? Colors.green.shade700 : Colors.grey.shade300,
-                        width: !includeDocs ? 2.0 : 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Radio<bool>(
-                          value: false,
-                          groupValue: includeDocs,
-                          activeColor: Colors.green.shade700,
-                          onChanged: (v) => setDlg(() => includeDocs = v ?? false),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 6,
-                                runSpacing: 4,
-                                children: [
-                                  Text(
-                                    'Kirim Cepat (Rekomendasi)',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade900,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      'Cepat (3-8 dtk)',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green.shade900,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F7FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF1565C0), width: 1.5),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.verified_rounded, color: Colors.blue.shade800, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Paket Pengiriman Lengkap (Excel + PDF + Foto)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.blue.shade900,
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                'Data laporan beserta seluruh foto dokumentasi langsung masuk ke Admin dan tim lainnya. Admin bisa langsung buka & periksa foto tanpa loading lama.',
-                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '• Berkas resmi Excel (.xlsx) & PDF resolusi tinggi otomatis disusun.\n• Seluruh foto dokumentasi (3840×2160 / 4K UHD) tersinkronisasi lengkap ke Admin & SuperAdmin.\n• Data masuk seketika ke Google Spreadsheet & Database Realtime.',
+                        style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800, height: 1.35),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
-
-                // 2. OPSI ORANYE: Upload Berkas Lengkap ke Google Drive
-                InkWell(
-                  onTap: () => setDlg(() => includeDocs = true),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: includeDocs ? Colors.orange.shade50 : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: includeDocs ? Colors.orange.shade800 : Colors.grey.shade300,
-                        width: includeDocs ? 2.0 : 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Radio<bool>(
-                          value: true,
-                          groupValue: includeDocs,
-                          activeColor: Colors.orange.shade800,
-                          onChanged: (v) => setDlg(() => includeDocs = v ?? true),
-                        ),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 6,
-                                runSpacing: 4,
-                                children: [
-                                  Text(
-                                    'Upload Berkas Lengkap ke Drive',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange.shade900,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      'Arsip Dokumen',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.orange.shade900,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                'Membuat dan mengunggah dokumen fisik Excel 7-sheet dan PDF resolusi tinggi ke subfolder Google Drive per hari.',
-                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
@@ -405,6 +294,11 @@ Future<bool> showSendReportToAdminDialog(
 
   if (res.ok && res.data != null) {
     final sub = res.data!;
+    NotificationService.instance.showReportSentSuccessNotification(
+      projectName: sub.programName,
+      photosCount: sub.totalPhotos,
+      dayName: sub.dayLabels.isNotEmpty ? sub.dayLabels.join(', ') : 'Hari Ini',
+    );
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
