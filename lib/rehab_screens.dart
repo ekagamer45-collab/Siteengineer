@@ -1064,7 +1064,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
     super.dispose();
   }
 
-  Future<void> _openCamera(int slotIdx) async {
+  Future<void> _openCamera(int slotIdx, {bool withGps = true}) async {
     final slotId = 'rehab_H${widget.dayIndex + 1}_${slotIdx + 1}';
     final label = slotIdx < _proj.photoLabels.length
         ? _proj.photoLabels[slotIdx]
@@ -1076,6 +1076,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
       MaterialPageRoute(
         builder: (_) => CameraScreen(
           slot: slot,
+          enableGps: withGps,
           projectTitle: _proj.namaPekerjaan,
           onCustomSave: (rawBytes, wm, crop) async {
             await widget.store.saveSlotPhotoToDir(
@@ -1116,6 +1117,183 @@ class _RehabDayScreenState extends State<RehabDayScreen>
       ),
     );
     if (captured == true && mounted) setState(() {});
+  }
+
+  Future<void> _pickFromGallery(int slotIdx) async {
+    final slotId = 'rehab_H${widget.dayIndex + 1}_${slotIdx + 1}';
+    final label = slotIdx < _proj.photoLabels.length
+        ? _proj.photoLabels[slotIdx]
+        : 'Dokumentasi Foto ${slotIdx + 1}';
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2400,
+        imageQuality: 90,
+      );
+      if (picked == null) return;
+      final raw = await picked.readAsBytes();
+      final normalized = await normalizeImageBytes(raw);
+      if (!mounted) return;
+
+      final crop = await PhotoCropDialog.show(
+        context,
+        rawBytes: normalized,
+        aspect: 1.5,
+        title: label,
+      );
+      if (crop == null) return;
+
+      await widget.store.saveSlotPhotoToDir(
+        widget.photoDir,
+        slotId,
+        normalized,
+        1.5,
+        crop: crop,
+      );
+      _proj.photoMeta[slotId] = PhotoMeta(
+        hasGps: false,
+        time: DateTime.now(),
+      );
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      widget.store.incrementPhotoVersion();
+      widget.onChanged(_proj);
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Foto "$label" dari galeri berhasil disimpan.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengambil foto dari galeri: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showPhotoSourceOptions(int slotIdx) async {
+    final label = slotIdx < _proj.photoLabels.length
+        ? _proj.photoLabels[slotIdx]
+        : 'Dokumentasi Foto ${slotIdx + 1}';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B3C7D).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add_a_photo_rounded, color: Color(0xFF0B3C7D), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Pilih Cara Pengambilan Foto',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        Text(
+                          '${hariNama[widget.dayIndex]} • $label',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 6),
+              // 1. Pengambilan Jepret Langsung (Pake GPS)
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.shade50,
+                  child: Icon(Icons.gps_fixed_rounded, color: Colors.blue.shade800),
+                ),
+                title: const Text(
+                  'Pengambilan Jepret Langsung (Pake GPS)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                subtitle: const Text(
+                  'Kamera aktif dengan tanda air GPS, koordinat peta & alamat otomatis',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openCamera(slotIdx, withGps: true);
+                },
+              ),
+              const Divider(height: 1, indent: 56),
+              // 2. Pengambilan Jepret Langsung Tanpa GPS
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.orange.shade50,
+                  child: Icon(Icons.camera_alt_outlined, color: Colors.orange.shade800),
+                ),
+                title: const Text(
+                  'Pengambilan Jepret Langsung Tanpa GPS',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                subtitle: const Text(
+                  'Jepret kamera langsung bersih tanpa watermark koordinat atau peta',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openCamera(slotIdx, withGps: false);
+                },
+              ),
+              const Divider(height: 1, indent: 56),
+              // 3. Ambil dari Galeri
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.purple.shade50,
+                  child: Icon(Icons.photo_library_rounded, color: Colors.purple.shade800),
+                ),
+                title: const Text(
+                  'Ambil dari Galeri',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                subtitle: const Text(
+                  'Pilih foto dokumentasi yang sudah tersimpan di galeri ponsel',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFromGallery(slotIdx);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _addTextItem(
@@ -1689,7 +1867,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
             context,
             file: file,
             label: '${hariNama[widget.dayIndex]} • $label',
-            onTakeCamera: () => _openCamera(idx),
+            onTakeCamera: () => _showPhotoSourceOptions(idx),
             onDelete: () {
               try {
                 FileImage(file).evict();
@@ -1777,13 +1955,25 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                             ),
                           ],
                         )
-                      : const Center(
+                      : Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.add_a_photo_outlined, size: 32, color: Colors.grey),
-                              SizedBox(height: 4),
-                              Text('Ambil Foto GPS', style: TextStyle(fontSize: 11.5, color: Colors.grey)),
+                              Icon(Icons.add_a_photo_outlined, size: 30, color: Colors.teal.shade700),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Ambil / Pilih Foto',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.teal.shade900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '(GPS / Tanpa GPS / Galeri)',
+                                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                              ),
                             ],
                           ),
                         ),
@@ -3004,7 +3194,7 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
     await showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -3012,37 +3202,96 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Pilih Sumber Foto (Slot ${index + 1})',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00796B).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add_a_photo_rounded, color: Color(0xFF00796B), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pilih Cara Pengambilan Foto (${stage.percentage}%)',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        Text(
+                          label,
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
               const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
+              // 1. Pengambilan Jepret Langsung (Pake GPS)
               ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.teal.shade50,
-                  child: Icon(Icons.camera_alt_rounded, color: Colors.teal.shade800),
-                ),
-                title: const Text('Ambil dari Kamera', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Gunakan kamera langsung dengan grid dan fokus'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _takePhotoFromCamera(index);
-                },
-              ),
-              const Divider(),
-              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 leading: CircleAvatar(
                   backgroundColor: Colors.blue.shade50,
-                  child: const Icon(Icons.photo_library_rounded, color: Colors.blueAccent),
+                  child: Icon(Icons.gps_fixed_rounded, color: Colors.blue.shade800),
                 ),
-                title: const Text('Pilih dari Galeri HP', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Pilih foto proyek yang sudah ada di galeri ponsel'),
+                title: const Text(
+                  'Pengambilan Jepret Langsung (Pake GPS)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                subtitle: const Text(
+                  'Kamera aktif dengan tanda air GPS, koordinat peta & alamat otomatis',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _takePhotoFromCamera(index, withGps: true);
+                },
+              ),
+              const Divider(height: 1, indent: 56),
+              // 2. Pengambilan Jepret Langsung Tanpa GPS
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.orange.shade50,
+                  child: Icon(Icons.camera_alt_outlined, color: Colors.orange.shade800),
+                ),
+                title: const Text(
+                  'Pengambilan Jepret Langsung Tanpa GPS',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                subtitle: const Text(
+                  'Jepret kamera langsung bersih tanpa watermark koordinat atau peta',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _takePhotoFromCamera(index, withGps: false);
+                },
+              ),
+              const Divider(height: 1, indent: 56),
+              // 3. Ambil dari Galeri
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.purple.shade50,
+                  child: Icon(Icons.photo_library_rounded, color: Colors.purple.shade800),
+                ),
+                title: const Text(
+                  'Ambil dari Galeri',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                subtitle: const Text(
+                  'Pilih foto proyek yang sudah tersimpan di galeri ponsel Anda',
+                  style: TextStyle(fontSize: 11.5),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _pickPhotoFromGallery(index);
@@ -3055,7 +3304,7 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
     );
   }
 
-  Future<void> _takePhotoFromCamera(int index) async {
+  Future<void> _takePhotoFromCamera(int index, {bool withGps = true}) async {
     final stage = _currentStage;
     final slotId = 'rehab_${stage.percentage}pct_${index + 1}';
     final label = index < stage.photoLabels.length
@@ -3073,6 +3322,7 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
       MaterialPageRoute(
         builder: (_) => CameraScreen(
           slot: slot,
+          enableGps: withGps,
           projectTitle: '${_proj.namaPekerjaan} - Progres ${stage.percentage}%',
           onCustomSave: (rawBytes, wm, crop) async {
             await widget.store.saveSlotPhotoToDir(

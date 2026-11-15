@@ -987,8 +987,9 @@ class Store extends ChangeNotifier {
   }
 
   /// Pangkas sesuai rasio bingkai Excel (atau CropRect manual), kecilkan, simpan sebagai JPEG (tanpa GPS / dari galeri).
-  Future<void> setPhoto(Slot s, Uint8List raw, {CropRect? crop}) async {
-    final out = await _encodeSlotBytes(raw, s.aspect, crop: crop);
+  Future<void> setPhoto(Slot s, Uint8List raw, {CropRect? crop, double? aspect}) async {
+    final photoAspect = aspect ?? s.aspect;
+    final out = await _encodeSlotBytes(raw, photoAspect, crop: crop);
     await FileImage(photoFile(s)).evict(); // buang cache gambar lama
     photoFile(s).writeAsBytesSync(out);
     project.photoMeta[s.id] = PhotoMeta(hasGps: false, time: DateTime.now());
@@ -2819,9 +2820,11 @@ class Store extends ChangeNotifier {
       }());
     }
 
-    // Tunggu semua proses upload berkas selesai (berjalan serentak)
+    // Tunggu semua proses upload berkas selesai (berjalan serentak, max timeout 15 detik agar tidak macet di antrean)
     if (parallelTasks.isNotEmpty) {
-      await Future.wait(parallelTasks);
+      try {
+        await Future.wait(parallelTasks).timeout(const Duration(seconds: 15));
+      } catch (_) {}
     }
 
     // Tunggu sync instan awal selesai jika belum

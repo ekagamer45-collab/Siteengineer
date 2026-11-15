@@ -19,10 +19,12 @@ class CameraScreen extends StatefulWidget {
     required this.slot,
     this.projectTitle,
     this.onCustomSave,
+    this.enableGps = true,
   });
 
   final Slot slot;
   final String? projectTitle;
+  final bool enableGps;
   final Future<void> Function(
     Uint8List rawBytes,
     WatermarkData? wm,
@@ -188,45 +190,46 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       _showOpenAppSettings = false;
     });
 
-    // 1. Periksa apakah layanan lokasi (GPS) aktif
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _errorTitle = 'GPS Nonaktif';
-        _errorMessage =
-            'Layanan lokasi (GPS) sedang dimatikan. Aktifkan GPS perangkat agar foto dokumentasi memiliki bukti koordinat lokasi.';
-        _showOpenLocationSettings = true;
-      });
-      return;
-    }
+    // 1 & 2. Periksa layanan & izin lokasi (hanya jika mode GPS aktif)
+    if (widget.enableGps) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _errorTitle = 'GPS Nonaktif';
+          _errorMessage =
+              'Layanan lokasi (GPS) sedang dimatikan. Aktifkan GPS perangkat agar foto dokumentasi memiliki bukti koordinat lokasi.';
+          _showOpenLocationSettings = true;
+        });
+        return;
+      }
 
-    // 2. Periksa dan minta izin lokasi saat runtime
-    var locPerm = await Geolocator.checkPermission();
-    if (locPerm == LocationPermission.denied) {
-      locPerm = await Geolocator.requestPermission();
-    }
-    if (locPerm == LocationPermission.denied) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _errorTitle = 'Izin Lokasi Ditolak';
-        _errorMessage =
-            'Izin lokasi diperlukan untuk mencantumkan koordinat GPS pada foto dokumentasi. Silakan berikan izin lokasi.';
-      });
-      return;
-    }
-    if (locPerm == LocationPermission.deniedForever) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _errorTitle = 'Izin Lokasi Ditolak Permanen';
-        _errorMessage =
-            'Izin lokasi telah ditolak secara permanen. Buka Pengaturan Aplikasi lalu izinkan akses Lokasi untuk aplikasi ini.';
-        _showOpenAppSettings = true;
-      });
-      return;
+      var locPerm = await Geolocator.checkPermission();
+      if (locPerm == LocationPermission.denied) {
+        locPerm = await Geolocator.requestPermission();
+      }
+      if (locPerm == LocationPermission.denied) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _errorTitle = 'Izin Lokasi Ditolak';
+          _errorMessage =
+              'Izin lokasi diperlukan untuk mencantumkan koordinat GPS pada foto dokumentasi. Silakan berikan izin lokasi.';
+        });
+        return;
+      }
+      if (locPerm == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _errorTitle = 'Izin Lokasi Ditolak Permanen';
+          _errorMessage =
+              'Izin lokasi telah ditolak secara permanen. Buka Pengaturan Aplikasi lalu izinkan akses Lokasi untuk aplikasi ini.';
+          _showOpenAppSettings = true;
+        });
+        return;
+      }
     }
 
     // 3. Inisialisasi kamera (tanpa ImageFormatGroup.jpeg agar CameraX preview stabil)
@@ -272,8 +275,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       return;
     }
 
-    // 4. Mulai stream posisi dengan LocationAccuracy.best & timer 15 detik
-    _startGpsStream();
+    // 4. Mulai stream posisi dengan LocationAccuracy.best & timer 15 detik (jika GPS aktif)
+    if (widget.enableGps) {
+      _startGpsStream();
+    }
 
     if (!mounted) return;
     setState(() {
@@ -523,8 +528,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       !_processing &&
       _controller != null &&
       _controller!.value.isInitialized &&
-      _position != null &&
-      (_isGoodAccuracy || _waited15s);
+      (!widget.enableGps || (_position != null && (_isGoodAccuracy || _waited15s)));
 
   Future<String> _resolveAddress(double lat, double lng) async {
     try {
@@ -563,12 +567,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   Future<void> _capture() async {
-    final pos = _position;
     final ctrl = _controller;
-    if (pos == null || ctrl == null || !ctrl.value.isInitialized) return;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
+    if (widget.enableGps && _position == null) return;
+    final pos = _position;
 
-    // Tolak jika lokasi palsu (mock location)
-    if (pos.isMocked) {
+    // Tolak jika lokasi palsu (mock location) saat mode GPS aktif
+    if (widget.enableGps && pos != null && pos.isMocked) {
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -603,28 +608,35 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       final xfile = await ctrl.takePicture();
       final rawBytes = await xfile.readAsBytes();
 
-      // Gunakan alamat cache jika sudah selesai di latar belakang; bila belum tunggu maks 150ms
-      final address = _cachedAddress.isNotEmpty
-          ? _cachedAddress
-          : await _resolveAddress(pos.latitude, pos.longitude)
-              .timeout(const Duration(milliseconds: 150), onTimeout: () => '');
+      WatermarkData? wm;
+      if (widget.enableGps && pos != null) {
+        // Gunakan alamat cache jika sudah selesai di latar belakang; bila belum tunggu maks 150ms
+        final address = _cachedAddress.isNotEmpty
+            ? _cachedAddress
+            : await _resolveAddress(pos.latitude, pos.longitude)
+                .timeout(const Duration(milliseconds: 150), onTimeout: () => '');
 
-      final wm = WatermarkData(
-        lat: pos.latitude,
-        lng: pos.longitude,
-        accuracy: pos.accuracy,
-        time: DateTime.now(),
-        slotLabel: widget.slot.label,
-        schoolName: widget.projectTitle ?? store.project.school,
-        address: address,
-        mapTileBytes: _cachedMapTile,
-      );
+        wm = WatermarkData(
+          lat: pos.latitude,
+          lng: pos.longitude,
+          accuracy: pos.accuracy,
+          time: DateTime.now(),
+          slotLabel: widget.slot.label,
+          schoolName: widget.projectTitle ?? store.project.school,
+          address: address,
+          mapTileBytes: _cachedMapTile,
+        );
+      }
       final double targetAspect = _isVertical ? (9 / 16) : (16 / 9);
 
       if (widget.onCustomSave != null) {
         await widget.onCustomSave!(rawBytes, wm, null);
       } else {
-        await store.setCameraPhoto(widget.slot, rawBytes, wm, aspect: targetAspect);
+        if (wm != null) {
+          await store.setCameraPhoto(widget.slot, rawBytes, wm, aspect: targetAspect);
+        } else {
+          await store.setPhoto(widget.slot, rawBytes, aspect: targetAspect);
+        }
         unawaited(store.savePhotoToGallery(widget.slot).catchError((_) => false));
       }
 
@@ -700,7 +712,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       setState(() => _processing = true);
       final pos = _position;
       WatermarkData? wm;
-      if (pos != null && !pos.isMocked) {
+      if (widget.enableGps && pos != null && !pos.isMocked) {
         final address = await _resolveAddress(pos.latitude, pos.longitude);
         wm = WatermarkData(
           lat: pos.latitude,
@@ -1000,82 +1012,108 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 ),
               ),
 
-            // 2. Chip Akurasi GPS Kecil & Elegan di Bagian Atas (Tidak Menghalangi Pandangan)
+            // 2. Chip Akurasi GPS Kecil & Elegan di Bagian Atas (atau status Mode Tanpa GPS)
             Positioned(
               top: 8,
               left: 12,
               right: 12,
               child: SafeArea(
                 bottom: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: statusColor, width: 1.2),
-                      ),
-                      child: Row(
+                child: widget.enableGps
+                    ? Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.gps_fixed, color: statusColor, size: 13),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              pos != null
-                                  ? 'GPS: $accText • ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}'
-                                  : 'Mencari sinyal GPS…',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: statusColor, width: 1.2),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.gps_fixed, color: statusColor, size: 13),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    pos != null
+                                        ? 'GPS: $accText • ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}'
+                                        : 'Mencari sinyal GPS…',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          if (_isLowAccuracyWarning) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade900.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                pos != null
+                                    ? 'Akurasi rendah (±${pos.accuracy.toStringAsFixed(1)} m > 25 m)'
+                                    : 'Menunggu kunci sinyal GPS…',
+                                style: const TextStyle(color: Colors.white, fontSize: 10.5),
+                              ),
+                            ),
+                          ],
+                          if (pos != null && pos.isMocked) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade900.withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Lokasi palsu (Mock GPS) terdeteksi!',
+                                style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
                         ],
-                      ),
-                    ),
-                    if (_isLowAccuracyWarning) ...[
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade900.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          pos != null
-                              ? 'Akurasi rendah (±${pos.accuracy.toStringAsFixed(1)} m > 25 m)'
-                              : 'Menunggu kunci sinyal GPS…',
-                          style: const TextStyle(color: Colors.white, fontSize: 10.5),
-                        ),
-                      ),
-                    ],
-                    if (pos != null && pos.isMocked) ...[
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade900.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          'Lokasi palsu (Mock GPS) terdeteksi!',
-                          style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                      )
+                    : Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.orange.shade400, width: 1.2),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.gps_off_rounded, color: Colors.orange.shade400, size: 14),
+                              const SizedBox(width: 6),
+                              const Text(
+                                'Mode Kamera Tanpa GPS (Foto Bersih)',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ],
-                ),
               ),
             ),
 
             // 3. Pratinjau Watermark Map Tag (Ditempatkan Rapi & Terpisah agar Tidak Bertabrakan dengan Tombol)
-            if (pos != null)
+            if (widget.enableGps && pos != null)
               Positioned(
                 left: 12,
                 bottom: isLandscape ? 16 : 126,
@@ -1198,11 +1236,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          _canCapture
-                              ? (_isLowAccuracyWarning
-                                  ? 'Jepret Foto (Akurasi Rendah)'
-                                  : 'Jepret Foto')
-                              : 'Menunggu kunci GPS (≤ 25 m)…',
+                          !widget.enableGps
+                              ? 'Jepret Foto (Tanpa GPS)'
+                              : (_canCapture
+                                  ? (_isLowAccuracyWarning
+                                      ? 'Jepret Foto (Akurasi Rendah)'
+                                      : 'Jepret Foto')
+                                  : 'Menunggu kunci GPS (≤ 25 m)…'),
                           style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
                       ],

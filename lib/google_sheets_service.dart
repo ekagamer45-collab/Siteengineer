@@ -531,38 +531,82 @@ class GoogleSheetsService {
     try {
       final subJson = submission.toJson();
 
-      // Sanitasi payload secara mendalam agar terhindar 100% dari batasan 50.000 karakter per sel Spreadsheet
-      Map<String, dynamic> sanitizeMap(Map<String, dynamic> src) {
-        final clean = <String, dynamic>{};
-        src.forEach((k, v) {
-          final lk = k.toLowerCase();
-          if (lk.contains('thumbnail') || lk.contains('thumb') || lk.contains('base64')) {
-            return;
+      // Sanitasi payload secara mendalam dan rekursif agar terhindar 100% dari batasan 50.000 karakter per sel Spreadsheet
+      dynamic deepSanitize(dynamic src, {int depth = 0}) {
+        if (depth > 8) return null;
+        if (src is Map) {
+          final clean = <String, dynamic>{};
+          src.forEach((k, v) {
+            final keyStr = k.toString();
+            final lk = keyStr.toLowerCase();
+            // Hapus semua base64, thumbnail, atau data biner gambar
+            if (lk.contains('thumb') ||
+                lk.contains('base64') ||
+                lk.contains('imagebytes') ||
+                lk.contains('photobytes') ||
+                lk.contains('rawbytes')) {
+              return;
+            }
+            clean[keyStr] = deepSanitize(v, depth: depth + 1);
+          });
+          return clean;
+        } else if (src is List) {
+          return src
+              .take(30)
+              .map((e) => deepSanitize(e, depth: depth + 1))
+              .toList();
+        } else if (src is String) {
+          if (src.length > 1000) {
+            if (src.startsWith('data:') || src.length > 3000) return '';
+            return src.substring(0, 1000);
           }
-          if (v is Map) {
-            clean[k] = sanitizeMap(Map<String, dynamic>.from(v));
-          } else if (v is List) {
-            clean[k] = v.take(50).toList();
-          } else if (v is String && v.length > 1500) {
-            clean[k] = v.substring(0, 1500);
-          } else {
-            clean[k] = v;
-          }
-        });
-        return clean;
+          return src;
+        }
+        return src;
       }
 
-      final cleanPayload = sanitizeMap(submission.payloadJson);
+      final cleanPayload = (deepSanitize(submission.payloadJson) as Map<String, dynamic>?) ?? {};
+      cleanPayload.remove('photoThumbnails');
+
+      // Pastikan total karakter JSON string payload TIDAK MELEBIHI 28.000 karakter (limit aman sel Google Sheets = 50.000)
       String enc = jsonEncode(cleanPayload);
-      if (enc.length > 38000) {
+      if (enc.length > 28000) {
         cleanPayload.remove('photoMeta');
         enc = jsonEncode(cleanPayload);
-        if (enc.length > 38000) {
-          cleanPayload.remove('days');
-          cleanPayload.remove('rooms');
-        }
       }
+      if (enc.length > 28000) {
+        cleanPayload.remove('days');
+        cleanPayload.remove('rooms');
+        enc = jsonEncode(cleanPayload);
+      }
+      if (enc.length > 28000) {
+        cleanPayload.remove('sections');
+        cleanPayload.remove('progressStages');
+        enc = jsonEncode(cleanPayload);
+      }
+      if (enc.length > 28000) {
+        final ultraLight = <String, dynamic>{
+          'id': submission.id,
+          'title': submission.title,
+          'programName': submission.programName,
+          'programType': submission.programType,
+          'weekNumber': submission.weekNumber,
+          'updatedAt': submission.updatedAt.toIso8601String(),
+          'summary': submission.summary,
+        };
+        cleanPayload.clear();
+        cleanPayload.addAll(ultraLight);
+      }
+
       subJson['payloadJson'] = cleanPayload;
+
+      // Pangkas kolom string lainnya agar terbebas sepenuhnya dari batas 50.000 karakter per sel
+      if (subJson['summary'] is String && (subJson['summary'] as String).length > 2000) {
+        subJson['summary'] = (subJson['summary'] as String).substring(0, 2000);
+      }
+      if (subJson['title'] is String && (subJson['title'] as String).length > 500) {
+        subJson['title'] = (subJson['title'] as String).substring(0, 500);
+      }
 
       final res = await _postAction(scriptUrl, {
         'action': 'pushSubmission',
