@@ -15,6 +15,7 @@ Future<bool> showSendReportToAdminDialog(
   required String programType,
   String? customProgramId,
   int? initialDayIndex,
+  bool isProgress0_50_100 = false,
 }) async {
   // Tentukan jenis proyek & tanggal tiap hari (Senin..Minggu)
   String effectiveType = programType;
@@ -22,7 +23,10 @@ Future<bool> showSendReportToAdminDialog(
   Project? revitProj;
   RehabProject? rehabProj;
 
-  if (programType == 'custom' && customProgramId != null) {
+  if (isProgress0_50_100) {
+    rehabProj = store.rehabProject;
+    reportTitle = 'Progres Fisik 0%, 50%, 100% • ${rehabProj.namaPekerjaan}';
+  } else if (programType == 'custom' && customProgramId != null) {
     final idx = store.customPrograms.indexWhere((e) => e.id == customProgramId);
     if (idx >= 0) {
       final cp = store.customPrograms[idx];
@@ -49,7 +53,7 @@ Future<bool> showSendReportToAdminDialog(
     reportTitle = 'Revitalisasi • ${revitProj.school}';
   }
 
-  final hasDailySplit = effectiveType != 'custom';
+  final hasDailySplit = !isProgress0_50_100 && effectiveType != 'custom';
 
   int photosCountForDay(int d) {
     if (effectiveType == 'rehabilitasi') {
@@ -64,7 +68,21 @@ Future<bool> showSendReportToAdminDialog(
     return 0;
   }
 
+  int progressPhotosCount() {
+    if (store.rehabPhotoDir.existsSync()) {
+      return store.rehabPhotoDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.contains('pct_') && f.path.toLowerCase().endsWith('.jpg'))
+          .length;
+    }
+    return 0;
+  }
+
   int totalProjectPhotos() {
+    if (isProgress0_50_100) {
+      return progressPhotosCount();
+    }
     int total = 0;
     for (var d = 0; d < 7; d++) {
       total += photosCountForDay(d);
@@ -95,11 +113,13 @@ Future<bool> showSendReportToAdminDialog(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setDlg) {
-        final targetFolderText = hasDailySplit
-            ? (selectedDay >= 0
-                ? 'Folder Drive: ${dayOptionLabel(selectedDay)}'
-                : 'Folder Drive: Senin..Minggu (masing-masing folder per hari)')
-            : 'Folder Drive: ${Store.formatDriveDayFolderName(DateTime.now())}';
+        final targetFolderText = isProgress0_50_100
+            ? 'Folder Drive: Progres_0_50_100 • ${progressPhotosCount()} Foto'
+            : (hasDailySplit
+                ? (selectedDay >= 0
+                    ? 'Folder Drive: ${dayOptionLabel(selectedDay)}'
+                    : 'Folder Drive: Senin..Minggu (masing-masing folder per hari)')
+                : 'Folder Drive: ${Store.formatDriveDayFolderName(DateTime.now())}');
 
         final isAdmin = store.currentUser?.isAdmin == true;
         return AlertDialog(
@@ -285,6 +305,7 @@ Future<bool> showSendReportToAdminDialog(
     customProgramId: customProgramId,
     singleDayIndex: (hasDailySplit && selectedDay >= 0) ? selectedDay : null,
     includeDocuments: includeDocs,
+    isProgress0_50_100: isProgress0_50_100,
     onProgress: (m) => statusNotifier.value = m,
   );
   statusNotifier.dispose();

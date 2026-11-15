@@ -652,6 +652,7 @@ class PendingSyncTask {
     required this.programType,
     this.customProgramId,
     this.singleDayIndex,
+    this.isProgress0_50_100 = false,
     required this.programName,
     required this.title,
     required this.createdAt,
@@ -666,6 +667,7 @@ class PendingSyncTask {
   String programType;
   String? customProgramId;
   int? singleDayIndex;
+  bool isProgress0_50_100;
   String programName;
   String title;
   DateTime createdAt;
@@ -678,6 +680,7 @@ class PendingSyncTask {
         'programType': programType,
         'customProgramId': customProgramId,
         'singleDayIndex': singleDayIndex,
+        'isProgress0_50_100': isProgress0_50_100,
         'programName': programName,
         'title': title,
         'createdAt': createdAt.toIso8601String(),
@@ -691,6 +694,7 @@ class PendingSyncTask {
         programType: j['programType'] as String? ?? 'revitalisasi',
         customProgramId: j['customProgramId'] as String?,
         singleDayIndex: (j['singleDayIndex'] as num?)?.toInt(),
+        isProgress0_50_100: j['isProgress0_50_100'] as bool? ?? false,
         programName: j['programName'] as String? ?? 'Revitalisasi',
         title: j['title'] as String? ?? '',
         createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ??

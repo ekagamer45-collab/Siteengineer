@@ -1155,6 +1155,16 @@ class Store extends ChangeNotifier {
       PaintingBinding.instance.imageCache.clearLiveImages();
     } catch (_) {}
     file.writeAsBytesSync(out);
+
+    // Buat sidecar HD/export secara background agar ekspor berikutnya instan tanpa re-encoding
+    unawaited(Future(() {
+      try {
+        final sc = hdSidecarFile(file);
+        final scBytes = resizeJpegBytesForExport(out, 1280, 80);
+        sc.writeAsBytesSync(scBytes);
+      } catch (_) {}
+    }));
+
     incrementPhotoVersion();
     notifyListeners();
   }
@@ -1174,8 +1184,8 @@ class Store extends ChangeNotifier {
     final p = overrideProject ?? project;
     final proj = p.toJson();
     final dir = overridePhotoDir ?? photoDir.path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final bytes = await Isolate.run(
       () => XlsxFiller.build(
@@ -1219,8 +1229,8 @@ class Store extends ChangeNotifier {
     final p = overrideProject ?? project;
     final proj = p.toJson();
     final dir = overridePhotoDir ?? photoDir.path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final bytes = await Isolate.run(
       () => PdfFiller.build(
@@ -1280,8 +1290,8 @@ class Store extends ChangeNotifier {
     final p = overrideProject ?? rehabProject;
     final rawJson = p.toJson();
     final dir = overridePhotoDir ?? rehabPhotoDir.path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final bytes = await Isolate.run(
       () => RehabXlsxFiller.build(
@@ -1320,8 +1330,8 @@ class Store extends ChangeNotifier {
     final p = overrideProject ?? rehabProject;
     final rawJson = p.toJson();
     final dir = overridePhotoDir ?? rehabPhotoDir.path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final bytes = await Isolate.run(
       () => RehabPdfFiller.build(
@@ -1360,8 +1370,8 @@ class Store extends ChangeNotifier {
   }) async {
     final p = overrideProject ?? rehabProject;
     final dir = overridePhotoDir ?? rehabPhotoDir.path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final res = await Isolate.run(
       () => RehabPdfFiller.buildSingleProgressStagePdf(
@@ -1394,8 +1404,8 @@ class Store extends ChangeNotifier {
   }) async {
     final p = overrideProject ?? rehabProject;
     final dir = overridePhotoDir ?? rehabPhotoDir.path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final bytes = await Isolate.run(
       () => RehabXlsxFiller.buildSingleProgressStageXlsx(
@@ -1427,8 +1437,8 @@ class Store extends ChangeNotifier {
   }) async {
     final p = overrideProject ?? rehabProject;
     final dir = overridePhotoDir ?? rehabPhotoDir.path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final res = await Isolate.run(
       () => RehabPdfFiller.buildProgress0_50_100(
@@ -1459,8 +1469,8 @@ class Store extends ChangeNotifier {
   }) async {
     final p = overrideProject ?? rehabProject;
     final dir = overridePhotoDir ?? rehabPhotoDir.path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final bytes = await Isolate.run(
       () => RehabXlsxFiller.buildProgress0_50_100(
@@ -1544,8 +1554,8 @@ class Store extends ChangeNotifier {
   }) async {
     final rawJson = cp.toJson();
     final dir = overridePhotoDir ?? customPhotoDir(cp.id).path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final bytes = await Isolate.run(
       () => CustomReportFiller.buildXlsx(
@@ -1574,8 +1584,8 @@ class Store extends ChangeNotifier {
   }) async {
     final rawJson = cp.toJson();
     final dir = overridePhotoDir ?? customPhotoDir(cp.id).path;
-    final maxW = size.maxWidth;
-    final qual = size.jpegQuality;
+    final maxW = math.min(size.maxWidth, 1280);
+    final qual = math.min(size.jpegQuality, 80);
     final maxBytes = size.maxFileBytes;
     final bytes = await Isolate.run(
       () => CustomReportFiller.buildPdf(
@@ -2194,6 +2204,7 @@ class Store extends ChangeNotifier {
     required String programType,
     String? customProgramId,
     int? singleDayIndex,
+    bool isProgress0_50_100 = false,
     required String programName,
     required String title,
     required String error,
@@ -2205,6 +2216,7 @@ class Store extends ChangeNotifier {
       pendingSyncQueue[idx].programName = programName;
       pendingSyncQueue[idx].title = title;
       pendingSyncQueue[idx].singleDayIndex = singleDayIndex;
+      pendingSyncQueue[idx].isProgress0_50_100 = isProgress0_50_100;
       if (pendingSyncQueue[idx].clientUuid.isEmpty) {
         pendingSyncQueue[idx].clientUuid = clientUuid;
       }
@@ -2215,6 +2227,7 @@ class Store extends ChangeNotifier {
         programType: programType,
         customProgramId: customProgramId,
         singleDayIndex: singleDayIndex,
+        isProgress0_50_100: isProgress0_50_100,
         programName: programName,
         title: title,
         createdAt: DateTime.now(),
@@ -2234,6 +2247,7 @@ class Store extends ChangeNotifier {
     String? customProgramId,
     int? singleDayIndex,
     bool includeDocuments = true,
+    bool isProgress0_50_100 = false,
     void Function(String status)? onProgress,
   }) async {
     final user = currentUser ??
@@ -2256,7 +2270,7 @@ class Store extends ChangeNotifier {
     CustomProgram? activeCustom;
 
     if (programType == 'rehabilitasi') {
-      programName = 'Rehabilitasi';
+      programName = isProgress0_50_100 ? 'Progres Fisik 0%, 50%, 100%' : 'Rehabilitasi';
       title = rehabProject.namaPekerjaan;
       week = rehabProject.minggu;
       payload = rehabProject.toJson();
@@ -2303,7 +2317,9 @@ class Store extends ChangeNotifier {
 
     final daySuffix = singleDayIndex != null ? '_H${singleDayIndex + 1}' : '_all';
     final weekSuffix = '_M$week';
-    if (programType == 'rehabilitasi') {
+    if (isProgress0_50_100) {
+      submissionId = '${user.id}_rehab_progres_0_50_100$weekSuffix';
+    } else if (programType == 'rehabilitasi') {
       submissionId = '${user.id}_rehab$weekSuffix$daySuffix';
     } else if (programType == 'custom' && activeCustom != null) {
       submissionId = '${user.id}_custom_${activeCustom.id}$weekSuffix$daySuffix';
@@ -2339,6 +2355,7 @@ class Store extends ChangeNotifier {
         programType: programType,
         customProgramId: customProgramId,
         singleDayIndex: singleDayIndex,
+        isProgress0_50_100: isProgress0_50_100,
         programName: programName,
         title: title,
         error: 'URL Google Apps Script belum diatur.',
@@ -2371,14 +2388,20 @@ class Store extends ChangeNotifier {
           .whereType<File>()
           .where((f) => f.path.toLowerCase().endsWith('.jpg'))
           .toList();
-      final matchingDayPhotos = singleDayIndex == null
-          ? allPhotos
-          : allPhotos.where((f) {
-              final name = f.uri.pathSegments.last;
-              final idx = _dayIndexFromPhotoFilename(name);
-              return idx == null || idx == singleDayIndex;
-            }).toList();
-      final targetPhotos = matchingDayPhotos.isNotEmpty ? matchingDayPhotos : allPhotos;
+      final List<File> targetPhotos;
+      if (isProgress0_50_100) {
+        final pctPhotos = allPhotos.where((f) => f.path.contains('pct_')).toList();
+        targetPhotos = pctPhotos.isNotEmpty ? pctPhotos : allPhotos;
+      } else {
+        final matchingDayPhotos = singleDayIndex == null
+            ? allPhotos
+            : allPhotos.where((f) {
+                final name = f.uri.pathSegments.last;
+                final idx = _dayIndexFromPhotoFilename(name);
+                return idx == null || idx == singleDayIndex;
+              }).toList();
+        targetPhotos = matchingDayPhotos.isNotEmpty ? matchingDayPhotos : allPhotos;
+      }
 
       final thumbEntries = await Future.wait(targetPhotos.map((pf) async {
         try {
@@ -2421,7 +2444,7 @@ class Store extends ChangeNotifier {
               dayFolder: dayFolder,
               clientUuid: '${clientUuid}_${driveName}_${bytes.length}',
             )
-            .timeout(const Duration(seconds: 25));
+            .timeout(const Duration(seconds: 8));
         if (up.ok && up.data != null) {
           reportFileUrls[driveName] = up.data!.fileUrl;
           if (up.data!.folderUrl.isNotEmpty) {
@@ -2449,7 +2472,9 @@ class Store extends ChangeNotifier {
       dayFolderUrls: dayFolderUrls,
       reportFileUrls: reportFileUrls,
       dayLabels: sentDayLabels.toList(),
-      summary: 'Sinkronisasi instan (${photoThumbnails.length} foto)',
+      summary: isProgress0_50_100
+          ? 'Progres 0%, 50%, 100% (${photoThumbnails.length} foto)'
+          : 'Sinkronisasi instan (${photoThumbnails.length} foto)',
     );
 
     Future<bool>? initialFbFuture;
@@ -2470,13 +2495,19 @@ class Store extends ChangeNotifier {
           .whereType<File>()
           .where((f) => f.path.toLowerCase().endsWith('.jpg'))
           .toList();
-      final files = singleDayIndex == null
-          ? allFiles
-          : allFiles.where((f) {
-              final name = f.uri.pathSegments.last;
-              final idx = _dayIndexFromPhotoFilename(name);
-              return idx == null || idx == singleDayIndex;
-            }).toList();
+      final List<File> files;
+      if (isProgress0_50_100) {
+        final pctFiles = allFiles.where((f) => f.path.contains('pct_')).toList();
+        files = pctFiles.isNotEmpty ? pctFiles : allFiles;
+      } else {
+        files = singleDayIndex == null
+            ? allFiles
+            : allFiles.where((f) {
+                final name = f.uri.pathSegments.last;
+                final idx = _dayIndexFromPhotoFilename(name);
+                return idx == null || idx == singleDayIndex;
+              }).toList();
+      }
 
       final pendingUploads = <({
         File file,
@@ -2497,14 +2528,16 @@ class Store extends ChangeNotifier {
         if (needsUpload) {
           final photoDayIdx =
               _dayIndexFromPhotoFilename(name) ?? singleDayIndex;
-          final dayFolder = formatDriveDayFolderName(
-            _dateForProgramDay(
-              programType: effectiveProgramType,
-              dayIndex: photoDayIdx,
-              revitProj: activeRevit,
-              rehabProj: activeRehab,
-            ),
-          );
+          final dayFolder = isProgress0_50_100
+              ? 'Progres_0_50_100'
+              : formatDriveDayFolderName(
+                  _dateForProgramDay(
+                    programType: effectiveProgramType,
+                    dayIndex: photoDayIdx,
+                    revitProj: activeRevit,
+                    rehabProj: activeRehab,
+                  ),
+                );
           pendingUploads.add((
             file: f,
             name: name,
@@ -2538,7 +2571,7 @@ class Store extends ChangeNotifier {
                       clientUuid: '${clientUuid}_${item.name}_${item.fp}',
                       onFolderUrl: (url) => dayFolderUrls[item.dayFolder] = url,
                     )
-                    .timeout(const Duration(seconds: 15));
+                    .timeout(const Duration(seconds: 10));
                 if (up.ok && up.data != null) {
                   photoDriveMap[item.name] = up.data!;
                   _photoFingerprints[item.fpKey] = item.fp;
@@ -2560,7 +2593,44 @@ class Store extends ChangeNotifier {
 
       parallelTasks.add(() async {
         onProgress?.call('Menyiapkan berkas Excel & PDF...');
-        if (effectiveProgramType == 'custom' && activeCustom != null) {
+        if (isProgress0_50_100) {
+          const dayFolder = 'Progres_0_50_100';
+          sentDayLabels.add('Progres 0%, 50%, 100%');
+          final now = DateTime.now();
+          final tglStr = '${now.day.toString().padLeft(2, '0')}_${now.month.toString().padLeft(2, '0')}_${now.year}';
+          final hari = hariNama[now.weekday % 7].toLowerCase();
+          try {
+            final docs = await Future.wait([
+              exportRehabProgress0_50_100Xlsx(
+                dayIndex: singleDayIndex ?? 0,
+                size: cloudDocSize,
+                overrideProject: activeRehab,
+                overridePhotoDir: srcPhotoDir?.path,
+              ),
+              exportRehabProgress0_50_100Pdf(
+                dayIndex: singleDayIndex ?? 0,
+                size: cloudDocSize,
+                overrideProject: activeRehab,
+                overridePhotoDir: srcPhotoDir?.path,
+              ),
+            ]);
+            onProgress?.call('Mengunggah Dokumen 0_50_100 ke Drive...');
+            await Future.wait([
+              uploadDoc(
+                dayFolder: dayFolder,
+                filePath: docs[0],
+                driveName: '${safeUserPrefix}_0_50_100-Pengawas_${hari}_$tglStr.xlsx',
+                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              ),
+              uploadDoc(
+                dayFolder: dayFolder,
+                filePath: docs[1],
+                driveName: '${safeUserPrefix}_0_50_100-Pengawas_${hari}_$tglStr.pdf',
+                mimeType: 'application/pdf',
+              ),
+            ]);
+          } catch (_) {}
+        } else if (effectiveProgramType == 'custom' && activeCustom != null) {
           final dayFolder = formatDriveDayFolderName(DateTime.now());
           sentDayLabels.add(dayFolder);
           final safeProg = activeCustom.name
@@ -2616,18 +2686,6 @@ class Store extends ChangeNotifier {
                   overrideProject: activeRehab,
                   overridePhotoDir: srcPhotoDir?.path,
                 ),
-                exportRehabProgress0_50_100Xlsx(
-                  dayIndex: dIdx,
-                  size: cloudDocSize,
-                  overrideProject: activeRehab,
-                  overridePhotoDir: srcPhotoDir?.path,
-                ),
-                exportRehabProgress0_50_100Pdf(
-                  dayIndex: dIdx,
-                  size: cloudDocSize,
-                  overrideProject: activeRehab,
-                  overridePhotoDir: srcPhotoDir?.path,
-                ),
               ]);
               onProgress?.call('Mengunggah Excel & PDF ke Drive...');
               await Future.wait([
@@ -2641,18 +2699,6 @@ class Store extends ChangeNotifier {
                   dayFolder: dayFolder,
                   filePath: docs[1],
                   driveName: '${safeUserPrefix}_rehabilitasi harian_${hari}_$tglStr.pdf',
-                  mimeType: 'application/pdf',
-                ),
-                uploadDoc(
-                  dayFolder: dayFolder,
-                  filePath: docs[2],
-                  driveName: '${safeUserPrefix}_0_50_100-Pengawas_${hari}_$tglStr.xlsx',
-                  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                ),
-                uploadDoc(
-                  dayFolder: dayFolder,
-                  filePath: docs[3],
-                  driveName: '${safeUserPrefix}_0_50_100-Pengawas_${hari}_$tglStr.pdf',
                   mimeType: 'application/pdf',
                 ),
               ]);
@@ -2882,6 +2928,7 @@ class Store extends ChangeNotifier {
         programType: task.programType,
         customProgramId: task.customProgramId,
         singleDayIndex: task.singleDayIndex,
+        isProgress0_50_100: task.isProgress0_50_100,
         onProgress: onProgress,
       );
       if (res.ok) {

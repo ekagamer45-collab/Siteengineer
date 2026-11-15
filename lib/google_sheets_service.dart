@@ -530,8 +530,38 @@ class GoogleSheetsService {
   }) async {
     try {
       final subJson = submission.toJson();
-      final cleanPayload = Map<String, dynamic>.from(submission.payloadJson);
-      cleanPayload.remove('photoThumbnails'); // Hapus thumbnail base64 agar aman dari limit 50.000 karakter per sel Spreadsheet!
+
+      // Sanitasi payload secara mendalam agar terhindar 100% dari batasan 50.000 karakter per sel Spreadsheet
+      Map<String, dynamic> sanitizeMap(Map<String, dynamic> src) {
+        final clean = <String, dynamic>{};
+        src.forEach((k, v) {
+          final lk = k.toLowerCase();
+          if (lk.contains('thumbnail') || lk.contains('thumb') || lk.contains('base64')) {
+            return;
+          }
+          if (v is Map) {
+            clean[k] = sanitizeMap(Map<String, dynamic>.from(v));
+          } else if (v is List) {
+            clean[k] = v.take(50).toList();
+          } else if (v is String && v.length > 1500) {
+            clean[k] = v.substring(0, 1500);
+          } else {
+            clean[k] = v;
+          }
+        });
+        return clean;
+      }
+
+      final cleanPayload = sanitizeMap(submission.payloadJson);
+      String enc = jsonEncode(cleanPayload);
+      if (enc.length > 38000) {
+        cleanPayload.remove('photoMeta');
+        enc = jsonEncode(cleanPayload);
+        if (enc.length > 38000) {
+          cleanPayload.remove('days');
+          cleanPayload.remove('rooms');
+        }
+      }
       subJson['payloadJson'] = cleanPayload;
 
       final res = await _postAction(scriptUrl, {
@@ -980,6 +1010,12 @@ function doPost(e) {
         JSON.stringify(dayLabels),
         summary
       ];
+      // Keamanan absolut: pastikan tidak ada sel manapun yang melebihi 48.000 karakter
+      for (let c = 0; c < rowValues.length; c++) {
+        if (typeof rowValues[c] === 'string' && rowValues[c].length > 48000) {
+          rowValues[c] = rowValues[c].substring(0, 48000);
+        }
+      }
       if (rowIndex > 0) {
         reports.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
       } else {

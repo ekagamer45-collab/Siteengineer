@@ -94,7 +94,7 @@ class NotificationService {
     if (Platform.environment.containsKey('FLUTTER_TEST')) return;
     await init();
     try {
-      final title = '✅ Laporan Berhasil Dikirim ke Admin!';
+      const title = '✅ Laporan Berhasil Dikirim ke Admin!';
       final body =
           'Data "$projectName" ($dayName) beserta $photosCount foto dokumentasi telah sukses tersinkronisasi.';
 

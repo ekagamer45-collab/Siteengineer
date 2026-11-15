@@ -336,6 +336,19 @@ Uint8List resizeJpegBytesForExport(
       continue;
     }
 
+    // Cek cache sidecar HD / optimized yang sudah pernah dibuat
+    final sc = hdSidecarFile(e.value);
+    if (sc.existsSync()) {
+      try {
+        final scBytes = sc.readAsBytesSync();
+        if (scBytes.length <= perPhotoCap * 1.3) {
+          out[e.key] = scBytes;
+          usedBytes += scBytes.length;
+          continue;
+        }
+      } catch (_) {}
+    }
+
     final decoded = img.decodeImage(raw);
     if (decoded == null) {
       out[e.key] = raw;
@@ -348,6 +361,13 @@ Uint8List resizeJpegBytesForExport(
     var curW = math.min(toEncode.width, start.width);
     var curQ = start.quality;
     var best = _encodeDecodedWithWidth(toEncode, curW, curQ);
+
+    // Simpan ke sidecar agar ekspor berikutnya langsung instan
+    try {
+      if (!sc.existsSync()) {
+        sc.writeAsBytesSync(best);
+      }
+    } catch (_) {}
 
     // Jika melewati jatah per-foto, turunkan kualitas tipis dulu lalu resolusi secara halus
     // (tetap menjaga ketajaman DPI setinggi mungkin).

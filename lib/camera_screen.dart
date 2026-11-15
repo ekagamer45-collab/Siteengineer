@@ -84,9 +84,20 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     super.dispose();
   }
 
+  bool _isFocusing = false;
+  DateTime? _lastFocusTime;
+
   Future<void> _onTapToFocus(TapDownDetails details, Size boxSize) async {
     final ctrl = _controller;
-    if (ctrl == null || !ctrl.value.isInitialized) return;
+    if (ctrl == null || !ctrl.value.isInitialized || ctrl.value.hasError) return;
+
+    final now = DateTime.now();
+    if (_isFocusing) return;
+    if (_lastFocusTime != null && now.difference(_lastFocusTime!).inMilliseconds < 350) {
+      return;
+    }
+    _lastFocusTime = now;
+    _isFocusing = true;
 
     final screenPoint = details.localPosition;
     final normalizedPoint = Offset(
@@ -111,16 +122,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     });
 
     try {
-      if (ctrl.value.focusPointSupported) {
+      if (ctrl.value.isInitialized && !ctrl.value.hasError && ctrl.value.focusPointSupported) {
         await ctrl.setFocusPoint(normalizedPoint);
       }
-    } catch (_) {}
-
-    try {
-      if (ctrl.value.exposurePointSupported) {
+      if (ctrl.value.isInitialized && !ctrl.value.hasError && ctrl.value.exposurePointSupported) {
         await ctrl.setExposurePoint(normalizedPoint);
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isFocusing = false;
+    }
   }
 
   Future<void> _onExposureDrag(double deltaDy) async {
@@ -917,6 +928,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapDown: (details) => _onTapToFocus(details, Size(screenW, screenH)),
+              onDoubleTap: () {
+                // Mencegah crash native Camera2 session saat diklik cepat berulang kali
+              },
               child: Center(
                 child: ctrl == null
                     ? const CircularProgressIndicator(color: Colors.white)
@@ -1361,26 +1375,32 @@ class _FocusReticleWidgetState extends State<_FocusReticleWidget>
                       ),
                     ),
                   ),
-                  // 4. Ikon Matahari yang dapat Digeser Naik/Turun (Drag to adjust exposure)
+                  // 4. Ikon Matahari yang dapat Digeser Naik/Turun
                   Positioned(
                     right: 4,
                     top: 34 + sunOffsetDy,
+                    child: const IgnorePointer(
+                      child: Icon(
+                        Icons.wb_sunny_rounded,
+                        color: Color(0xFFFFD54F),
+                        size: 20,
+                        shadows: [
+                          Shadow(color: Colors.black, blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Area sentuh luas untuk drag kecerahan / exposure (48px lebar di sisi kanan)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 48,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onVerticalDragUpdate: (details) {
                         widget.onExposureDrag(details.delta.dy);
                       },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        child: const Icon(
-                          Icons.wb_sunny_rounded,
-                          color: Color(0xFFFFD54F),
-                          size: 18,
-                          shadows: [
-                            Shadow(color: Colors.black, blurRadius: 4),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
                   // 5. Label EV jika exposure diubah (+0.5, -1.0)

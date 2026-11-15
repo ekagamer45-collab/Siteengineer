@@ -3290,6 +3290,7 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
                 store: widget.store,
                 programType: widget.customProgramId != null ? 'custom' : 'rehabilitasi',
                 customProgramId: widget.customProgramId,
+                isProgress0_50_100: true,
               );
             },
             icon: const Icon(Icons.cloud_upload_outlined),
@@ -3610,6 +3611,7 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
                       store: widget.store,
                       programType: widget.customProgramId != null ? 'custom' : 'rehabilitasi',
                       customProgramId: widget.customProgramId,
+                      isProgress0_50_100: true,
                     );
                   },
                   icon: const Icon(Icons.send_rounded, size: 16),

@@ -642,15 +642,30 @@ class RehabXlsxFiller {
     RehabProject project,
     String photoDir, {
     int dayIndex = 0,
-    int exportMaxWidth = 1920,
+    int exportMaxWidth = 1280,
     int exportJpegQuality = 75,
     int? maxFileBytes,
   }) {
     final dayIdx = dayIndex.clamp(0, 6);
     final dt = project.dateOf(dayIdx);
 
-    // Kumpulkan seluruh slot foto yang ada
+    final stages = [
+      (sheetName: 'Progres 0%', pct: '0.00%', prefix: '0pct'),
+      (sheetName: 'Progres 50%', pct: '50.00%', prefix: '50pct'),
+      (sheetName: 'Progres 100%', pct: '100.00%', prefix: '100pct'),
+    ];
+
+    // Kumpulkan seluruh slot foto tahapan progres spesifik & slot harian
     final photoPaths = <String, String>{};
+    for (final st in stages) {
+      for (var s = 0; s < 6; s++) {
+        final slotId = 'rehab_${st.prefix}_${s + 1}';
+        final f = File('$photoDir/$slotId.jpg');
+        if (f.existsSync()) {
+          photoPaths[slotId] = f.path;
+        }
+      }
+    }
     for (var d = 0; d < 7; d++) {
       for (var s = 0; s < 6; s++) {
         final slotId = 'rehab_H${d + 1}_${s + 1}';
@@ -667,12 +682,6 @@ class RehabXlsxFiller {
       desiredQuality: exportJpegQuality,
       photoBudgetBytes: maxFileBytes != null ? (maxFileBytes - 250 * 1024) : null,
     );
-
-    final stages = [
-      (sheetName: 'Progres 0%', pct: '0.00%'),
-      (sheetName: 'Progres 50%', pct: '50.00%'),
-      (sheetName: 'Progres 100%', pct: '100.00%'),
-    ];
 
     final sheets = <_SheetData>[];
     for (var sIdx = 0; sIdx < stages.length; sIdx++) {
@@ -701,12 +710,19 @@ class RehabXlsxFiller {
 
       // 6 slot foto
       for (var s = 0; s < 6; s++) {
-        final slotId = 'rehab_H${dayIdx + 1}_${s + 1}';
-        final photoBytes = packed.photos[slotId];
+        final specificSlotId = 'rehab_${st.prefix}_${s + 1}';
+        var photoBytes = packed.photos[specificSlotId];
+        var usedSlotId = specificSlotId;
+        if (photoBytes == null) {
+          final fallbackSlotId = 'rehab_H${dayIdx + 1}_${s + 1}';
+          photoBytes = packed.photos[fallbackSlotId];
+          usedSlotId = fallbackSlotId;
+        }
+
         final isRight = s % 2 == 1;
         final rowIdx = 8 + (s ~/ 2) * 16;
         final labelCol = isRight ? 5 : 1;
-        final label = s < project.photoLabels.length
+        final label = s < project.photoLabels.length && project.photoLabels[s].isNotEmpty
             ? project.photoLabels[s]
             : 'Dokumentasi Foto ${s + 1} (${st.pct})';
 
@@ -720,13 +736,13 @@ class RehabXlsxFiller {
         if (photoBytes != null) {
           sh.pics.add(
             _SheetPic(
-              mediaPath: 'xl/media/prog_${sIdx}_$slotId.jpeg',
+              mediaPath: 'xl/media/prog_${sIdx}_$usedSlotId.jpeg',
               bytes: photoBytes,
               fromCol: isRight ? 4 : 0,
               fromRow: rowIdx + 1,
               toCol: isRight ? 8 : 4,
               toRow: rowIdx + 15,
-              name: '${st.sheetName}_$slotId',
+              name: '${st.sheetName}_$usedSlotId',
             ),
           );
         }

@@ -1560,8 +1560,8 @@ class RehabPdfFiller {
     Map<String, dynamic> rehabJson,
     String photoDir, {
     int? singleDayIndex,
-    int exportMaxWidth = 1920,
-    int exportJpegQuality = 92,
+    int exportMaxWidth = 1280,
+    int exportJpegQuality = 80,
     int? maxFileBytes,
   }) async {
     final p = RehabProject.fromJson(rehabJson);
@@ -1569,12 +1569,23 @@ class RehabPdfFiller {
     final bold = pw.Font.timesBold();
 
     final stages = [
-      (pct: '0%', title: '0% (Awal)', slots: [1, 2]),
-      (pct: '50%', title: '50% (Pelaksanaan)', slots: [3, 4]),
-      (pct: '100%', title: '100% (Selesai)', slots: [5, 6]),
+      (pct: '0%', prefix: '0pct', title: '0% (Awal)'),
+      (pct: '50%', prefix: '50pct', title: '50% (Pelaksanaan)'),
+      (pct: '100%', prefix: '100pct', title: '100% (Selesai)'),
     ];
 
     final photoPaths = <String, String>{};
+    // 1. Kumpulkan slot khusus tahapan progres: rehab_0pct_1..6, rehab_50pct_1..6, rehab_100pct_1..6
+    for (final st in stages) {
+      for (var s = 0; s < 6; s++) {
+        final slotId = 'rehab_${st.prefix}_${s + 1}';
+        final f = File('$photoDir/$slotId.jpg');
+        if (f.existsSync()) {
+          photoPaths[slotId] = f.path;
+        }
+      }
+    }
+    // 2. Fallback jika slot khusus belum ada: ambil slot harian
     for (var i = 0; i < 7 && i < p.days.length; i++) {
       if (singleDayIndex != null && i != singleDayIndex) continue;
       for (var s = 0; s < 6; s++) {
@@ -1617,36 +1628,19 @@ class RehabPdfFiller {
               margin: const pw.EdgeInsets.all(pageMargin),
               build: (_) {
                 final stagePhotos = <({String label, Uint8List? bytes})>[];
-                if (singleDayIndex != null) {
-                  for (var sIdx = 0; sIdx < 6; sIdx++) {
-                    final isPrimary = stage.slots.contains(sIdx + 1);
-                    final slotId = 'rehab_H${dayIdx + 1}_${sIdx + 1}';
-                    final b = packed.photos[slotId];
-                    if (isPrimary || b != null) {
-                      stagePhotos.add((
-                        label: 'Dokumentasi ${stage.pct} - Titik ${stagePhotos.length + 1}',
-                        bytes: b,
-                      ));
-                    }
+                // Prioritaskan foto spesifik tahapan progres: rehab_0pct_1..6 dst
+                for (var sIdx = 0; sIdx < 6; sIdx++) {
+                  final specificSlotId = 'rehab_${stage.prefix}_${sIdx + 1}';
+                  var b = packed.photos[specificSlotId];
+                  if (b == null) {
+                    final fallbackSlotId = 'rehab_H${dayIdx + 1}_${sIdx + 1}';
+                    b = packed.photos[fallbackSlotId];
                   }
-                } else {
-                  for (var d = 0; d < 7 && d < p.days.length; d++) {
-                    for (final sNum in stage.slots) {
-                      final slotId = 'rehab_H${d + 1}_$sNum';
-                      final b = packed.photos[slotId];
-                      if (b != null && stagePhotos.length < 6) {
-                        stagePhotos.add((
-                          label: 'Dokumentasi ${stage.pct} - ${hariNama[d]} (Titik $sNum)',
-                          bytes: b,
-                        ));
-                      }
-                    }
-                  }
-                }
-                while (stagePhotos.length < 6) {
                   stagePhotos.add((
-                    label: 'Dokumentasi ${stage.pct} - Titik ${stagePhotos.length + 1}',
-                    bytes: null,
+                    label: sIdx < p.photoLabels.length && p.photoLabels[sIdx].isNotEmpty
+                        ? p.photoLabels[sIdx]
+                        : 'Dokumentasi Foto ${sIdx + 1} (${stage.pct})',
+                    bytes: b,
                   ));
                 }
 
