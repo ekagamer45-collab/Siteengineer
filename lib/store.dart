@@ -2169,9 +2169,103 @@ class Store extends ChangeNotifier {
         ? Map<String, String>.from(cloudSubmissions[existingIdx].reportFileUrls)
         : <String, String>{};
 
-    // 1. Upload foto ke subfolder Drive sesuai hari masing-masing (Senin, Selasa, dst.)
-    // Hanya dijalankan jika includeDocuments == true (Mode Berkas Lengkap ke Drive).
-    // Pada Mode Kilat (includeDocuments == false), data langsung melesat ke Firebase Realtime (<1 dtk).
+    // 1. Susun thumbnail foto super ringan (~18 KB) terlebih dahulu secara paralel
+    // agar data & thumbnail instan langsung masuk ke Admin via Firebase (< 1 detik).
+    final photoThumbnails = <String, String>{};
+    if (srcPhotoDir != null && srcPhotoDir.existsSync()) {
+      final allPhotos = srcPhotoDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.toLowerCase().endsWith('.jpg'))
+          .toList();
+      final matchingDayPhotos = singleDayIndex == null
+          ? allPhotos
+          : allPhotos.where((f) {
+              final name = f.uri.pathSegments.last;
+              final idx = _dayIndexFromPhotoFilename(name);
+              return idx == null || idx == singleDayIndex;
+            }).toList();
+      final targetPhotos = matchingDayPhotos.isNotEmpty ? matchingDayPhotos : allPhotos;
+
+      final thumbEntries = await Future.wait(targetPhotos.map((pf) async {
+        try {
+          final name = pf.uri.pathSegments.last;
+          final raw = await pf.readAsBytes();
+          final thumb = await Isolate.run(() => resizeJpegBytesForExport(raw, 360, 55));
+          return MapEntry(name, base64Encode(thumb));
+        } catch (_) {
+          return null;
+        }
+      }));
+      for (final e in thumbEntries) {
+        if (e != null) photoThumbnails[e.key] = e.value;
+      }
+    }
+    payload['photoThumbnails'] = photoThumbnails;
+
+    // 2. Siapkan penamaan file & label folder Drive per hari
+    final safeUserPrefix = user.username
+        .replaceAll(RegExp(r'[^\w-]+'), '_')
+        .toUpperCase();
+    final sentDayLabels = <String>{};
+
+    Future<void> uploadDoc({
+      required String dayFolder,
+      required String filePath,
+      required String driveName,
+      required String mimeType,
+    }) async {
+      final f = File(filePath);
+      if (!f.existsSync()) return;
+      final bytes = await f.readAsBytes();
+      final up = await sheetsService.uploadReportFileBytes(
+        appsScriptUrl,
+        filename: driveName,
+        mimeType: mimeType,
+        bytes: bytes,
+        dayFolder: dayFolder,
+      );
+      if (up.ok && up.data != null) {
+        reportFileUrls[driveName] = up.data!.fileUrl;
+        if (up.data!.folderUrl.isNotEmpty) {
+          dayFolderUrls[dayFolder] = up.data!.folderUrl;
+        }
+      }
+    }
+
+    // 3. Jalankan Sinkronisasi Kilat Firebase secara paralel dengan proses unggah berkas
+    // Admin langsung melihat data masuk dalam hitungan detik!
+    onProgress?.call('Menyinkronkan data seketika ke Admin...');
+    final fastSub = CloudSubmission(
+      id: submissionId,
+      userId: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      programType: programType,
+      programName: programName,
+      title: title,
+      weekNumber: week,
+      updatedAt: DateTime.now(),
+      payloadJson: payload,
+      photoDriveMap: photoDriveMap,
+      dayFolderUrls: dayFolderUrls,
+      reportFileUrls: reportFileUrls,
+      dayLabels: sentDayLabels.toList(),
+      summary: 'Sinkronisasi instan (${photoThumbnails.length} foto)',
+    );
+
+    Future<bool>? initialFbFuture;
+    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      initialFbFuture = firebaseService
+          .pushSubmission(firebaseDbUrl, fastSub, authToken: firebaseAuthToken)
+          .then((r) => r.ok)
+          .catchError((_) => false);
+    }
+
+    // 4. Jalankan Upload Foto ke Drive & Pembuatan Berkas Excel+PDF secara PARALEL BERSAMAAN
+    final parallelTasks = <Future<void>>[];
+
+    // Task A: Unggah Foto Dokumentasi Lapangan ke Subfolder Drive (Secara Paralel Penuh)
     if (includeDocuments && srcPhotoDir != null && srcPhotoDir.existsSync()) {
       final allFiles = srcPhotoDir
           .listSync()
@@ -2223,274 +2317,227 @@ class Store extends ChangeNotifier {
         }
       }
 
-      // Upload paralel 4 foto sekaligus untuk kecepatan maksimal
-      for (var b = 0; b < pendingUploads.length; b += 4) {
-        final chunk = pendingUploads.sublist(
-          b,
-          (b + 4).clamp(0, pendingUploads.length),
-        );
-        onProgress?.call(
-          'Mengunggah foto ${b + 1}–${b + chunk.length} dari ${pendingUploads.length}...',
-        );
-        await Future.wait(chunk.map((item) async {
-          final raw = item.file.readAsBytesSync();
-          Uint8List bytesToUpload = raw;
-          // Hanya re-encode jika file mentah > 800 KB agar hemat CPU & waktu
-          if (raw.lengthInBytes > 800 * 1024) {
-            bytesToUpload = await Isolate.run(
-              () => resizeJpegBytesForExport(raw, 1280, 80),
+      if (pendingUploads.isNotEmpty) {
+        parallelTasks.add(() async {
+          onProgress?.call('Mengunggah ${pendingUploads.length} foto ke Google Drive...');
+          await Future.wait(pendingUploads.map((item) async {
+            final raw = await item.file.readAsBytes();
+            Uint8List bytesToUpload = raw;
+            if (raw.lengthInBytes > 600 * 1024) {
+              bytesToUpload = await Isolate.run(
+                () => resizeJpegBytesForExport(raw, 1280, 75),
+              );
+            }
+            final up = await sheetsService.uploadPhotoBytes(
+              appsScriptUrl,
+              filename: '${user.username}_${item.name}',
+              bytes: bytesToUpload,
+              dayFolder: item.dayFolder,
+              clientUuid: '${clientUuid}_${item.name}_${item.fp}',
+              onFolderUrl: (url) => dayFolderUrls[item.dayFolder] = url,
             );
-          }
-          final up = await sheetsService.uploadPhotoBytes(
-            appsScriptUrl,
-            filename: '${user.username}_${item.name}',
-            bytes: bytesToUpload,
-            dayFolder: item.dayFolder,
-            clientUuid: '${clientUuid}_${item.name}_${item.fp}',
-            onFolderUrl: (url) => dayFolderUrls[item.dayFolder] = url,
-          );
-          if (up.ok && up.data != null) {
-            photoDriveMap[item.name] = up.data!;
-            _photoFingerprints[item.fpKey] = item.fp;
-          }
-        }));
+            if (up.ok && up.data != null) {
+              photoDriveMap[item.name] = up.data!;
+              _photoFingerprints[item.fpKey] = item.fp;
+            }
+          }));
+        }());
       }
     }
 
-    // 2. Buat & unggah file laporan Excel (.xlsx) & PDF (.pdf) ke folder Drive per hari
-    final safeUserPrefix = user.username
-        .replaceAll(RegExp(r'[^\w-]+'), '_')
-        .toUpperCase();
-    final sentDayLabels = <String>{};
-
-    Future<void> uploadDoc({
-      required String dayFolder,
-      required String filePath,
-      required String driveName,
-      required String mimeType,
-    }) async {
-      final f = File(filePath);
-      if (!f.existsSync()) return;
-      final bytes = f.readAsBytesSync();
-      final up = await sheetsService.uploadReportFileBytes(
-        appsScriptUrl,
-        filename: driveName,
-        mimeType: mimeType,
-        bytes: bytes,
-        dayFolder: dayFolder,
-      );
-      if (up.ok && up.data != null) {
-        reportFileUrls[driveName] = up.data!.fileUrl;
-        if (up.data!.folderUrl.isNotEmpty) {
-          dayFolderUrls[dayFolder] = up.data!.folderUrl;
-        }
-      }
-    }
-
+    // Task B: Buat Dokumen Excel & PDF secara PARALEL dan Unggah ke Drive
     if (includeDocuments) {
       const cloudDocSize = ExportSizeConfig(
         preset: 'medium',
         scalePercent: 75,
         maxFileMb: 5,
       );
-      if (effectiveProgramType == 'custom' && activeCustom != null) {
-        final dayFolder = formatDriveDayFolderName(DateTime.now());
-        sentDayLabels.add(dayFolder);
-        try {
-          onProgress?.call('Menyiapkan Excel & PDF untuk folder $dayFolder...');
-          final xlsxPath = await exportCustomXlsx(
-            activeCustom,
-            size: cloudDocSize,
-            overridePhotoDir: srcPhotoDir?.path,
-          );
-          final pdfPath = await exportCustomPdf(
-            activeCustom,
-            size: cloudDocSize,
-            overridePhotoDir: srcPhotoDir?.path,
-          );
+
+      parallelTasks.add(() async {
+        onProgress?.call('Menyiapkan berkas Excel & PDF...');
+        if (effectiveProgramType == 'custom' && activeCustom != null) {
+          final dayFolder = formatDriveDayFolderName(DateTime.now());
+          sentDayLabels.add(dayFolder);
           final safeProg = activeCustom.name
               .replaceAll(RegExp(r'[^\w-]+'), '_')
               .toUpperCase();
-          onProgress?.call('Mengunggah Excel & PDF ke Drive ($dayFolder)...');
-          await uploadDoc(
-            dayFolder: dayFolder,
-            filePath: xlsxPath,
-            driveName: '${safeUserPrefix}_$safeProg.xlsx',
-            mimeType:
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          try {
+            final docs = await Future.wait([
+              exportCustomXlsx(activeCustom, size: cloudDocSize, overridePhotoDir: srcPhotoDir?.path),
+              exportCustomPdf(activeCustom, size: cloudDocSize, overridePhotoDir: srcPhotoDir?.path),
+            ]);
+            onProgress?.call('Mengunggah Excel & PDF ke Drive...');
+            await Future.wait([
+              uploadDoc(
+                dayFolder: dayFolder,
+                filePath: docs[0],
+                driveName: '${safeUserPrefix}_$safeProg.xlsx',
+                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              ),
+              uploadDoc(
+                dayFolder: dayFolder,
+                filePath: docs[1],
+                driveName: '${safeUserPrefix}_$safeProg.pdf',
+                mimeType: 'application/pdf',
+              ),
+            ]);
+          } catch (_) {}
+        } else if (singleDayIndex != null) {
+          final dIdx = singleDayIndex.clamp(0, 6);
+          final dt = _dateForProgramDay(
+            programType: effectiveProgramType,
+            dayIndex: dIdx,
+            revitProj: activeRevit,
+            rehabProj: activeRehab,
           );
-          await uploadDoc(
-            dayFolder: dayFolder,
-            filePath: pdfPath,
-            driveName: '${safeUserPrefix}_$safeProg.pdf',
-            mimeType: 'application/pdf',
-          );
-        } catch (_) {}
-      } else if (singleDayIndex != null) {
-        final dIdx = singleDayIndex.clamp(0, 6);
-        final dt = _dateForProgramDay(
-          programType: effectiveProgramType,
-          dayIndex: dIdx,
-          revitProj: activeRevit,
-          rehabProj: activeRehab,
-        );
-        final dayFolder = formatDriveDayFolderName(dt);
-        sentDayLabels.add(dayFolder);
-        final dayTag = 'H${dIdx + 1}_${hariNama[dIdx].toUpperCase()}';
+          final dayFolder = formatDriveDayFolderName(dt);
+          sentDayLabels.add(dayFolder);
+          final dayTag = 'H${dIdx + 1}_${hariNama[dIdx].toUpperCase()}';
 
-        try {
-          onProgress?.call('Menyiapkan Excel & PDF $dayFolder...');
-          if (effectiveProgramType == 'rehabilitasi') {
-            final xlsxPath = await exportRehabXlsx(
-              singleDayIndex: dIdx,
-              size: cloudDocSize,
-              overrideProject: activeRehab,
-              overridePhotoDir: srcPhotoDir?.path,
-            );
-            final pdfPath = await exportRehabPdf(
-              singleDayIndex: dIdx,
-              size: cloudDocSize,
-              overrideProject: activeRehab,
-              overridePhotoDir: srcPhotoDir?.path,
-            );
-            onProgress?.call('Mengunggah Excel & PDF ke Drive...');
-            await uploadDoc(
-              dayFolder: dayFolder,
-              filePath: xlsxPath,
-              driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.xlsx',
-              mimeType:
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            );
-            await uploadDoc(
-              dayFolder: dayFolder,
-              filePath: pdfPath,
-              driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.pdf',
-              mimeType: 'application/pdf',
-            );
-          } else {
-            final xlsxPath = await exportXlsx(
-              singleDayIndex: dIdx,
-              size: cloudDocSize,
-              overrideProject: activeRevit,
-              overridePhotoDir: srcPhotoDir?.path,
-            );
-            final pdfPath = await exportPdf(
-              singleDayIndex: dIdx,
-              size: cloudDocSize,
-              overrideProject: activeRevit,
-              overridePhotoDir: srcPhotoDir?.path,
-            );
-            onProgress?.call('Mengunggah Excel & PDF ke Drive...');
-            await uploadDoc(
-              dayFolder: dayFolder,
-              filePath: xlsxPath,
-              driveName: '${safeUserPrefix}_REVITALISASI_M${week}_$dayTag.xlsx',
-              mimeType:
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            );
-            await uploadDoc(
-              dayFolder: dayFolder,
-              filePath: pdfPath,
-              driveName: '${safeUserPrefix}_REVITALISASI_M${week}_$dayTag.pdf',
-              mimeType: 'application/pdf',
-            );
-          }
-        } catch (_) {}
-      } else {
-        // Mode Berkas Mingguan Lengkap (1 Berkas Excel Multi-Sheet + 1 Berkas PDF Lengkap)
-        final weekFolder = 'Minggu_$week';
-        sentDayLabels.add(weekFolder);
-        try {
-          onProgress?.call('Menyiapkan Berkas Mingguan Lengkap Excel & PDF...');
-          if (effectiveProgramType == 'rehabilitasi') {
-            final xlsxPath = await exportRehabXlsx(
-              singleDayIndex: null,
-              size: cloudDocSize,
-              overrideProject: activeRehab,
-              overridePhotoDir: srcPhotoDir?.path,
-            );
-            final pdfPath = await exportRehabPdf(
-              singleDayIndex: null,
-              size: cloudDocSize,
-              overrideProject: activeRehab,
-              overridePhotoDir: srcPhotoDir?.path,
-            );
-            onProgress?.call('Mengunggah Berkas Mingguan ke Drive...');
-            await uploadDoc(
-              dayFolder: weekFolder,
-              filePath: xlsxPath,
-              driveName: '${safeUserPrefix}_REHABILITASI_MINGGU_$week.xlsx',
-              mimeType:
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            );
-            await uploadDoc(
-              dayFolder: weekFolder,
-              filePath: pdfPath,
-              driveName: '${safeUserPrefix}_REHABILITASI_MINGGU_$week.pdf',
-              mimeType: 'application/pdf',
-            );
-          } else {
-            final xlsxPath = await exportXlsx(
-              singleDayIndex: null,
-              size: cloudDocSize,
-              overrideProject: activeRevit,
-              overridePhotoDir: srcPhotoDir?.path,
-            );
-            final pdfPath = await exportPdf(
-              singleDayIndex: null,
-              size: cloudDocSize,
-              overrideProject: activeRevit,
-              overridePhotoDir: srcPhotoDir?.path,
-            );
-            onProgress?.call('Mengunggah Berkas Mingguan ke Drive...');
-            await uploadDoc(
-              dayFolder: weekFolder,
-              filePath: xlsxPath,
-              driveName: '${safeUserPrefix}_REVITALISASI_MINGGU_$week.xlsx',
-              mimeType:
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            );
-            await uploadDoc(
-              dayFolder: weekFolder,
-              filePath: pdfPath,
-              driveName: '${safeUserPrefix}_REVITALISASI_MINGGU_$week.pdf',
-              mimeType: 'application/pdf',
-            );
-          }
-        } catch (_) {}
-      }
+          try {
+            if (effectiveProgramType == 'rehabilitasi') {
+              final docs = await Future.wait([
+                exportRehabXlsx(
+                  singleDayIndex: dIdx,
+                  size: cloudDocSize,
+                  overrideProject: activeRehab,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+                exportRehabPdf(
+                  singleDayIndex: dIdx,
+                  size: cloudDocSize,
+                  overrideProject: activeRehab,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+              ]);
+              onProgress?.call('Mengunggah Excel & PDF ke Drive...');
+              await Future.wait([
+                uploadDoc(
+                  dayFolder: dayFolder,
+                  filePath: docs[0],
+                  driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.xlsx',
+                  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+                uploadDoc(
+                  dayFolder: dayFolder,
+                  filePath: docs[1],
+                  driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.pdf',
+                  mimeType: 'application/pdf',
+                ),
+              ]);
+            } else {
+              final docs = await Future.wait([
+                exportXlsx(
+                  singleDayIndex: dIdx,
+                  size: cloudDocSize,
+                  overrideProject: activeRevit,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+                exportPdf(
+                  singleDayIndex: dIdx,
+                  size: cloudDocSize,
+                  overrideProject: activeRevit,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+              ]);
+              onProgress?.call('Mengunggah Excel & PDF ke Drive...');
+              await Future.wait([
+                uploadDoc(
+                  dayFolder: dayFolder,
+                  filePath: docs[0],
+                  driveName: '${safeUserPrefix}_REVITALISASI_M${week}_$dayTag.xlsx',
+                  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+                uploadDoc(
+                  dayFolder: dayFolder,
+                  filePath: docs[1],
+                  driveName: '${safeUserPrefix}_REVITALISASI_M${week}_$dayTag.pdf',
+                  mimeType: 'application/pdf',
+                ),
+              ]);
+            }
+          } catch (_) {}
+        } else {
+          final weekFolder = 'Minggu_$week';
+          sentDayLabels.add(weekFolder);
+          try {
+            if (effectiveProgramType == 'rehabilitasi') {
+              final docs = await Future.wait([
+                exportRehabXlsx(
+                  singleDayIndex: null,
+                  size: cloudDocSize,
+                  overrideProject: activeRehab,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+                exportRehabPdf(
+                  singleDayIndex: null,
+                  size: cloudDocSize,
+                  overrideProject: activeRehab,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+              ]);
+              onProgress?.call('Mengunggah Berkas Mingguan ke Drive...');
+              await Future.wait([
+                uploadDoc(
+                  dayFolder: weekFolder,
+                  filePath: docs[0],
+                  driveName: '${safeUserPrefix}_REHABILITASI_MINGGU_$week.xlsx',
+                  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+                uploadDoc(
+                  dayFolder: weekFolder,
+                  filePath: docs[1],
+                  driveName: '${safeUserPrefix}_REHABILITASI_MINGGU_$week.pdf',
+                  mimeType: 'application/pdf',
+                ),
+              ]);
+            } else {
+              final docs = await Future.wait([
+                exportXlsx(
+                  singleDayIndex: null,
+                  size: cloudDocSize,
+                  overrideProject: activeRevit,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+                exportPdf(
+                  singleDayIndex: null,
+                  size: cloudDocSize,
+                  overrideProject: activeRevit,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+              ]);
+              onProgress?.call('Mengunggah Berkas Mingguan ke Drive...');
+              await Future.wait([
+                uploadDoc(
+                  dayFolder: weekFolder,
+                  filePath: docs[0],
+                  driveName: '${safeUserPrefix}_REVITALISASI_MINGGU_$week.xlsx',
+                  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+                uploadDoc(
+                  dayFolder: weekFolder,
+                  filePath: docs[1],
+                  driveName: '${safeUserPrefix}_REVITALISASI_MINGGU_$week.pdf',
+                  mimeType: 'application/pdf',
+                ),
+              ]);
+            }
+          } catch (_) {}
+        }
+      }());
     }
 
-    // Susun thumbnail foto super ringan (~30 KB) agar langsung masuk ke Admin secara real-time
-    final photoThumbnails = <String, String>{};
-    if (srcPhotoDir != null && srcPhotoDir.existsSync()) {
-      final allPhotos = srcPhotoDir
-          .listSync()
-          .whereType<File>()
-          .where((f) => f.path.toLowerCase().endsWith('.jpg'))
-          .toList();
-      final matchingDayPhotos = singleDayIndex == null
-          ? allPhotos
-          : allPhotos.where((f) {
-              final name = f.uri.pathSegments.last;
-              final idx = _dayIndexFromPhotoFilename(name);
-              return idx == null || idx == singleDayIndex;
-            }).toList();
-      // Jika hari yang dipilih belum memiliki foto tetapi hari lain ada foto, sertakan semua foto agar Admin tidak menerima laporan kosongan
-      final targetPhotos = matchingDayPhotos.isNotEmpty ? matchingDayPhotos : allPhotos;
-
-      for (final pf in targetPhotos) {
-        try {
-          final name = pf.uri.pathSegments.last;
-          final raw = pf.readAsBytesSync();
-          final thumb = await Isolate.run(() => resizeJpegBytesForExport(raw, 500, 65));
-          photoThumbnails[name] = base64Encode(thumb);
-        } catch (_) {}
-      }
+    // Tunggu semua proses upload berkas selesai (berjalan serentak)
+    if (parallelTasks.isNotEmpty) {
+      await Future.wait(parallelTasks);
     }
-    payload['photoThumbnails'] = photoThumbnails;
 
-    // Susun ringkasan singkat untuk Spreadsheet & Admin
+    // Tunggu sync instan awal selesai jika belum
+    if (initialFbFuture != null) {
+      await initialFbFuture;
+    }
+
+    // 5. Susun ringkasan akhir dan simpan ke Spreadsheet + Firebase secara paralel
     final summaryParts = <String>[
       if (sentDayLabels.isNotEmpty) 'Hari: ${sentDayLabels.join(', ')}',
       'Foto: ${photoDriveMap.isNotEmpty ? photoDriveMap.length : photoThumbnails.length}',
@@ -2499,7 +2546,7 @@ class Store extends ChangeNotifier {
         'Realisasi: ${activeRehab.totalSdMingguIni.toStringAsFixed(2)}%',
     ];
 
-    final sub = CloudSubmission(
+    final finalSub = CloudSubmission(
       id: submissionId,
       userId: user.id,
       username: user.username,
@@ -2517,49 +2564,39 @@ class Store extends ChangeNotifier {
       summary: summaryParts.join(' • '),
     );
 
-    // 1. Simpan langsung ke Firebase Realtime Database (~0.2 detik) agar Admin seketika melihat laporan
+    onProgress?.call('Menyimpan data ke Google Spreadsheet...');
     bool fbOk = false;
-    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
-      onProgress?.call('Menyinkronkan ke Firebase Realtime Database...');
-      final fbRes = await firebaseService
-          .pushSubmission(firebaseDbUrl, sub, authToken: firebaseAuthToken)
-          .catchError((_) => const CloudResult<void>(ok: false));
-      fbOk = fbRes.ok;
-      if (fbOk) {
-        pendingSyncQueue.removeWhere((t) => t.id == submissionId);
-        if (existingIdx >= 0) {
-          cloudSubmissions[existingIdx] = sub;
-        } else {
-          cloudSubmissions.insert(0, sub);
-        }
-        saveAuthConfig();
-        notifyListeners();
-      }
-    }
-
-    // 2. Simpan juga ke Google Spreadsheet
     CloudResult<CloudSubmission> res = const CloudResult(ok: false, message: 'Spreadsheet belum diatur');
-    if (sheetsService.isValidUrl(appsScriptUrl)) {
-      onProgress?.call('Menyimpan data ke Google Spreadsheet...');
-      res = await sheetsService.pushSubmission(
-        appsScriptUrl,
-        sub,
-        clientUuid: clientUuid,
-      );
-    }
+
+    final syncResults = await Future.wait([
+      if (FirebaseService.isValidDbUrl(firebaseDbUrl))
+        firebaseService
+            .pushSubmission(firebaseDbUrl, finalSub, authToken: firebaseAuthToken)
+            .then((r) => r.ok)
+            .catchError((_) => false)
+      else
+        Future.value(false),
+      if (sheetsService.isValidUrl(appsScriptUrl))
+        sheetsService.pushSubmission(appsScriptUrl, finalSub, clientUuid: clientUuid)
+      else
+        Future.value(const CloudResult<CloudSubmission>(ok: false, message: 'URL Spreadsheet belum diatur')),
+    ]);
+
+    fbOk = syncResults[0] as bool;
+    res = syncResults[1] as CloudResult<CloudSubmission>;
 
     if (res.ok || fbOk) {
       pendingSyncQueue.removeWhere((t) => t.id == submissionId);
       if (existingIdx >= 0) {
-        cloudSubmissions[existingIdx] = sub;
-      } else if (!cloudSubmissions.any((s) => s.id == sub.id)) {
-        cloudSubmissions.insert(0, sub);
+        cloudSubmissions[existingIdx] = finalSub;
+      } else if (!cloudSubmissions.any((s) => s.id == finalSub.id)) {
+        cloudSubmissions.insert(0, finalSub);
       }
       saveAuthConfig();
       notifyListeners();
       return CloudResult(
         ok: true,
-        data: sub,
+        data: finalSub,
         message: sentDayLabels.isNotEmpty
             ? 'Terkirim ke Cloud (${sentDayLabels.join(', ')})!'
             : 'Terkirim ke Cloud Admin!',
@@ -2572,7 +2609,7 @@ class Store extends ChangeNotifier {
       cloudSubmissions[existingIdx].dayFolderUrls = dayFolderUrls;
       cloudSubmissions[existingIdx].reportFileUrls = reportFileUrls;
     } else if (photoDriveMap.isNotEmpty) {
-      cloudSubmissions.insert(0, sub);
+      cloudSubmissions.insert(0, finalSub);
     }
     _enqueuePendingSync(
       id: submissionId,
