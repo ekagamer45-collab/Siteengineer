@@ -132,62 +132,77 @@ Future<bool> showSendReportToAdminDialog(
                 ],
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: includeDocs ? Colors.amber.shade50 : Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: includeDocs ? Colors.amber.shade300 : Colors.green.shade300,
+                      color: includeDocs ? Colors.amber.shade400 : Colors.green.shade400,
+                      width: 1.2,
                     ),
                   ),
-                  child: CheckboxListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Row(
+                  child: InkWell(
+                    onTap: () => setDlg(() => includeDocs = !includeDocs),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            includeDocs
-                                ? 'Upload Excel & PDF ke Drive (Dokumen Lengkap)'
-                                : 'Mode Kilat (Rekomendasi Instan)',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: includeDocs ? Colors.amber.shade900 : Colors.green.shade900,
-                            ),
-                          ),
+                        Checkbox(
+                          value: includeDocs,
+                          activeColor: const Color(0xFF0B3C7D),
+                          onChanged: (v) => setDlg(() => includeDocs = v ?? false),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: includeDocs ? Colors.orange.shade100 : Colors.green.shade100,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            includeDocs ? '±20-30 dtk' : 'Instan (<2 dtk)',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: includeDocs ? Colors.orange.shade900 : Colors.green.shade900,
-                            ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      includeDocs
+                                          ? 'Upload Berkas Lengkap ke Drive'
+                                          : 'Kirim Kilat (Rekomendasi Instan)',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: includeDocs ? Colors.amber.shade900 : Colors.green.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: includeDocs ? Colors.orange.shade100 : Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      includeDocs ? '±20-30 dtk' : 'Instan (<1 dtk)',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: includeDocs ? Colors.orange.shade900 : Colors.green.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                includeDocs
+                                    ? 'Membuat berkas fisik Excel 7-sheet dan PDF resolusi tinggi serta mengunggahnya ke Google Drive (memerlukan waktu upload dokumen).'
+                                    : 'Seketika (<1 detik) data laporan terkirim via Firebase Realtime ke Admin & HP tim lainnya. Admin tetap bisa unduh Excel & PDF kapan saja dari panel admin.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: includeDocs ? Colors.black87 : Colors.green.shade900,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        includeDocs
-                            ? 'Membuat dan mengunggah berkas Excel 7-sheet dan PDF foto resolusi tinggi ke Drive (memerlukan waktu lebih lama).'
-                            : 'Cepat & hemat kuota. Data laporan & foto langsung tersinkron ke Admin. Admin tetap bisa unduh Excel & PDF kapan saja dari panel admin.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: includeDocs ? Colors.black87 : Colors.green.shade900,
-                        ),
-                      ),
-                    ),
-                    value: includeDocs,
-                    onChanged: (v) => setDlg(() => includeDocs = v ?? false),
                   ),
                 ),
                 const SizedBox(height: 6),

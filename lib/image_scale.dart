@@ -118,13 +118,13 @@ File exportSourceFor(File f, int desiredMaxWidth) {
   return sc.existsSync() ? sc : f;
 }
 
-/// Menyesuaikan foto ke kanvas bingkai slot Excel dengan margin 0,25 cm di sekelilingnya
-/// tanpa gepeng / stretch (aspek rasio foto asli 16:9 atau 9:16 tetap utuh di tengah).
+/// Menyesuaikan foto ke kanvas bingkai slot Excel dengan margin presisi ~0.8 mm (0.08 cm) di sekelilingnya
+/// sehingga foto tampil penuh (full), jernih, dan pas tanpa gepeng / stretch.
 img.Image fitPhotoInSlotCanvas(
   img.Image photo, {
   double slotAspect = 1.9246,
   int canvasWidth = 1920,
-  double marginCm = 0.25,
+  double marginCm = 0.08,
   double slotWidthCm = 14.138,
   double slotHeightCm = 7.346,
 }) {
@@ -177,7 +177,7 @@ Uint8List prepareSlotJpegForExcel(
     decoded,
     slotAspect: slotAspect,
     canvasWidth: maxWidth,
-    marginCm: 0.25,
+    marginCm: 0.08,
   );
   return Uint8List.fromList(
     img.encodeJpg(fitted, quality: quality.clamp(45, 95)),
@@ -354,7 +354,7 @@ Uint8List resizeJpegBytesForExport(
         decoded,
         slotAspect: 1.9246,
         canvasWidth: start.width,
-        marginCm: 0.25,
+        marginCm: 0.08,
       );
     }
 

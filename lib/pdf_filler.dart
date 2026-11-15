@@ -624,7 +624,7 @@ class PdfFiller {
               bottom: pw.BorderSide(color: PdfColors.black, width: 0.6),
             ),
           ),
-          padding: const pw.EdgeInsets.all(7.087), // Margin foto 0.25 cm di dalam kotak tabel
+          padding: const pw.EdgeInsets.all(2.5), // Rekomendasi margin presisi ~0.9 mm agar foto penuh & proporsional
           alignment: pw.Alignment.center,
           child: photoBytes != null
               ? pw.Image(

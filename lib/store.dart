@@ -164,6 +164,21 @@ class Store extends ChangeNotifier {
   final Set<String> readSubmissionIds = <String>{};
   List<PendingSyncTask> pendingSyncQueue = [];
   Map<String, String> _photoFingerprints = {};
+  Timer? _cloudSyncTimer;
+
+  void startAutoCloudSync() {
+    _cloudSyncTimer?.cancel();
+    _cloudSyncTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      if (FirebaseService.isValidDbUrl(firebaseDbUrl) && currentUser != null) {
+        fetchCloudSubmissions().catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false));
+      }
+    });
+  }
+
+  void stopAutoCloudSync() {
+    _cloudSyncTimer?.cancel();
+    _cloudSyncTimer = null;
+  }
 
   bool get isFirebaseConfigured => FirebaseService.isValidDbUrl(firebaseDbUrl);
 
@@ -1340,20 +1355,11 @@ class Store extends ChangeNotifier {
         } else {
           localUsers.add(loggedIn);
         }
-        if (!loggedIn.isAdminOrSuper) {
-          cloudSubmissions = cloudSubmissions
-              .where((s) => s.userId == loggedIn.id)
-              .toList();
-          unawaited(
-            fetchCloudSubmissions(onlyUserId: loggedIn.id)
-                .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
-          );
-        } else {
-          unawaited(
-            fetchCloudSubmissions()
-                .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
-          );
-        }
+        unawaited(
+          fetchCloudSubmissions()
+              .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
+        );
+        startAutoCloudSync();
         saveAuthConfig();
         notifyListeners();
         return fbRes;
@@ -1377,20 +1383,11 @@ class Store extends ChangeNotifier {
         } else {
           localUsers.add(loggedIn);
         }
-        if (!loggedIn.isAdminOrSuper) {
-          cloudSubmissions = cloudSubmissions
-              .where((s) => s.userId == loggedIn.id)
-              .toList();
-          unawaited(
-            fetchCloudSubmissions(onlyUserId: loggedIn.id)
-                .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
-          );
-        } else {
-          unawaited(
-            fetchCloudSubmissions()
-                .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
-          );
-        }
+        unawaited(
+          fetchCloudSubmissions()
+              .catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false)),
+        );
+        startAutoCloudSync();
         if (isFirebaseConfigured) {
           unawaited(
             firebaseService
@@ -1594,8 +1591,8 @@ class Store extends ChangeNotifier {
   }
 
   void logout() {
+    stopAutoCloudSync();
     currentUser = null;
-    // Bersihkan daftar kiriman di memori agar akun lain tidak melihat data sebelumnya
     cloudSubmissions = [];
     saveAuthConfig();
     notifyListeners();
@@ -1783,6 +1780,75 @@ class Store extends ChangeNotifier {
       }
     }
     customChanged(forceCheckpoint: true);
+  }
+
+  /// Duplikat proyek Revitalisasi menjadi entri program baru di Menu Custom
+  Future<CustomProgram> duplicateRevitalisasiProject({String? newTitle}) async {
+    final title = (newTitle != null && newTitle.trim().isNotEmpty)
+        ? newTitle.trim()
+        : '${project.school} (Duplikat)';
+    final clonedData = Map<String, dynamic>.from(jsonDecode(jsonEncode(project.toJson())) as Map);
+    clonedData['school'] = title;
+
+    final cp = CustomProgram(
+      id: 'revit_${DateTime.now().millisecondsSinceEpoch}',
+      name: title,
+      institution: project.school,
+      templateType: 'revitalisasi',
+      revitalisasiData: clonedData,
+      updatedAt: DateTime.now(),
+    );
+    addCustomProgram(cp);
+    return cp;
+  }
+
+  /// Duplikat proyek Rehabilitasi menjadi entri program baru di Menu Custom
+  Future<CustomProgram> duplicateRehabProject({String? newTitle}) async {
+    final title = (newTitle != null && newTitle.trim().isNotEmpty)
+        ? newTitle.trim()
+        : '${rehabProject.namaPekerjaan} (Duplikat)';
+    final clonedData = Map<String, dynamic>.from(jsonDecode(jsonEncode(rehabProject.toJson())) as Map);
+    clonedData['namaPekerjaan'] = title;
+
+    final cp = CustomProgram(
+      id: 'rehab_${DateTime.now().millisecondsSinceEpoch}',
+      name: title,
+      institution: rehabProject.instansi,
+      templateType: 'rehabilitasi',
+      rehabilitasiData: clonedData,
+      updatedAt: DateTime.now(),
+    );
+    addCustomProgram(cp);
+    return cp;
+  }
+
+  /// Duplikat format Custom Program
+  Future<CustomProgram> duplicateCustomProgram(String customProgramId, {String? newTitle}) async {
+    final idx = customPrograms.indexWhere((e) => e.id == customProgramId);
+    if (idx < 0) throw StateError('Program custom tidak ditemukan');
+    final src = customPrograms[idx];
+    final title = (newTitle != null && newTitle.trim().isNotEmpty)
+        ? newTitle.trim()
+        : '${src.name} (Duplikat)';
+
+    final cp = CustomProgram(
+      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      name: title,
+      institution: src.institution,
+      templateType: src.templateType,
+      revitalisasiData: src.revitalisasiData != null
+          ? Map<String, dynamic>.from(jsonDecode(jsonEncode(src.revitalisasiData!)) as Map)
+          : null,
+      rehabilitasiData: src.rehabilitasiData != null
+          ? Map<String, dynamic>.from(jsonDecode(jsonEncode(src.rehabilitasiData!)) as Map)
+          : null,
+      customData: src.customData != null
+          ? Map<String, dynamic>.from(jsonDecode(jsonEncode(src.customData!)) as Map)
+          : null,
+      updatedAt: DateTime.now(),
+    );
+    addCustomProgram(cp);
+    return cp;
   }
 
   /// Nama subfolder Google Drive berdasarkan hari & tanggal (mis. `Senin (09-11-2026)`).
@@ -1974,7 +2040,9 @@ class Store extends ChangeNotifier {
         : <String, String>{};
 
     // 1. Upload foto ke subfolder Drive sesuai hari masing-masing (Senin, Selasa, dst.)
-    if (srcPhotoDir != null && srcPhotoDir.existsSync()) {
+    // Hanya dijalankan jika includeDocuments == true (Mode Berkas Lengkap ke Drive).
+    // Pada Mode Kilat (includeDocuments == false), data langsung melesat ke Firebase Realtime (<1 dtk).
+    if (includeDocuments && srcPhotoDir != null && srcPhotoDir.existsSync()) {
       final allFiles = srcPhotoDir
           .listSync()
           .whereType<File>()

@@ -48,6 +48,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   bool _processing = false;
   bool _isVertical = false; // false = 16:9 Horizontal (3840x2160), true = 9:16 Vertikal (2160x3840)
 
+  List<CameraDescription> _availableCameras = [];
+  int _selectedCameraIndex = 0;
+  CameraLensDirection _currentLens = CameraLensDirection.back;
+  FlashMode _flashMode = FlashMode.auto;
+
   String? _errorTitle;
   String? _errorMessage;
   bool _showOpenLocationSettings = false;
@@ -151,49 +156,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         });
         return;
       }
-      final backCam = cams.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.back,
-        orElse: () => cams.first,
-      );
-      final oldCtrl = _controller;
-      _controller = null;
-      await oldCtrl?.dispose();
+      _availableCameras = cams;
+      if (_selectedCameraIndex >= cams.length) _selectedCameraIndex = 0;
+      final targetCam = cams[_selectedCameraIndex];
+      _currentLens = targetCam.lensDirection;
 
-      CameraController? readyCtrl;
-      Object? lastErr;
-      for (final preset in const [
-        ResolutionPreset.high,
-        ResolutionPreset.medium,
-        ResolutionPreset.veryHigh,
-        ResolutionPreset.ultraHigh,
-      ]) {
-        final attemptCtrl = CameraController(
-          backCam,
-          preset,
-          enableAudio: false,
-        );
-        try {
-          await attemptCtrl.initialize();
-          try {
-            await attemptCtrl.setFocusMode(FocusMode.auto);
-          } catch (_) {}
-          if (!mounted) {
-            await attemptCtrl.dispose();
-            return;
-          }
-          readyCtrl = attemptCtrl;
-          break;
-        } catch (e) {
-          lastErr = e;
-          try {
-            await attemptCtrl.dispose();
-          } catch (_) {}
-        }
-      }
-      if (readyCtrl == null) {
-        throw lastErr ?? StateError('Kamera gagal diinisialisasi');
-      }
-      _controller = readyCtrl;
+      await _initCamera(targetCam);
     } on CameraException catch (e) {
       if (!mounted) return;
       final isDenied = e.code == 'CameraAccessDenied' ||
@@ -226,6 +194,141 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     setState(() {
       _loading = false;
     });
+  }
+
+  Future<void> _initCamera(CameraDescription cam) async {
+    final oldCtrl = _controller;
+    _controller = null;
+    await oldCtrl?.dispose();
+
+    CameraController? readyCtrl;
+    Object? lastErr;
+    for (final preset in const [
+      ResolutionPreset.high,
+      ResolutionPreset.medium,
+      ResolutionPreset.veryHigh,
+      ResolutionPreset.ultraHigh,
+    ]) {
+      final attemptCtrl = CameraController(
+        cam,
+        preset,
+        enableAudio: false,
+      );
+      try {
+        await attemptCtrl.initialize();
+        try {
+          await attemptCtrl.setFocusMode(FocusMode.auto);
+        } catch (_) {}
+        try {
+          await attemptCtrl.setFlashMode(_flashMode);
+        } catch (_) {}
+        if (!mounted) {
+          await attemptCtrl.dispose();
+          return;
+        }
+        readyCtrl = attemptCtrl;
+        break;
+      } catch (e) {
+        lastErr = e;
+        try {
+          await attemptCtrl.dispose();
+        } catch (_) {}
+      }
+    }
+    if (readyCtrl == null) {
+      throw lastErr ?? StateError('Kamera gagal diinisialisasi');
+    }
+    if (mounted) {
+      setState(() {
+        _controller = readyCtrl;
+      });
+    }
+  }
+
+  Future<void> _switchCamera() async {
+    if (_availableCameras.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hanya 1 sensor kamera terdeteksi.')),
+      );
+      return;
+    }
+    final nextLens = _currentLens == CameraLensDirection.back
+        ? CameraLensDirection.front
+        : CameraLensDirection.back;
+    final targetCam = _availableCameras.firstWhere(
+      (c) => c.lensDirection == nextLens,
+      orElse: () {
+        final nextIdx = (_selectedCameraIndex + 1) % _availableCameras.length;
+        return _availableCameras[nextIdx];
+      },
+    );
+    _selectedCameraIndex = _availableCameras.indexOf(targetCam);
+    _currentLens = targetCam.lensDirection;
+    try {
+      await _initCamera(targetCam);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal beralih kamera: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleFlash() async {
+    final ctrl = _controller;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
+    FlashMode next;
+    switch (_flashMode) {
+      case FlashMode.auto:
+        next = FlashMode.always;
+        break;
+      case FlashMode.always:
+        next = FlashMode.off;
+        break;
+      case FlashMode.off:
+        next = FlashMode.torch;
+        break;
+      case FlashMode.torch:
+        next = FlashMode.auto;
+        break;
+    }
+    try {
+      await ctrl.setFlashMode(next);
+      if (mounted) setState(() => _flashMode = next);
+    } catch (e) {
+      // Jika torch tidak didukung, coba fallback langsung ke auto
+      try {
+        await ctrl.setFlashMode(FlashMode.auto);
+        if (mounted) setState(() => _flashMode = FlashMode.auto);
+      } catch (_) {}
+    }
+  }
+
+  IconData _getFlashIcon() {
+    switch (_flashMode) {
+      case FlashMode.auto:
+        return Icons.flash_auto;
+      case FlashMode.always:
+        return Icons.flash_on;
+      case FlashMode.torch:
+        return Icons.highlight;
+      case FlashMode.off:
+        return Icons.flash_off;
+    }
+  }
+
+  String _getFlashTooltip() {
+    switch (_flashMode) {
+      case FlashMode.auto:
+        return 'Flash: Otomatis';
+      case FlashMode.always:
+        return 'Flash: Selalu Aktif';
+      case FlashMode.torch:
+        return 'Flash: Senter (Torch)';
+      case FlashMode.off:
+        return 'Flash: Mati';
+    }
   }
 
   void _startGpsStream() {
@@ -538,6 +641,20 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           style: const TextStyle(fontSize: 15),
         ),
         actions: [
+          IconButton(
+            tooltip: _getFlashTooltip(),
+            onPressed: _loading ? null : _toggleFlash,
+            icon: Icon(
+              _getFlashIcon(),
+              color: _flashMode == FlashMode.off ? Colors.white70 : Colors.amberAccent,
+              size: 20,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Beralih Kamera Depan / Belakang',
+            onPressed: _loading ? null : _switchCamera,
+            icon: const Icon(Icons.flip_camera_ios_rounded, color: Colors.white, size: 20),
+          ),
           TextButton.icon(
             style: TextButton.styleFrom(
               foregroundColor: Colors.amberAccent,
@@ -556,7 +673,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           IconButton(
             tooltip: 'Muat Ulang Kamera',
             onPressed: _loading ? null : _initAll,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, size: 20),
           ),
         ],
       ),
@@ -688,377 +805,318 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       statusColor = Colors.amber;
     }
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Center(
-          child: ctrl == null
-              ? const CircularProgressIndicator(color: Colors.white)
-              : ValueListenableBuilder<CameraValue>(
-                  valueListenable: ctrl,
-                  builder: (context, val, _) {
-                    if (val.hasError) {
-                      return Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenW = constraints.maxWidth;
+        final screenH = constraints.maxHeight;
+        final isLandscape = screenW > screenH;
+        final activeAspect = _isVertical ? (9 / 16) : (16 / 9);
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. Kamera Pratinjau Terbuka Penuh (Full View Tanpa Bingkai Gelap / Box Mengunci)
+            Center(
+              child: ctrl == null
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : ValueListenableBuilder<CameraValue>(
+                      valueListenable: ctrl,
+                      builder: (context, val, _) {
+                        if (val.hasError) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.videocam_off_outlined,
+                                color: Colors.orangeAccent,
+                                size: 40,
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Pratinjau kamera terhenti.',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: _initAll,
+                                icon: const Icon(Icons.refresh, color: Colors.white),
+                                label: const Text(
+                                  'Muat Ulang Kamera',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        final hasSize = val.previewSize != null &&
+                            val.aspectRatio.isFinite &&
+                            val.aspectRatio > 0;
+                        if (!val.isInitialized || !hasSize) {
+                          return const CircularProgressIndicator(color: Colors.white);
+                        }
+                        return ClipRect(child: CameraPreview(ctrl));
+                      },
+                    ),
+            ),
+
+            // 2. Chip Akurasi GPS Kecil & Elegan di Bagian Atas (Tidak Menghalangi Pandangan)
+            Positioned(
+              top: 8,
+              left: 12,
+              right: 12,
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: statusColor, width: 1.2),
+                      ),
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
-                            Icons.videocam_off_outlined,
-                            color: Colors.orangeAccent,
-                            size: 40,
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Pratinjau kamera terhenti.',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: _initAll,
-                            icon: const Icon(Icons.refresh, color: Colors.white),
-                            label: const Text(
-                              'Muat Ulang Kamera',
-                              style: TextStyle(color: Colors.white),
+                          Icon(Icons.gps_fixed, color: statusColor, size: 13),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              pos != null
+                                  ? 'GPS: $accText • ${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}'
+                                  : 'Mencari sinyal GPS…',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                         ],
-                      );
-                    }
-                    final hasSize = val.previewSize != null &&
-                        val.aspectRatio.isFinite &&
-                        val.aspectRatio > 0;
-                    if (!val.isInitialized || !hasSize) {
-                      return const CircularProgressIndicator(color: Colors.white);
-                    }
-                    return ClipRect(child: CameraPreview(ctrl));
-                  },
-                ),
-        ),
-
-        // Panduan Bingkai Kamera 16:9 (Horizontal / Vertikal Bebas Rotasi tanpa Kunci Frame Gelap)
-        IgnorePointer(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final screenW = constraints.maxWidth.isFinite
-                  ? constraints.maxWidth
-                  : MediaQuery.sizeOf(context).width;
-              final screenH = constraints.maxHeight.isFinite
-                  ? constraints.maxHeight
-                  : MediaQuery.sizeOf(context).height;
-              final activeAspect = _isVertical ? (9 / 16) : (16 / 9);
-
-              double frameW, frameH;
-              if (activeAspect >= 1.0) {
-                frameW = (screenW - 24).clamp(180.0, screenW);
-                frameH = (frameW / activeAspect).clamp(90.0, screenH * 0.75);
-              } else {
-                frameH = (screenH * 0.70).clamp(180.0, screenH - 120);
-                frameW = (frameH * activeAspect).clamp(120.0, screenW - 24);
-              }
-              final leftOffset = ((screenW - frameW) / 2).clamp(0.0, screenW);
-              final topOffset = ((screenH - frameH) / 2).clamp(0.0, screenH);
-
-              return Stack(
-                children: [
-                  // Bingkai fokus kamera 16:9 fleksibel (bebas rotasi, tanpa masking gelap yang mengunci pandangan)
-                  Positioned(
-                    top: topOffset,
-                    left: leftOffset,
-                    width: frameW,
-                    height: frameH,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            top: 8,
-                            left: 10,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.black87,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                _isVertical
-                                    ? '9:16 Vertikal (2160×3840) • ${widget.slot.label}'
-                                    : '16:9 Horizontal (3840×2160) • ${widget.slot.label}',
-                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                          if (pos != null)
-                            Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              child: GpsMapCameraPreviewOverlay(
-                                frameAspect: activeAspect,
-                                frameWidth: frameW,
-                                mapTileBytes: _cachedMapTile,
-                                stamp: GpsStampPayload(
-                                  lat: pos.latitude,
-                                  lng: pos.longitude,
-                                  time: DateTime.now(),
-                                  address: _cachedAddress,
-                                  fallbackArea: widget.projectTitle ?? store.project.school,
-                                ),
-                              ),
-                            )
-                          else
-                            Positioned(
-                              bottom: 8,
-                              left: 10,
-                              right: 10,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: Colors.white24),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.location_on, color: Colors.redAccent, size: 14),
-                                    SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        'Menunggu koordinat GPS Map Camera…',
-                                        style: TextStyle(color: Colors.white70, fontSize: 10),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-
-        // Indikator GPS & akurasi di bagian atas layar
-        Positioned(
-          top: 12,
-          left: 12,
-          right: 12,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: statusColor, width: 1.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.gps_fixed, color: statusColor, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Akurasi GPS: $accText',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (pos != null) ...[
+                    if (_isLowAccuracyWarning) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        'Koordinat: ${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade900.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          pos != null
+                              ? 'Akurasi rendah (±${pos.accuracy.toStringAsFixed(1)} m > 25 m)'
+                              : 'Menunggu kunci sinyal GPS…',
+                          style: const TextStyle(color: Colors.white, fontSize: 10.5),
                         ),
                       ),
-                    ] else if (!_waited15s) ...[
+                    ],
+                    if (pos != null && pos.isMocked) ...[
                       const SizedBox(height: 4),
-                      const Text(
-                        'Mengunci lokasi GPS cepat (maks. 5 detik)…',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade900.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Lokasi palsu (Mock GPS) terdeteksi!',
+                          style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ],
                 ),
               ),
-              if (_isLowAccuracyWarning) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade900.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning_amber_rounded,
-                          color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          pos != null
-                              ? 'Peringatan: akurasi rendah (±${pos.accuracy.toStringAsFixed(1)} m > 25 m). Anda tetap dapat memotret.'
-                              : 'Peringatan: akurasi rendah (sinyal GPS belum terkunci setelah 5 detik).',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              if (pos != null && pos.isMocked) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade900.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.gpp_bad, color: Colors.white, size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Lokasi palsu (mock location) terdeteksi! Foto akan ditolak.',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        // Tombol jepret di bagian bawah
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 24,
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_processing)
-                  const Column(
-                    children: [
-                      CircularProgressIndicator(color: Colors.white),
-                      SizedBox(height: 8),
-                      Text(
-                        'Memproses foto & watermark GPS…',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ],
-                  )
-                else
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Tombol Galeri Foto
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'Pilih dari Galeri Foto',
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.white24,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.all(12),
-                            ),
-                            icon: const Icon(Icons.photo_library, size: 26),
-                            onPressed: _pickFromGallery,
-                          ),
-                          const SizedBox(height: 4),
-                          const Text('Galeri', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                        ],
-                      ),
-                      // Tombol Jepret Kamera Utama
-                      GestureDetector(
-                        onTap: _canCapture ? _capture : null,
-                        child: Opacity(
-                          opacity: _canCapture ? 1.0 : 0.4,
-                          child: Container(
-                            width: 76,
-                            height: 76,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 4),
-                              color: _canCapture
-                                  ? (_isLowAccuracyWarning
-                                      ? Colors.orange
-                                      : Colors.white24)
-                                  : Colors.grey.shade800,
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 36,
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Tombol Dokumen / Media Lain
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'Pilih dari Dokumen/File Foto',
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.white24,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.all(12),
-                            ),
-                            icon: const Icon(Icons.folder_open, size: 26),
-                            onPressed: _pickFromDocument,
-                          ),
-                          const SizedBox(height: 4),
-                          const Text('Dokumen', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                        ],
-                      ),
-                    ],
-                  ),
-                const SizedBox(height: 8),
-                Text(
-                  _canCapture
-                      ? (_isLowAccuracyWarning
-                          ? 'Jepret Foto (Akurasi Rendah)'
-                          : 'Jepret Foto')
-                      : 'Menunggu kunci GPS (≤ 25 m)…',
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                ),
-              ],
             ),
+
+            // 3. Pratinjau Watermark Map Tag (Ditempatkan Rapi & Terpisah agar Tidak Bertabrakan dengan Tombol)
+            if (pos != null)
+              Positioned(
+                left: 12,
+                bottom: isLandscape ? 12 : 126,
+                width: isLandscape
+                    ? (screenW * 0.54).clamp(240.0, 520.0)
+                    : (screenW - 24).clamp(240.0, 480.0),
+                child: IgnorePointer(
+                  child: GpsMapCameraPreviewOverlay(
+                    frameAspect: activeAspect,
+                    frameWidth: isLandscape ? (screenW * 0.54) : (screenW - 24),
+                    mapTileBytes: _cachedMapTile,
+                    stamp: GpsStampPayload(
+                      lat: pos.latitude,
+                      lng: pos.longitude,
+                      time: DateTime.now(),
+                      address: _cachedAddress,
+                      fallbackArea: widget.projectTitle ?? store.project.school,
+                    ),
+                  ),
+                ),
+              ),
+
+            // 4. Panel Kontrol Jepret Foto (Landscape di Sisi Kanan, Portrait di Sisi Bawah)
+            if (isLandscape)
+              Positioned(
+                right: 12,
+                top: 50,
+                bottom: 12,
+                width: (screenW * 0.40).clamp(160.0, 320.0),
+                child: SafeArea(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (_processing)
+                        const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(height: 6),
+                            Text('Memproses foto…', style: TextStyle(color: Colors.white, fontSize: 11)),
+                          ],
+                        )
+                      else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildCircleButton(
+                              icon: Icons.photo_library,
+                              tooltip: 'Galeri',
+                              onPressed: _pickFromGallery,
+                            ),
+                            _buildShutterButton(),
+                            _buildCircleButton(
+                              icon: Icons.folder_open,
+                              tooltip: 'Dokumen',
+                              onPressed: _pickFromDocument,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _canCapture ? 'Jepret Foto' : 'Kunci GPS…',
+                          style: const TextStyle(color: Colors.white, fontSize: 11.5),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              )
+            else
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 16,
+                child: SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_processing)
+                        const Column(
+                          children: [
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(height: 8),
+                            Text(
+                              'Memproses foto & watermark GPS…',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        )
+                      else ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            // Tombol Galeri Foto
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildCircleButton(
+                                  icon: Icons.photo_library,
+                                  tooltip: 'Pilih dari Galeri',
+                                  onPressed: _pickFromGallery,
+                                ),
+                                const SizedBox(height: 4),
+                                const Text('Galeri', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                              ],
+                            ),
+                            // Tombol Jepret Kamera Utama
+                            _buildShutterButton(),
+                            // Tombol Dokumen
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildCircleButton(
+                                  icon: Icons.folder_open,
+                                  tooltip: 'Pilih dari Dokumen',
+                                  onPressed: _pickFromDocument,
+                                ),
+                                const SizedBox(height: 4),
+                                const Text('Dokumen', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _canCapture
+                              ? (_isLowAccuracyWarning
+                                  ? 'Jepret Foto (Akurasi Rendah)'
+                                  : 'Jepret Foto')
+                              : 'Menunggu kunci GPS (≤ 25 m)…',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCircleButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white24,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.all(12),
+      ),
+      icon: Icon(icon, size: 24),
+      onPressed: onPressed,
+    );
+  }
+
+  Widget _buildShutterButton() {
+    return GestureDetector(
+      onTap: _canCapture ? _capture : null,
+      child: Opacity(
+        opacity: _canCapture ? 1.0 : 0.4,
+        child: Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3.5),
+            color: _canCapture
+                ? (_isLowAccuracyWarning ? Colors.orange : Colors.white24)
+                : Colors.grey.shade800,
+          ),
+          child: const Icon(
+            Icons.camera_alt,
+            color: Colors.white,
+            size: 34,
           ),
         ),
-      ],
+      ),
     );
   }
 }

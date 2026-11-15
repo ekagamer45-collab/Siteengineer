@@ -95,9 +95,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
       _busyCloud = true;
       _cloudMsg = 'Mengambil daftar backup di Google Spreadsheet...';
     });
-    final res = await s.fetchCloudSubmissions(
-      onlyUserId: s.currentUser?.isAdminOrSuper == true ? null : s.currentUser?.id,
-    );
+    final res = await s.fetchCloudSubmissions();
     if (!mounted) return;
     setState(() {
       _busyCloud = false;
@@ -455,6 +453,120 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
+  Future<void> _confirmDuplicateRevit() async {
+    final titleCtrl = TextEditingController(text: '${s.project.school} (Duplikat)');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.copy_rounded, color: Color(0xFF1565C0)),
+            SizedBox(width: 8),
+            Text('Duplikat Revitalisasi', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Buat salinan proyek Revitalisasi baru (identitas, ruang & slot foto, data harian) ke daftar Menu Custom Saya agar dapat digunakan terpisah:',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nama Proyek Salinan',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1565C0)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Duplikat Sekarang'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      final cp = await s.duplicateRevitalisasiProject(newTitle: titleCtrl.text);
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Proyek berhasil diduplikat sebagai "${cp.name}" di Menu Custom Saya.'),
+            action: SnackBarAction(
+              label: 'Buka',
+              onPressed: () => _openCustomProgram(cp),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDuplicateRehab() async {
+    final titleCtrl = TextEditingController(text: '${s.rehabProject.namaPekerjaan} (Duplikat)');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.copy_rounded, color: Color(0xFF00796B)),
+            SizedBox(width: 8),
+            Text('Duplikat Rehabilitasi', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Buat salinan proyek Rehabilitasi baru (uraian pekerjaan, bobot, data harian) ke daftar Menu Custom Saya:',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nama Pekerjaan Salinan',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00796B)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Duplikat Sekarang'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      final cp = await s.duplicateRehabProject(newTitle: titleCtrl.text);
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Proyek berhasil diduplikat sebagai "${cp.name}" di Menu Custom Saya.'),
+            action: SnackBarAction(
+              label: 'Buka',
+              onPressed: () => _openCustomProgram(cp),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = s.currentUser;
@@ -738,6 +850,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                       if (mounted) setState(() {});
                     },
                     onSync: () => _syncProgram('revitalisasi'),
+                    onDuplicate: _confirmDuplicateRevit,
                     onExport: () => showCanvaExportSheet(
                       context,
                       title: 'Unduh Revitalisasi Minggu ${s.project.minggu}',
@@ -770,6 +883,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                       if (mounted) setState(() {});
                     },
                     onSync: () => _syncProgram('rehabilitasi'),
+                    onDuplicate: _confirmDuplicateRehab,
                     onExport: () => showCanvaExportSheet(
                       context,
                       title: 'Unduh Rehabilitasi Minggu ${rehab.minggu}',
@@ -860,9 +974,24 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                               style: const TextStyle(fontSize: 12),
                             ),
                             trailing: PopupMenuButton<String>(
-                              onSelected: (act) {
+                              onSelected: (act) async {
                                 if (act == 'open') _openCustomProgram(cp);
                                 if (act == 'export') _exportCustomProgram(cp);
+                                if (act == 'dup') {
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  final cloned = await s.duplicateCustomProgram(cp.id);
+                                  if (!mounted) return;
+                                  setState(() {});
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text('Berhasil menduplikat "${cp.name}".'),
+                                      action: SnackBarAction(
+                                        label: 'Buka',
+                                        onPressed: () => _openCustomProgram(cloned),
+                                      ),
+                                    ),
+                                  );
+                                }
                                 if (act == 'edit') _showCreateCustomDialog(existing: cp);
                                 if (act == 'sync') _syncProgram('custom', customId: cp.id);
                                 if (act == 'del') {
@@ -872,6 +1001,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                               },
                               itemBuilder: (_) => const [
                                 PopupMenuItem(value: 'open', child: Text('Buka Laporan')),
+                                PopupMenuItem(value: 'dup', child: Text('Duplikat Program')),
                                 PopupMenuItem(value: 'export', child: Text('Ekspor Excel / PDF')),
                                 PopupMenuItem(value: 'sync', child: Text('Kirim ke Spreadsheet')),
                                 PopupMenuItem(value: 'edit', child: Text('Ubah Nama / Lokasi')),
@@ -978,6 +1108,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     required VoidCallback onOpen,
     required VoidCallback onSync,
     required VoidCallback onExport,
+    VoidCallback? onDuplicate,
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1043,6 +1174,14 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                   onPressed: onExport,
                   icon: const Icon(Icons.download_rounded),
                 ),
+                if (onDuplicate != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(
+                    tooltip: 'Duplikat Laporan',
+                    onPressed: onDuplicate,
+                    icon: const Icon(Icons.copy_rounded),
+                  ),
+                ],
               ],
             ),
           ],
