@@ -409,7 +409,26 @@ class FirebaseService {
     }
   }
 
-  Future<Set<String>> fetchDeletedSubmissionIds(
+  Future<CloudResult<void>> unmarkDeletedSubmission(
+    String dbUrl,
+    String submissionId, {
+    String? authToken,
+  }) async {
+    final norm = normalizeDbUrl(dbUrl);
+    if (!isValidDbUrl(norm)) {
+      return const CloudResult(ok: false, message: 'Firebase belum dikonfigurasi.');
+    }
+    try {
+      await _client
+          .delete(_endpoint(norm, 'deleted_submissions/$submissionId', authToken: authToken))
+          .timeout(const Duration(seconds: 10));
+      return const CloudResult(ok: true);
+    } catch (e) {
+      return CloudResult(ok: false, message: 'Firebase unmarkDeletedSubmission error: $e');
+    }
+  }
+
+  Future<Map<String, DateTime>> fetchDeletedSubmissionsMap(
     String dbUrl, {
     String? authToken,
   }) async {
@@ -422,10 +441,29 @@ class FirebaseService {
       if (resp.statusCode != 200) return {};
       final raw = jsonDecode(resp.body);
       if (raw == null || raw is! Map) return {};
-      return raw.keys.map((k) => k.toString()).toSet();
+      final map = <String, DateTime>{};
+      raw.forEach((k, v) {
+        if (v is Map && v['deletedAt'] != null) {
+          final dt = DateTime.tryParse(v['deletedAt'].toString());
+          if (dt != null) {
+            map[k.toString()] = dt;
+            return;
+          }
+        }
+        map[k.toString()] = DateTime.fromMillisecondsSinceEpoch(0);
+      });
+      return map;
     } catch (_) {
       return {};
     }
+  }
+
+  Future<Set<String>> fetchDeletedSubmissionIds(
+    String dbUrl, {
+    String? authToken,
+  }) async {
+    final map = await fetchDeletedSubmissionsMap(dbUrl, authToken: authToken);
+    return map.keys.toSet();
   }
 
   Future<CloudResult<void>> patchSubmission(

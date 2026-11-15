@@ -2348,6 +2348,21 @@ class Store extends ChangeNotifier {
         ? pendingSyncQueue[existingQueueIdx].clientUuid
         : generateSyncUuid();
 
+    // Pastikan submissionId tidak terblokir di blacklist lokal maupun cloud
+    deletedSubmissionIds.remove(submissionId);
+    readSubmissionIds.remove(submissionId);
+    if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
+      unawaited(
+        firebaseService
+            .unmarkDeletedSubmission(
+              firebaseDbUrl,
+              submissionId,
+              authToken: firebaseAuthToken,
+            )
+            .catchError((_) => const CloudResult(ok: false)),
+      );
+    }
+
     if (!sheetsService.isValidUrl(appsScriptUrl)) {
       _enqueuePendingSync(
         id: submissionId,
@@ -2955,18 +2970,37 @@ class Store extends ChangeNotifier {
   Future<CloudResult<List<CloudSubmission>>> fetchCloudSubmissions({
     String? onlyUserId,
   }) async {
-    // 0. Sinkronkan daftar laporan yang sudah dihapus oleh Admin dari Firebase
+    // 0. Sinkronkan daftar laporan yang sudah dihapus oleh Admin dari Firebase beserta timestamp-nya
+    final fbDeletedMap = <String, DateTime>{};
     if (FirebaseService.isValidDbUrl(firebaseDbUrl)) {
       try {
-        final fbDeleted = await firebaseService.fetchDeletedSubmissionIds(
+        final res = await firebaseService.fetchDeletedSubmissionsMap(
           firebaseDbUrl,
           authToken: firebaseAuthToken,
         );
-        deletedSubmissionIds.addAll(fbDeleted);
+        fbDeletedMap.addAll(res);
       } catch (_) {}
     }
-    // Bersihkan daftar lokal dari yang sudah dihapus
-    cloudSubmissions.removeWhere((s) => deletedSubmissionIds.contains(s.id));
+
+    bool isReportDeleted(CloudSubmission sub) {
+      final delTime = fbDeletedMap[sub.id];
+      if (delTime != null) {
+        // Jika submission di-update SETELAH waktu penghapusan, berarti laporan baru / aktif kembali!
+        if (sub.updatedAt.isAfter(delTime)) {
+          deletedSubmissionIds.remove(sub.id);
+          return false;
+        }
+        deletedSubmissionIds.add(sub.id);
+        return true;
+      }
+      // Jika di cloud tidak ada catatan hapus (atau sudah di-unmark saat pengiriman ulang),
+      // maka submission dari cloud adalah data aktif yang sah.
+      deletedSubmissionIds.remove(sub.id);
+      return false;
+    }
+
+    // Bersihkan daftar lokal dari yang benar-benar sudah dihapus
+    cloudSubmissions.removeWhere(isReportDeleted);
 
     // 1. Ambil data secara paralel dari Firebase DAN Google Spreadsheet
     final fetchTasks = <Future<CloudResult<List<CloudSubmission>>>>[];
@@ -3010,7 +3044,7 @@ class Store extends ChangeNotifier {
 
       // Pertahankan submission lokal yang valid
       for (final s in cloudSubmissions) {
-        if (!deletedSubmissionIds.contains(s.id)) {
+        if (!isReportDeleted(s)) {
           map[s.id] = s;
         }
       }
@@ -3020,7 +3054,7 @@ class Store extends ChangeNotifier {
         if (r.ok && r.data != null) {
           anyOk = true;
           for (final s in r.data!) {
-            if (deletedSubmissionIds.contains(s.id)) continue;
+            if (isReportDeleted(s)) continue;
             final existing = map[s.id];
             // Merge: jika baru atau lebih mutakhir dari yang ada, gunakan yang baru
             if (existing == null || s.updatedAt.isAfter(existing.updatedAt)) {

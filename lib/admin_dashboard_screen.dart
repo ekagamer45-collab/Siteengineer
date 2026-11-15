@@ -72,7 +72,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _fbAuthCtrl = TextEditingController(text: s.firebaseAuthToken);
     _seedSeenSubmissions();
     _refreshAll(silent: true);
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (mounted && !_busy) {
         _refreshAll(silent: true);
       }
