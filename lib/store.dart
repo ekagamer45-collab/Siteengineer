@@ -2215,22 +2215,27 @@ class Store extends ChangeNotifier {
       required String driveName,
       required String mimeType,
     }) async {
-      final f = File(filePath);
-      if (!f.existsSync()) return;
-      final bytes = await f.readAsBytes();
-      final up = await sheetsService.uploadReportFileBytes(
-        appsScriptUrl,
-        filename: driveName,
-        mimeType: mimeType,
-        bytes: bytes,
-        dayFolder: dayFolder,
-      );
-      if (up.ok && up.data != null) {
-        reportFileUrls[driveName] = up.data!.fileUrl;
-        if (up.data!.folderUrl.isNotEmpty) {
-          dayFolderUrls[dayFolder] = up.data!.folderUrl;
+      try {
+        final f = File(filePath);
+        if (!f.existsSync()) return;
+        final bytes = await f.readAsBytes();
+        final up = await sheetsService
+            .uploadReportFileBytes(
+              appsScriptUrl,
+              filename: driveName,
+              mimeType: mimeType,
+              bytes: bytes,
+              dayFolder: dayFolder,
+              clientUuid: '${clientUuid}_${driveName}_${bytes.length}',
+            )
+            .timeout(const Duration(seconds: 25));
+        if (up.ok && up.data != null) {
+          reportFileUrls[driveName] = up.data!.fileUrl;
+          if (up.data!.folderUrl.isNotEmpty) {
+            dayFolderUrls[dayFolder] = up.data!.folderUrl;
+          }
         }
-      }
+      } catch (_) {}
     }
 
     // 3. Jalankan Sinkronisasi Kilat Firebase secara paralel dengan proses unggah berkas
@@ -2321,25 +2326,29 @@ class Store extends ChangeNotifier {
         parallelTasks.add(() async {
           onProgress?.call('Mengunggah ${pendingUploads.length} foto ke Google Drive...');
           await Future.wait(pendingUploads.map((item) async {
-            final raw = await item.file.readAsBytes();
-            Uint8List bytesToUpload = raw;
-            if (raw.lengthInBytes > 600 * 1024) {
-              bytesToUpload = await Isolate.run(
-                () => resizeJpegBytesForExport(raw, 1280, 75),
-              );
-            }
-            final up = await sheetsService.uploadPhotoBytes(
-              appsScriptUrl,
-              filename: '${user.username}_${item.name}',
-              bytes: bytesToUpload,
-              dayFolder: item.dayFolder,
-              clientUuid: '${clientUuid}_${item.name}_${item.fp}',
-              onFolderUrl: (url) => dayFolderUrls[item.dayFolder] = url,
-            );
-            if (up.ok && up.data != null) {
-              photoDriveMap[item.name] = up.data!;
-              _photoFingerprints[item.fpKey] = item.fp;
-            }
+            try {
+              final raw = await item.file.readAsBytes();
+              Uint8List bytesToUpload = raw;
+              if (raw.lengthInBytes > 300 * 1024) {
+                bytesToUpload = await Isolate.run(
+                  () => resizeJpegBytesForExport(raw, 960, 68),
+                );
+              }
+              final up = await sheetsService
+                  .uploadPhotoBytes(
+                    appsScriptUrl,
+                    filename: '${user.username}_${item.name}',
+                    bytes: bytesToUpload,
+                    dayFolder: item.dayFolder,
+                    clientUuid: '${clientUuid}_${item.name}_${item.fp}',
+                    onFolderUrl: (url) => dayFolderUrls[item.dayFolder] = url,
+                  )
+                  .timeout(const Duration(seconds: 25));
+              if (up.ok && up.data != null) {
+                photoDriveMap[item.name] = up.data!;
+                _photoFingerprints[item.fpKey] = item.fp;
+              }
+            } catch (_) {}
           }));
         }());
       }
@@ -2348,9 +2357,9 @@ class Store extends ChangeNotifier {
     // Task B: Buat Dokumen Excel & PDF secara PARALEL dan Unggah ke Drive
     if (includeDocuments) {
       const cloudDocSize = ExportSizeConfig(
-        preset: 'medium',
-        scalePercent: 75,
-        maxFileMb: 5,
+        preset: 'small',
+        scalePercent: 40,
+        maxFileMb: 1,
       );
 
       parallelTasks.add(() async {

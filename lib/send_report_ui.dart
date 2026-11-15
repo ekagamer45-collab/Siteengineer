@@ -254,7 +254,7 @@ Future<bool> showSendReportToAdminDialog(
 
   if (confirmed != true || !context.mounted) return false;
 
-  final statusNotifier = ValueNotifier<String>('Menghubungkan ke Spreadsheet Admin...');
+  final statusNotifier = ValueNotifier<String>('Menyiapkan & menyinkronkan laporan...');
   showDialog<void>(
     context: context,
     barrierDismissible: false,

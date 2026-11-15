@@ -425,6 +425,11 @@ class XlsxFiller {
         '<si><t>LAPORAN HARIAN</t></si>',
         '<si><t>DOKUMENTASI PEKERJAAN HARIAN</t></si>',
       );
+      ss = ss.replaceAll('<t> </t>', '<t xml:space="preserve"> </t>');
+      ss = ss.replaceAllMapped(
+        RegExp(r'<t>( +|\s+[^<]*|[^<]*\s+)</t>'),
+        (m) => '<t xml:space="preserve">${m.group(1)}</t>',
+      );
       ss = ss.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), ' ');
       baseFiles['xl/sharedStrings.xml'] = _utf8Bytes(ss);
     }
