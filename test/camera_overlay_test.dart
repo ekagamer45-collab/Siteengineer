@@ -331,6 +331,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    if (find.text('Nanti Saja').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Nanti Saja'));
+      await tester.pumpAndSettle();
+    }
+
     expect(find.textContaining('Monitoring Kiriman Hari Ini'), findsOneWidget);
     expect(find.textContaining('Sudah Kirim Hari Ini (1)'), findsOneWidget);
     expect(find.textContaining('Belum Kirim Hari Ini (1)'), findsOneWidget);

@@ -12,6 +12,7 @@ class _SheetData {
   final bool landscape;
   final Map<String, _CellVal> cells = {};
   final List<double> colWidths = [];
+  final List<String> merges = [];
   final List<_SheetPic> pics = [];
 
   void setText(int r, int c, String val, {int style = 0}) {
@@ -20,6 +21,11 @@ class _SheetData {
 
   void setNum(int r, int c, num val, {int style = 0}) {
     cells['${_colRef(c)}$r'] = _CellVal(val, isNum: true, style: style);
+  }
+
+  void merge(int startR, int startC, int endR, int endC) {
+    if (startR == endR && startC == endC) return;
+    merges.add('${_colRef(startC)}$startR:${_colRef(endC)}$endR');
   }
 }
 
@@ -298,59 +304,66 @@ class RehabXlsxFiller {
     final day = p.days[dayIdx];
     final dt = p.dateOf(dayIdx);
     final sh = _SheetData('H${dayIdx + 1}', landscape: true);
-    sh.colWidths.addAll([18, 10, 26, 14, 14, 24, 6, 38]);
+    sh.colWidths.addAll([18, 12, 28, 14, 14, 22, 6, 44]);
 
     // Judul
-    sh.setText(2, 4, 'LAPORAN HARIAN', style: 1);
+    sh.setText(2, 1, 'LAPORAN HARIAN', style: 1);
+    sh.merge(2, 1, 2, 8);
 
-    // Header Informasi Kontrak (2 Kolom Sejajar)
-    sh.setText(4, 1, 'HARI, TANGGAL', style: 2);
-    sh.setText(4, 2, ':', style: 2);
-    sh.setText(4, 3, '${hariNama[dayIdx]}, ${dt.day}-${dt.month}-${dt.year}', style: 0);
+    // Header Informasi Kontrak (2 Kolom Sejajar Rapi & Terbaca Tanpa Tabrakan)
+    sh.setText(4, 1, 'HARI, TANGGAL :', style: 2);
+    sh.setText(4, 2, '${hariNama[dayIdx]}, ${dt.day}-${dt.month}-${dt.year}', style: 0);
+    sh.merge(4, 2, 4, 5);
 
-    sh.setText(4, 6, 'NOMOR KONTRAK', style: 2);
-    sh.setText(4, 7, ':', style: 2);
-    sh.setText(4, 8, p.nomorSpk, style: 0);
+    sh.setText(4, 6, 'NOMOR KONTRAK :', style: 2);
+    sh.setText(4, 7, p.nomorSpk, style: 0);
+    sh.merge(4, 7, 4, 8);
 
-    sh.setText(5, 1, 'MINGGU KE', style: 2);
-    sh.setText(5, 2, ':', style: 2);
-    sh.setText(5, 3, '${p.minggu} (Minggu ke-${p.minggu})', style: 0);
+    sh.setText(5, 1, 'MINGGU KE :', style: 2);
+    sh.setText(5, 2, '${p.minggu} (Minggu ke-${p.minggu})', style: 0);
+    sh.merge(5, 2, 5, 5);
 
-    sh.setText(5, 6, 'TANGGAL KONTRAK', style: 2);
-    sh.setText(5, 7, ':', style: 2);
-    sh.setText(5, 8, p.tanggalSpk, style: 0);
+    sh.setText(5, 6, 'TANGGAL KONTRAK :', style: 2);
+    sh.setText(5, 7, p.tanggalSpk, style: 0);
+    sh.merge(5, 7, 5, 8);
 
-    sh.setText(6, 1, 'NAMA PEKERJAAN', style: 2);
-    sh.setText(6, 2, ':', style: 2);
-    sh.setText(6, 3, p.namaPekerjaan, style: 0);
+    sh.setText(6, 1, 'NAMA PEKERJAAN :', style: 2);
+    sh.setText(6, 2, p.namaPekerjaan, style: 0);
+    sh.merge(6, 2, 6, 5);
 
-    sh.setText(6, 6, 'NILAI KONTRAK', style: 2);
-    sh.setText(6, 7, ':', style: 2);
-    sh.setText(6, 8, p.nilaiKontrak, style: 0);
+    sh.setText(6, 6, 'NILAI KONTRAK :', style: 2);
+    sh.setText(6, 7, p.nilaiKontrak, style: 0);
+    sh.merge(6, 7, 6, 8);
 
-    sh.setText(7, 1, 'LOKASI', style: 2);
-    sh.setText(7, 2, ':', style: 2);
-    sh.setText(7, 3, p.lokasi, style: 0);
+    sh.setText(7, 1, 'LOKASI :', style: 2);
+    sh.setText(7, 2, p.lokasi, style: 0);
+    sh.merge(7, 2, 7, 5);
 
-    sh.setText(8, 1, 'TAHUN', style: 2);
-    sh.setText(8, 2, ':', style: 2);
-    sh.setText(8, 3, p.tahun, style: 0);
+    sh.setText(8, 1, 'TAHUN :', style: 2);
+    sh.setText(8, 2, p.tahun, style: 0);
+    sh.merge(8, 2, 8, 5);
 
-    sh.setText(9, 1, 'PELAKSANA', style: 2);
-    sh.setText(9, 2, ':', style: 2);
-    sh.setText(9, 3, p.pelaksana, style: 0);
+    sh.setText(9, 1, 'PELAKSANA :', style: 2);
+    sh.setText(9, 2, p.pelaksana, style: 0);
+    sh.merge(9, 2, 9, 5);
 
-    // Baris 11: Main Table Headers
+    // Baris 11: Main Table Headers (Sejajar dengan kolom data)
     sh.setText(11, 1, 'TENAGA KERJA', style: 3);
     sh.setText(11, 2, '', style: 3);
+    sh.merge(11, 1, 11, 2);
+
     sh.setText(11, 3, 'BAHAN YANG DIGUNAKAN', style: 3);
     sh.setText(11, 4, '', style: 3);
     sh.setText(11, 5, '', style: 3);
+    sh.merge(11, 3, 11, 5);
+
     sh.setText(11, 6, 'ALAT YANG DIGUNAKAN', style: 3);
+
     sh.setText(11, 7, 'URAIAN KEGIATAN', style: 3);
     sh.setText(11, 8, '', style: 3);
+    sh.merge(11, 7, 11, 8);
 
-    // Baris 12: Subheaders
+    // Baris 12: Subheaders (Tepat di bawah header induk masing-masing)
     sh.setText(12, 1, 'Keahlian', style: 4);
     sh.setText(12, 2, 'Jumlah', style: 4);
     sh.setText(12, 3, 'Jenis Bahan yang Didatangkan', style: 4);
@@ -411,26 +424,40 @@ class RehabXlsxFiller {
 
       final rWeather = 14 + maxRows;
       sh.setText(rWeather, 1, 'CUACA', style: 4);
+      sh.merge(rWeather, 1, rWeather, 2);
       sh.setText(rWeather, 3, 'Baik: ${day.cuacaBaik} | Hujan: ${day.cuacaHujan.isEmpty ? '-' : day.cuacaHujan}', style: 5);
+      sh.merge(rWeather, 3, rWeather, 8);
 
       sh.setText(rWeather + 1, 1, 'CATATAN HAL-HAL PENTING', style: 4);
+      sh.merge(rWeather + 1, 1, rWeather + 1, 2);
       sh.setText(rWeather + 1, 3, day.catatan.isEmpty ? '-' : day.catatan, style: 5);
+      sh.merge(rWeather + 1, 3, rWeather + 1, 8);
 
       final rSign = rWeather + 3;
-      sh.setText(rSign, 2, 'Disetujui Oleh :', style: 0);
-      sh.setText(rSign, 6, 'Dibuat Oleh :', style: 0);
+      sh.setText(rSign, 1, 'Disetujui Oleh :', style: 0);
+      sh.merge(rSign, 1, rSign, 4);
+      sh.setText(rSign, 5, 'Dibuat Oleh :', style: 0);
+      sh.merge(rSign, 5, rSign, 8);
 
-      sh.setText(rSign + 1, 2, 'Kontraktor Pelaksana', style: 2);
-      sh.setText(rSign + 1, 6, 'Konsultan Pengawas', style: 2);
+      sh.setText(rSign + 1, 1, 'Kontraktor Pelaksana', style: 2);
+      sh.merge(rSign + 1, 1, rSign + 1, 4);
+      sh.setText(rSign + 1, 5, 'Konsultan Pengawas', style: 2);
+      sh.merge(rSign + 1, 5, rSign + 1, 8);
 
-      sh.setText(rSign + 2, 2, p.kontraktorPelaksana, style: 2);
-      sh.setText(rSign + 2, 6, p.konsultanPengawas, style: 2);
+      sh.setText(rSign + 2, 1, p.kontraktorPelaksana, style: 2);
+      sh.merge(rSign + 2, 1, rSign + 2, 4);
+      sh.setText(rSign + 2, 5, p.konsultanPengawas, style: 2);
+      sh.merge(rSign + 2, 5, rSign + 2, 8);
 
-      sh.setText(rSign + 6, 2, p.pelaksanaLapangan, style: 2);
-      sh.setText(rSign + 6, 6, p.pengawasLapangan, style: 2);
+      sh.setText(rSign + 6, 1, p.pelaksanaLapangan, style: 2);
+      sh.merge(rSign + 6, 1, rSign + 6, 4);
+      sh.setText(rSign + 6, 5, p.pengawasLapangan, style: 2);
+      sh.merge(rSign + 6, 5, rSign + 6, 8);
 
-      sh.setText(rSign + 7, 2, 'Pelaksana Lapangan', style: 0);
-      sh.setText(rSign + 7, 6, 'Pengawas Lapangan', style: 0);
+      sh.setText(rSign + 7, 1, 'Pelaksana Lapangan', style: 0);
+      sh.merge(rSign + 7, 1, rSign + 7, 4);
+      sh.setText(rSign + 7, 5, 'Pengawas Lapangan', style: 0);
+      sh.merge(rSign + 7, 5, rSign + 7, 8);
     }
 
     return sh;
@@ -442,21 +469,26 @@ class RehabXlsxFiller {
     Map<String, Uint8List> photoBytesMap,
   ) {
     final sh = _SheetData('D${dayIdx + 1}', landscape: false);
-    sh.colWidths.addAll([14, 4, 30, 14, 4, 30]);
+    sh.colWidths.addAll([12, 12, 12, 12, 12, 12, 12, 12]);
 
     // Header Dokumentasi
     sh.setText(2, 1, 'DOKUMENTASI PEKERJAAN', style: 1);
+    sh.merge(2, 1, 2, 8);
+
     sh.setText(4, 1, 'KEGIATAN', style: 2);
     sh.setText(4, 2, ':', style: 2);
     sh.setText(4, 3, p.kegiatanDokumentasi, style: 0);
+    sh.merge(4, 3, 4, 8);
 
     sh.setText(5, 1, 'LOKASI', style: 2);
     sh.setText(5, 2, ':', style: 2);
     sh.setText(5, 3, p.lokasi, style: 0);
+    sh.merge(5, 3, 5, 8);
 
     sh.setText(6, 1, 'PROGRES (%)', style: 2);
     sh.setText(6, 2, ':', style: 2);
     sh.setText(6, 3, '${p.totalSdMingguIni.toStringAsFixed(2)}%', style: 0);
+    sh.merge(6, 3, 6, 8);
 
     // 6 slot foto dokumentasi: 2 kolom x 3 baris
     for (var s = 0; s < 6; s++) {
@@ -464,19 +496,24 @@ class RehabXlsxFiller {
       final scaled = photoBytesMap[slotId];
       final isRight = s % 2 == 1;
       final rowIdx = 8 + (s ~/ 2) * 16;
-      final labelCol = isRight ? 4 : 1;
+      final labelCol = isRight ? 5 : 1;
       final label = s < p.photoLabels.length ? p.photoLabels[s] : 'Dokumentasi Foto ${s + 1}';
 
       sh.setText(rowIdx, labelCol, label, style: 4);
+      if (isRight) {
+        sh.merge(rowIdx, 5, rowIdx, 8);
+      } else {
+        sh.merge(rowIdx, 1, rowIdx, 4);
+      }
 
       if (scaled != null) {
         sh.pics.add(
           _SheetPic(
             mediaPath: 'xl/media/$slotId.jpeg',
             bytes: scaled,
-            fromCol: isRight ? 3 : 0,
+            fromCol: isRight ? 4 : 0,
             fromRow: rowIdx,
-            toCol: isRight ? 6 : 3,
+            toCol: isRight ? 8 : 4,
             toRow: rowIdx + 14,
             name: slotId,
           ),
@@ -546,11 +583,11 @@ class RehabXlsxFiller {
       '</borders>'
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
       '<cellXfs count="6">'
-      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-      '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/>'
-      '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"/>'
-      '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment wrapText="1" vertical="center"/></xf>'
-      '<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment wrapText="1" vertical="center"/></xf>'
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment wrapText="1" vertical="center"/></xf>'
+      '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"><alignment wrapText="1" vertical="center" horizontal="center"/></xf>'
+      '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"><alignment wrapText="1" vertical="center"/></xf>'
+      '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment wrapText="1" vertical="center" horizontal="center"/></xf>'
+      '<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment wrapText="1" vertical="center" horizontal="center"/></xf>'
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment wrapText="1" vertical="center"/></xf>'
       '</cellXfs>'
       '</styleSheet>',
@@ -621,13 +658,20 @@ class RehabXlsxFiller {
         wsBuf.write('</row>');
       }
       wsBuf.write('</sheetData>');
+      if (sh.merges.isNotEmpty) {
+        wsBuf.write('<mergeCells count="${sh.merges.length}">');
+        for (final m in sh.merges) {
+          wsBuf.write('<mergeCell ref="$m"/>');
+        }
+        wsBuf.write('</mergeCells>');
+      }
+      if (sh.pics.isNotEmpty) {
+        wsBuf.write('<drawing r:id="rIdDraw"/>');
+      }
       if (sh.landscape) {
         wsBuf.write('<pageSetup paperSize="9" orientation="landscape"/>');
       } else {
         wsBuf.write('<pageSetup paperSize="9" orientation="portrait"/>');
-      }
-      if (sh.pics.isNotEmpty) {
-        wsBuf.write('<drawing r:id="rIdDraw"/>');
       }
       wsBuf.write('</worksheet>');
       addXml('xl/worksheets/sheet$idx.xml', wsBuf.toString());

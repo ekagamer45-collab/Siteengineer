@@ -71,17 +71,17 @@ class RehabPdfFiller {
     final startD = p.dateOf(0);
     final endD = p.dateOf(6);
     pw.Widget infoRow(String k, String v) => pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 4),
+          padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
           child: pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.SizedBox(
-                width: 155,
-                child: pw.Text(_safe(k), style: pw.TextStyle(font: bold, fontSize: 9.5)),
+                width: 140,
+                child: pw.Text(_safe(k), style: pw.TextStyle(font: bold, fontSize: 8.5)),
               ),
-              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 9.5)),
+              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 8.5)),
               pw.Expanded(
-                child: pw.Text(_safe(v), style: pw.TextStyle(font: bold, fontSize: 9.5)),
+                child: pw.Text(_safe(v), style: pw.TextStyle(font: bold, fontSize: 8.5)),
               ),
             ],
           ),
@@ -89,55 +89,55 @@ class RehabPdfFiller {
 
     return pw.Container(
       decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColor.fromHex('#1E3A5F'), width: 2.5),
+        border: pw.Border.all(color: PdfColor.fromHex('#1E3A5F'), width: 2.0),
       ),
-      padding: const pw.EdgeInsets.all(24),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            padding: const pw.EdgeInsets.symmetric(vertical: 10, horizontal: 14),
             color: PdfColor.fromHex('#1E3A5F'),
             child: pw.Column(
               children: [
                 pw.Text(
                   _safe(p.instansi.toUpperCase()),
                   textAlign: pw.TextAlign.center,
-                  style: pw.TextStyle(font: bold, fontSize: 13, color: PdfColors.white),
+                  style: pw.TextStyle(font: bold, fontSize: 11.5, color: PdfColors.white),
                 ),
-                pw.SizedBox(height: 6),
+                pw.SizedBox(height: 4),
                 pw.Text(
                   'LAPORAN MINGGUAN & HARIAN PELAKSANAAN',
                   textAlign: pw.TextAlign.center,
-                  style: pw.TextStyle(font: regular, fontSize: 10, color: PdfColors.white),
+                  style: pw.TextStyle(font: regular, fontSize: 9, color: PdfColors.white),
                 ),
               ],
             ),
           ),
-          pw.SizedBox(height: 28),
+          pw.SizedBox(height: 12),
           pw.Center(
             child: pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 10),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 6),
               decoration: pw.BoxDecoration(
                 color: PdfColor.fromHex('#E8EEF5'),
-                border: pw.Border.all(color: PdfColor.fromHex('#1E3A5F'), width: 1.5),
+                border: pw.Border.all(color: PdfColor.fromHex('#1E3A5F'), width: 1.2),
               ),
               child: pw.Text(
                 'MINGGU KE - ${p.minggu}',
-                style: pw.TextStyle(font: bold, fontSize: 16, color: PdfColor.fromHex('#1E3A5F')),
+                style: pw.TextStyle(font: bold, fontSize: 13, color: PdfColor.fromHex('#1E3A5F')),
               ),
             ),
           ),
-          pw.SizedBox(height: 8),
+          pw.SizedBox(height: 4),
           pw.Center(
             child: pw.Text(
               _safe('Periode: ${_fmtDateId(startD)} s/d ${_fmtDateId(endD)}'),
-              style: pw.TextStyle(font: regular, fontSize: 10),
+              style: pw.TextStyle(font: regular, fontSize: 8.5),
             ),
           ),
-          pw.SizedBox(height: 28),
+          pw.SizedBox(height: 12),
           pw.Container(
-            padding: const pw.EdgeInsets.all(16),
+            padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: pw.BoxDecoration(
               border: pw.Border.all(color: PdfColors.grey600, width: 0.8),
               color: PdfColor.fromHex('#F9FAFC'),
@@ -155,7 +155,7 @@ class RehabPdfFiller {
               ],
             ),
           ),
-          pw.Spacer(),
+          pw.SizedBox(height: 10),
           pw.Row(
             children: [
               pw.Expanded(
@@ -361,7 +361,7 @@ class RehabPdfFiller {
             ]),
           ],
         ),
-        pw.Spacer(),
+        pw.SizedBox(height: 12),
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
@@ -803,7 +803,7 @@ class RehabPdfFiller {
       }
     }
 
-    const chunkSize = 26;
+    const chunkSize = 16;
     final pages = <pw.Widget>[];
     for (var s = 0; s < allRows.length; s += chunkSize) {
       final chunk = allRows.sublist(s, (s + chunkSize).clamp(0, allRows.length));
@@ -852,7 +852,7 @@ class RehabPdfFiller {
               ],
             ),
             if (isLast) ...[
-              pw.Spacer(),
+              pw.SizedBox(height: 12),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
                 children: [
@@ -894,7 +894,7 @@ class RehabPdfFiller {
     final maxAct = day.activities.length > 7 ? day.activities.length : 7;
 
     pw.Widget infoRow(String k, String v) => pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+          padding: const pw.EdgeInsets.symmetric(vertical: 1.0),
           child: pw.Row(
             children: [
               pw.SizedBox(
@@ -962,84 +962,87 @@ class RehabPdfFiller {
         pw.SizedBox(height: 5),
 
         if (day.isLibur)
-          pw.Expanded(
-            child: pw.Center(
-              child: pw.Container(
-                padding: const pw.EdgeInsets.all(24),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey600),
-                  color: PdfColor.fromHex('#FFF8E1'),
-                ),
-                child: pw.Text(
-                  'HARI LIBUR / TIDAK ADA AKTIVITAS LAPANGAN',
-                  style: pw.TextStyle(font: bold, fontSize: 13),
-                ),
+          pw.Center(
+            child: pw.Container(
+              padding: const pw.EdgeInsets.all(24),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey600),
+                color: PdfColor.fromHex('#FFF8E1'),
+              ),
+              child: pw.Text(
+                'HARI LIBUR / TIDAK ADA AKTIVITAS LAPANGAN',
+                style: pw.TextStyle(font: bold, fontSize: 13),
               ),
             ),
           )
         else
-          pw.Expanded(
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                // Kolom 1: Tenaga Kerja + Cuaca + Catatan
-                pw.Expanded(
-                  flex: 22,
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                    children: [
-                      pw.Table(
-                        border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
-                        children: [
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Kolom 1: Tenaga Kerja + Cuaca + Catatan
+              pw.Expanded(
+                flex: 22,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    pw.Table(
+                      border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
+                      columnWidths: const {
+                        0: pw.FlexColumnWidth(1),
+                        1: pw.FixedColumnWidth(24),
+                      },
+                      children: [
+                        pw.TableRow(children: [
+                          _cell('TENAGA KERJA', font: bold, size: 7, bg: hdrBg),
+                          _cell('JML', font: bold, size: 7, bg: hdrBg, align: pw.Alignment.center),
+                        ]),
+                        for (final w in day.workers)
                           pw.TableRow(children: [
-                            _cell('TENAGA KERJA', font: bold, size: 7, bg: hdrBg),
-                            _cell('JML', font: bold, size: 7, bg: hdrBg, align: pw.Alignment.center),
+                            _cell(w.name, font: regular, size: 6.8),
+                            _cell('${w.count}', font: bold, size: 6.8, align: pw.Alignment.center),
                           ]),
-                          for (final w in day.workers)
-                            pw.TableRow(children: [
-                              _cell(w.name, font: regular, size: 6.8),
-                              _cell('${w.count}', font: bold, size: 6.8, align: pw.Alignment.center),
-                            ]),
+                      ],
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Table(
+                      border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
+                      columnWidths: const {
+                        0: pw.FixedColumnWidth(38),
+                        1: pw.FlexColumnWidth(1),
+                      },
+                      children: [
+                        pw.TableRow(children: [
+                          _cell('CUACA', font: bold, size: 7, bg: hdrBg),
+                          _cell('KETERANGAN WAKTU', font: bold, size: 7, bg: hdrBg),
+                        ]),
+                        pw.TableRow(children: [
+                          _cell('Baik', font: regular, size: 6.8),
+                          _cell(day.cuacaBaik, font: regular, size: 6.8),
+                        ]),
+                        pw.TableRow(children: [
+                          _cell('Hujan', font: regular, size: 6.8),
+                          _cell(day.cuacaHujan.isEmpty ? '-' : day.cuacaHujan, font: regular, size: 6.8),
+                        ]),
+                      ],
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(4),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.black, width: 0.4),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('CATATAN HAL-HAL PENTING:', style: pw.TextStyle(font: bold, fontSize: 6.8)),
+                          pw.SizedBox(height: 2),
+                          pw.Text(_safe(day.catatan.isEmpty ? '-' : day.catatan), style: pw.TextStyle(font: regular, fontSize: 6.5)),
                         ],
                       ),
-                      pw.SizedBox(height: 4),
-                      pw.Table(
-                        border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
-                        children: [
-                          pw.TableRow(children: [
-                            _cell('CUACA', font: bold, size: 7, bg: hdrBg),
-                            _cell('KETERANGAN WAKTU', font: bold, size: 7, bg: hdrBg),
-                          ]),
-                          pw.TableRow(children: [
-                            _cell('Baik', font: regular, size: 6.8),
-                            _cell(day.cuacaBaik, font: regular, size: 6.8),
-                          ]),
-                          pw.TableRow(children: [
-                            _cell('Hujan', font: regular, size: 6.8),
-                            _cell(day.cuacaHujan.isEmpty ? '-' : day.cuacaHujan, font: regular, size: 6.8),
-                          ]),
-                        ],
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Expanded(
-                        child: pw.Container(
-                          padding: const pw.EdgeInsets.all(4),
-                          decoration: pw.BoxDecoration(
-                            border: pw.Border.all(color: PdfColors.black, width: 0.4),
-                          ),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Text('CATATAN HAL-HAL PENTING:', style: pw.TextStyle(font: bold, fontSize: 6.8)),
-                              pw.SizedBox(height: 2),
-                              pw.Text(_safe(day.catatan.isEmpty ? '-' : day.catatan), style: pw.TextStyle(font: regular, fontSize: 6.5)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
                 pw.SizedBox(width: 5),
 
                 // Kolom 2: Bahan Diterima / Ditolak
@@ -1047,6 +1050,11 @@ class RehabPdfFiller {
                   flex: 30,
                   child: pw.Table(
                     border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
+                    columnWidths: const {
+                      0: pw.FlexColumnWidth(1.2),
+                      1: pw.FixedColumnWidth(42),
+                      2: pw.FixedColumnWidth(34),
+                    },
                     children: [
                       pw.TableRow(children: [
                         _cell('BAHAN YANG DIGUNAKAN', font: bold, size: 7, bg: hdrBg),
@@ -1103,6 +1111,10 @@ class RehabPdfFiller {
                   flex: 30,
                   child: pw.Table(
                     border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
+                    columnWidths: const {
+                      0: pw.FixedColumnWidth(18),
+                      1: pw.FlexColumnWidth(1),
+                    },
                     children: [
                       pw.TableRow(children: [
                         _cell('NO', font: bold, size: 7, bg: hdrBg, align: pw.Alignment.center),
@@ -1115,7 +1127,7 @@ class RehabPdfFiller {
                             a < day.activities.length ? day.activities[a] : '',
                             font: regular,
                             size: 6.5,
-                            maxLines: 3,
+                            maxLines: 2,
                           ),
                         ]),
                     ],
@@ -1123,7 +1135,6 @@ class RehabPdfFiller {
                 ),
               ],
             ),
-          ),
         pw.SizedBox(height: 6),
 
         // Tanda Tangan Resmi 2 Pihak
@@ -1135,7 +1146,7 @@ class RehabPdfFiller {
                 pw.Text('Disetujui Oleh :', style: pw.TextStyle(font: regular, fontSize: 7)),
                 pw.Text('Kontraktor Pelaksana', style: pw.TextStyle(font: bold, fontSize: 7.5)),
                 pw.Text(_safe(p.kontraktorPelaksana), style: pw.TextStyle(font: bold, fontSize: 7)),
-                pw.SizedBox(height: 20),
+                pw.SizedBox(height: 14),
                 pw.Text(_safe(p.pelaksanaLapangan), style: pw.TextStyle(font: bold, fontSize: 7.5, decoration: pw.TextDecoration.underline)),
                 pw.Text('Pelaksana Lapangan', style: pw.TextStyle(font: regular, fontSize: 6.5)),
               ],
@@ -1145,7 +1156,7 @@ class RehabPdfFiller {
                 pw.Text('Dibuat Oleh :', style: pw.TextStyle(font: regular, fontSize: 7)),
                 pw.Text('Konsultan Pengawas', style: pw.TextStyle(font: bold, fontSize: 7.5)),
                 pw.Text(_safe(p.konsultanPengawas), style: pw.TextStyle(font: bold, fontSize: 7)),
-                pw.SizedBox(height: 20),
+                pw.SizedBox(height: 14),
                 pw.Text(_safe(p.pengawasLapangan), style: pw.TextStyle(font: bold, fontSize: 7.5, decoration: pw.TextDecoration.underline)),
                 pw.Text('Pengawas Lapangan', style: pw.TextStyle(font: regular, fontSize: 6.5)),
               ],
@@ -1352,7 +1363,7 @@ class RehabPdfFiller {
           doc.addPage(
             pw.Page(
               pageFormat: PdfPageFormat.a4.landscape,
-              margin: const pw.EdgeInsets.all(18),
+              margin: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               build: (_) => _buildLandscapeDailyPage(p, i, regular, bold),
             ),
           );

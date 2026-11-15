@@ -53,18 +53,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Store get s => widget.store;
 
   void _seedSeenSubmissions() {
-    final now = DateTime.now();
     for (final sub in s.cloudSubmissions) {
-      if (s.deletedSubmissionIds.contains(sub.id) ||
-          s.readSubmissionIds.contains(sub.id)) {
-        continue;
-      }
-      final local = sub.updatedAt.toLocal();
-      final isToday = local.year == now.year &&
-          local.month == now.month &&
-          local.day == now.day;
-      _seenTimestamps[sub.id] = sub.updatedAt;
-      if (isToday) {
+      if (!s.deletedSubmissionIds.contains(sub.id) &&
+          !s.readSubmissionIds.contains(sub.id)) {
         _unreadSubmissionIds.add(sub.id);
       }
     }
@@ -115,24 +106,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     if (!mounted) return;
 
     final newlyArrived = <CloudSubmission>[];
-    final now = DateTime.now();
     for (final sub in s.cloudSubmissions) {
       if (s.deletedSubmissionIds.contains(sub.id) ||
           s.readSubmissionIds.contains(sub.id)) {
         continue;
       }
+      _unreadSubmissionIds.add(sub.id);
       final prev = beforeMap[sub.id];
-      final local = sub.updatedAt.toLocal();
-      final isToday = local.year == now.year &&
-          local.month == now.month &&
-          local.day == now.day;
-      if (prev == null) {
-        if (beforeMap.isNotEmpty || isToday) {
-          _unreadSubmissionIds.add(sub.id);
-          newlyArrived.add(sub);
-        }
-      } else if (sub.updatedAt.isAfter(prev)) {
-        _unreadSubmissionIds.add(sub.id);
+      if (prev == null || sub.updatedAt.isAfter(prev)) {
         newlyArrived.add(sub);
       }
       _seenTimestamps[sub.id] = sub.updatedAt;

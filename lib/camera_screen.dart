@@ -854,7 +854,17 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                         if (!val.isInitialized || !hasSize) {
                           return const CircularProgressIndicator(color: Colors.white);
                         }
-                        return ClipRect(child: CameraPreview(ctrl));
+                        return SizedBox.expand(
+                          child: FittedBox(
+                            fit: BoxFit.cover,
+                            clipBehavior: Clip.hardEdge,
+                            child: SizedBox(
+                              width: 1080,
+                              height: 1080 / (isLandscape ? ctrl.value.aspectRatio : (1 / (ctrl.value.aspectRatio == 0 ? 1 : ctrl.value.aspectRatio))),
+                              child: CameraPreview(ctrl),
+                            ),
+                          ),
+                        );
                       },
                     ),
             ),
@@ -937,14 +947,14 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
             if (pos != null)
               Positioned(
                 left: 12,
-                bottom: isLandscape ? 12 : 126,
+                bottom: isLandscape ? 16 : 126,
                 width: isLandscape
-                    ? (screenW * 0.54).clamp(240.0, 520.0)
+                    ? (screenW - 140).clamp(240.0, 520.0)
                     : (screenW - 24).clamp(240.0, 480.0),
                 child: IgnorePointer(
                   child: GpsMapCameraPreviewOverlay(
                     frameAspect: activeAspect,
-                    frameWidth: isLandscape ? (screenW * 0.54) : (screenW - 24),
+                    frameWidth: isLandscape ? ((screenW - 140).clamp(240.0, 520.0)) : (screenW - 24),
                     mapTileBytes: _cachedMapTile,
                     stamp: GpsStampPayload(
                       lat: pos.latitude,
@@ -957,50 +967,47 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 ),
               ),
 
-            // 4. Panel Kontrol Jepret Foto (Landscape di Sisi Kanan, Portrait di Sisi Bawah)
+            // 4. Panel Kontrol Jepret Foto (Landscape di Sisi Kanan Thumb, Portrait di Sisi Bawah)
             if (isLandscape)
               Positioned(
-                right: 12,
-                top: 50,
-                bottom: 12,
-                width: (screenW * 0.40).clamp(160.0, 320.0),
+                right: 16,
+                top: 24,
+                bottom: 24,
+                width: 96,
                 child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_processing)
-                        const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(color: Colors.white),
-                            SizedBox(height: 6),
-                            Text('Memproses foto…', style: TextStyle(color: Colors.white, fontSize: 11)),
-                          ],
-                        )
-                      else ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildCircleButton(
-                              icon: Icons.photo_library,
-                              tooltip: 'Galeri',
-                              onPressed: _pickFromGallery,
-                            ),
-                            _buildShutterButton(),
-                            _buildCircleButton(
-                              icon: Icons.folder_open,
-                              tooltip: 'Dokumen',
-                              onPressed: _pickFromDocument,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _canCapture ? 'Jepret Foto' : 'Kunci GPS…',
-                          style: const TextStyle(color: Colors.white, fontSize: 11.5),
-                        ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        if (_processing)
+                          const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(color: Colors.white),
+                              SizedBox(height: 6),
+                              Text('Proses…', style: TextStyle(color: Colors.white, fontSize: 10)),
+                            ],
+                          )
+                        else ...[
+                          _buildCircleButton(
+                            icon: Icons.photo_library,
+                            tooltip: 'Galeri',
+                            onPressed: _pickFromGallery,
+                          ),
+                          _buildShutterButton(),
+                          _buildCircleButton(
+                            icon: Icons.folder_open,
+                            tooltip: 'Dokumen',
+                            onPressed: _pickFromDocument,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               )

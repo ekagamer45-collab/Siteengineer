@@ -178,10 +178,32 @@ class XlsxFiller {
     }
 
     // Hilangkan kotak strip "DOKUMENTASI FOTO PROYEK" (baris 34, 105, 176, 247)
+    // dengan mengosongkan nilai sel dan menyembunyikan baris tanpa menghapus tag <c>
+    // agar deklarasi mergeCells tetap 100% valid dan Excel tidak menampilkan error "Repaired".
     for (final dokRow in [34, 105, 176, 247]) {
+      // Kosongkan nilai di sel-sel baris dokRow dan sembunyikan barisnya
       xml = xml.replaceAllMapped(
-        RegExp('<row r="$dokRow"[^>]*>.*?</row>', dotAll: true),
-        (m) => '<row r="$dokRow" hidden="1" ht="0" customHeight="1"/>',
+        RegExp('<row r="$dokRow"([^>]*)>(.*?)</row>', dotAll: true),
+        (m) {
+          final rowAttrs = m.group(1)!;
+          var innerCells = m.group(2)!;
+          // Ubah semua sel menjadi sel kosong murni (<c r="..." s="..."/>) tanpa t="..." ataupun isi <v>/<is>
+          innerCells = innerCells.replaceAllMapped(
+            RegExp(r'<c r="([A-Z]+\d+)"([^>]*)>(?:<v>.*?</v>|<is>.*?</is>)?</c>', dotAll: true),
+            (cm) {
+              final ref = cm.group(1)!;
+              var attrs = cm.group(2) ?? '';
+              attrs = attrs.replaceAll(RegExp(r'\s+t="[^"]*"'), '');
+              return '<c r="$ref"$attrs/>';
+            },
+          );
+          // Tambahkan hidden="1" ht="0" customHeight="1" pada atribut row
+          final cleanedAttrs = rowAttrs
+              .replaceAll(RegExp(r'\s+hidden="[^"]*"'), '')
+              .replaceAll(RegExp(r'\s+ht="[^"]*"'), '')
+              .replaceAll(RegExp(r'\s+customHeight="[^"]*"'), '');
+          return '<row r="$dokRow"$cleanedAttrs hidden="1" ht="0" customHeight="1">$innerCells</row>';
+        },
       );
     }
 

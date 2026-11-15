@@ -243,6 +243,11 @@ class Store extends ChangeNotifier {
     final rf = File('${_dir.path}/rehab_project.json');
     if (rf.existsSync()) {
       rehabProject = RehabProject.fromJson(jsonDecode(rf.readAsStringSync()));
+      // Jika data hari masih kosong (dari build lama), sinkronkan dengan template resmi Satpol PP KLM
+      if (rehabProject.days.every((d) => d.activities.isEmpty && d.workers.isEmpty)) {
+        rehabProject = RehabProject();
+        saveRehab();
+      }
     } else {
       rehabProject = RehabProject();
       saveRehab();
@@ -1096,10 +1101,18 @@ class Store extends ChangeNotifier {
       ),
     );
     final out = await getTemporaryDirectory();
-    final suffix = singleDayIndex != null
-        ? '_H${singleDayIndex + 1}_${hariNama[singleDayIndex].toUpperCase()}'
-        : '';
-    final path = '${out.path}/LAPORAN_HARIAN_MINGGU_${p.minggu}$suffix.xlsx';
+    final String fileName;
+    if (singleDayIndex != null) {
+      final dt = p.dateOf(singleDayIndex);
+      final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+      final hari = hariNama[singleDayIndex].toUpperCase();
+      fileName = 'REVITALISASI_MINGGU_${p.minggu}_H${singleDayIndex + 1}_${hari}_$tglStr';
+    } else {
+      final dt = p.dateOf(0);
+      final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+      fileName = 'REVITALISASI_MINGGU_${p.minggu}_LENGKAP_$tglStr';
+    }
+    final path = '${out.path}/$fileName.xlsx';
     File(path).writeAsBytesSync(bytes);
     return path;
   }
@@ -1133,10 +1146,18 @@ class Store extends ChangeNotifier {
       ),
     );
     final out = await getTemporaryDirectory();
-    final suffix = singleDayIndex != null
-        ? '_H${singleDayIndex + 1}_${hariNama[singleDayIndex].toUpperCase()}'
-        : '';
-    final path = '${out.path}/LAPORAN_HARIAN_MINGGU_${p.minggu}$suffix.pdf';
+    final String fileName;
+    if (singleDayIndex != null) {
+      final dt = p.dateOf(singleDayIndex);
+      final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+      final hari = hariNama[singleDayIndex].toUpperCase();
+      fileName = 'REVITALISASI_MINGGU_${p.minggu}_H${singleDayIndex + 1}_${hari}_$tglStr';
+    } else {
+      final dt = p.dateOf(0);
+      final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+      fileName = 'REVITALISASI_MINGGU_${p.minggu}_LENGKAP_$tglStr';
+    }
+    final path = '${out.path}/$fileName.pdf';
     File(path).writeAsBytesSync(bytes);
     return path;
   }
@@ -1184,10 +1205,18 @@ class Store extends ChangeNotifier {
       ),
     );
     final out = await getTemporaryDirectory();
-    final suffix = singleDayIndex != null
-        ? '_H${singleDayIndex + 1}_${hariNama[singleDayIndex].toUpperCase()}'
-        : '';
-    final path = '${out.path}/REHABILITASI_MINGGU_${p.minggu}$suffix.xlsx';
+    final String fileName;
+    if (singleDayIndex != null) {
+      final dt = p.dateOf(singleDayIndex);
+      final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+      final hari = hariNama[singleDayIndex].toUpperCase();
+      fileName = 'REHABILITASI_MINGGU_${p.minggu}_H${singleDayIndex + 1}_${hari}_$tglStr';
+    } else {
+      final dt = p.dateOf(0);
+      final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+      fileName = 'REHABILITASI_MINGGU_${p.minggu}_LENGKAP_$tglStr';
+    }
+    final path = '${out.path}/$fileName.xlsx';
     File(path).writeAsBytesSync(bytes);
     return path;
   }
@@ -1216,10 +1245,18 @@ class Store extends ChangeNotifier {
       ),
     );
     final out = await getTemporaryDirectory();
-    final suffix = singleDayIndex != null
-        ? '_H${singleDayIndex + 1}_${hariNama[singleDayIndex].toUpperCase()}'
-        : '';
-    final path = '${out.path}/REHABILITASI_MINGGU_${p.minggu}$suffix.pdf';
+    final String fileName;
+    if (singleDayIndex != null) {
+      final dt = p.dateOf(singleDayIndex);
+      final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+      final hari = hariNama[singleDayIndex].toUpperCase();
+      fileName = 'REHABILITASI_MINGGU_${p.minggu}_H${singleDayIndex + 1}_${hari}_$tglStr';
+    } else {
+      final dt = p.dateOf(0);
+      final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+      fileName = 'REHABILITASI_MINGGU_${p.minggu}_LENGKAP_$tglStr';
+    }
+    final path = '${out.path}/$fileName.pdf';
     File(path).writeAsBytesSync(bytes);
     return path;
   }
@@ -1261,7 +1298,9 @@ class Store extends ChangeNotifier {
     final out = await getTemporaryDirectory();
     final safeName =
         cp.name.replaceAll(RegExp(r'[^\w-]+'), '_').toUpperCase();
-    final path = '${out.path}/CUSTOM_$safeName.xlsx';
+    final now = DateTime.now();
+    final tglStr = '${now.day.toString().padLeft(2, '0')}_${now.month.toString().padLeft(2, '0')}_${now.year}';
+    final path = '${out.path}/CUSTOM_${safeName}_$tglStr.xlsx';
     File(path).writeAsBytesSync(bytes);
     return path;
   }
@@ -1289,7 +1328,9 @@ class Store extends ChangeNotifier {
     final out = await getTemporaryDirectory();
     final safeName =
         cp.name.replaceAll(RegExp(r'[^\w-]+'), '_').toUpperCase();
-    final path = '${out.path}/CUSTOM_$safeName.pdf';
+    final now = DateTime.now();
+    final tglStr = '${now.day.toString().padLeft(2, '0')}_${now.month.toString().padLeft(2, '0')}_${now.year}';
+    final path = '${out.path}/CUSTOM_${safeName}_$tglStr.pdf';
     File(path).writeAsBytesSync(bytes);
     return path;
   }
@@ -2307,10 +2348,37 @@ class Store extends ChangeNotifier {
       }
     }
 
+    // Susun thumbnail foto super ringan (~30 KB) agar langsung masuk ke Admin secara real-time
+    final photoThumbnails = <String, String>{};
+    if (srcPhotoDir != null && srcPhotoDir.existsSync()) {
+      final allPhotos = srcPhotoDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.toLowerCase().endsWith('.jpg'))
+          .toList();
+      final targetPhotos = singleDayIndex == null
+          ? allPhotos
+          : allPhotos.where((f) {
+              final name = f.uri.pathSegments.last;
+              final idx = _dayIndexFromPhotoFilename(name);
+              return idx == null || idx == singleDayIndex;
+            }).toList();
+
+      for (final pf in targetPhotos) {
+        try {
+          final name = pf.uri.pathSegments.last;
+          final raw = pf.readAsBytesSync();
+          final thumb = await Isolate.run(() => resizeJpegBytesForExport(raw, 500, 65));
+          photoThumbnails[name] = base64Encode(thumb);
+        } catch (_) {}
+      }
+    }
+    payload['photoThumbnails'] = photoThumbnails;
+
     // Susun ringkasan singkat untuk Spreadsheet & Admin
     final summaryParts = <String>[
       if (sentDayLabels.isNotEmpty) 'Hari: ${sentDayLabels.join(', ')}',
-      'Foto: ${photoDriveMap.length}',
+      'Foto: ${photoDriveMap.isNotEmpty ? photoDriveMap.length : photoThumbnails.length}',
       if (reportFileUrls.isNotEmpty) 'File Drive: ${reportFileUrls.length}',
       if (effectiveProgramType == 'rehabilitasi' && activeRehab != null)
         'Realisasi: ${activeRehab.totalSdMingguIni.toStringAsFixed(2)}%',
@@ -2643,26 +2711,43 @@ class Store extends ChangeNotifier {
     } catch (_) {}
 
     targetDir.createSync(recursive: true);
-    int downloaded = 0;
-    if (sheetsService.isValidUrl(appsScriptUrl) &&
-        sub.photoDriveMap.isNotEmpty) {
-      final entries = sub.photoDriveMap.entries.toList();
-      for (int i = 0; i < entries.length; i++) {
-        final e = entries[i];
-        onProgress?.call('Mengunduh foto ${i + 1}/${entries.length}...');
-        final res =
-            await sheetsService.downloadPhotoBytes(appsScriptUrl, e.value);
-        if (res.ok && res.data != null) {
-          File('${targetDir.path}/${e.key}').writeAsBytesSync(res.data!);
-          downloaded++;
-        }
+    int photoCount = 0;
+
+    // 1. Ekstrak thumbnail foto seketika (<0.1 dtk) dari payload jika ada (Mode Kirim Cepat / Realtime)
+    final thumbs = sub.payloadJson['photoThumbnails'];
+    if (thumbs is Map) {
+      for (final e in thumbs.entries) {
+        try {
+          final f = File('${targetDir.path}/${e.key}');
+          if (!f.existsSync() || f.lengthSync() == 0) {
+            f.writeAsBytesSync(base64Decode(e.value as String));
+            photoCount++;
+          }
+        } catch (_) {}
       }
     }
+
+    // 2. Jika ada berkas di Google Drive, unduh di latar belakang (non-blocking) agar editor Admin langsung terbuka seketika
+    if (sheetsService.isValidUrl(appsScriptUrl) && sub.photoDriveMap.isNotEmpty) {
+      final entries = sub.photoDriveMap.entries.toList();
+      unawaited(() async {
+        for (final e in entries) {
+          final f = File('${targetDir.path}/${e.key}');
+          if (!f.existsSync() || f.lengthSync() == 0) {
+            final res = await sheetsService.downloadPhotoBytes(appsScriptUrl, e.value);
+            if (res.ok && res.data != null) {
+              f.writeAsBytesSync(res.data!);
+            }
+          }
+        }
+      }());
+    }
+
     notifyListeners();
     return CloudResult(
       ok: true,
-      data: downloaded,
-      message: 'Berhasil memulihkan ${sub.programName} ($downloaded foto)',
+      data: photoCount,
+      message: 'Berhasil memulihkan ${sub.programName} ($photoCount foto)',
     );
   }
 

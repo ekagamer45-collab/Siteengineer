@@ -86,11 +86,13 @@ Future<bool> showSendReportToAdminDialog(
               ),
             ],
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Text(
                   reportTitle,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
@@ -131,72 +133,144 @@ Future<bool> showSendReportToAdminDialog(
                   ),
                 ],
                 const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: includeDocs ? Colors.amber.shade50 : Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: includeDocs ? Colors.amber.shade400 : Colors.green.shade400,
-                      width: 1.2,
+                const Text(
+                  'Pilih Mode Pengiriman ke Admin:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+
+                // 1. OPSI HIJAU: Kirim Cepat (Rekomendasi - Data & Foto Langsung Masuk)
+                InkWell(
+                  onTap: () => setDlg(() => includeDocs = false),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: !includeDocs ? Colors.green.shade50 : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: !includeDocs ? Colors.green.shade700 : Colors.grey.shade300,
+                        width: !includeDocs ? 2.0 : 1.0,
+                      ),
                     ),
-                  ),
-                  child: InkWell(
-                    onTap: () => setDlg(() => includeDocs = !includeDocs),
-                    borderRadius: BorderRadius.circular(10),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Checkbox(
-                          value: includeDocs,
-                          activeColor: const Color(0xFF0B3C7D),
+                        Radio<bool>(
+                          value: false,
+                          groupValue: includeDocs,
+                          activeColor: Colors.green.shade700,
                           onChanged: (v) => setDlg(() => includeDocs = v ?? false),
                         ),
-                        const SizedBox(width: 4),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 4,
                                 children: [
-                                  Expanded(
-                                    child: Text(
-                                      includeDocs
-                                          ? 'Upload Berkas Lengkap ke Drive'
-                                          : 'Kirim Kilat (Rekomendasi Instan)',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: includeDocs ? Colors.amber.shade900 : Colors.green.shade900,
-                                      ),
+                                  Text(
+                                    'Kirim Cepat (Rekomendasi)',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green.shade900,
                                     ),
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: includeDocs ? Colors.orange.shade100 : Colors.green.shade100,
+                                      color: Colors.green.shade100,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      includeDocs ? '±20-30 dtk' : 'Instan (<1 dtk)',
+                                      'Cepat (3-8 dtk)',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
-                                        color: includeDocs ? Colors.orange.shade900 : Colors.green.shade900,
+                                        color: Colors.green.shade900,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               Text(
-                                includeDocs
-                                    ? 'Membuat berkas fisik Excel 7-sheet dan PDF resolusi tinggi serta mengunggahnya ke Google Drive (memerlukan waktu upload dokumen).'
-                                    : 'Seketika (<1 detik) data laporan terkirim via Firebase Realtime ke Admin & HP tim lainnya. Admin tetap bisa unduh Excel & PDF kapan saja dari panel admin.',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: includeDocs ? Colors.black87 : Colors.green.shade900,
-                                ),
+                                'Data laporan beserta seluruh foto dokumentasi langsung masuk ke Admin dan tim lainnya. Admin bisa langsung buka & periksa foto tanpa loading lama.',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 2. OPSI ORANYE: Upload Berkas Lengkap ke Google Drive
+                InkWell(
+                  onTap: () => setDlg(() => includeDocs = true),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: includeDocs ? Colors.orange.shade50 : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: includeDocs ? Colors.orange.shade800 : Colors.grey.shade300,
+                        width: includeDocs ? 2.0 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Radio<bool>(
+                          value: true,
+                          groupValue: includeDocs,
+                          activeColor: Colors.orange.shade800,
+                          onChanged: (v) => setDlg(() => includeDocs = v ?? true),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: [
+                                  Text(
+                                    'Upload Berkas Lengkap ke Drive',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange.shade900,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'Arsip Dokumen',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Membuat dan mengunggah dokumen fisik Excel 7-sheet dan PDF resolusi tinggi ke subfolder Google Drive per hari.',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
                               ),
                             ],
                           ),
@@ -234,7 +308,8 @@ Future<bool> showSendReportToAdminDialog(
               ],
             ),
           ),
-          actions: [
+        ),
+        actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Batal'),

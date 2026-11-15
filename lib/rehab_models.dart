@@ -283,7 +283,7 @@ class RehabProject {
   })  : mulai = mulai ?? DateTime(2026, 10, 12),
         realisasiKumulatifMingguan = realisasiKumulatifMingguan ?? [0.0, 0.0, 6.95, 32.93, 44.60, 83.09],
         sections = sections ?? _defaultSections(),
-        days = days ?? List.generate(7, (_) => RehabDayReport()),
+        days = days ?? _defaultDays(),
         photoLabels = photoLabels ??
             [
               'Dokumentasi Foto 1 (0% / Awal)',
@@ -661,6 +661,160 @@ class RehabProject {
               ],
             ),
           ],
+        ),
+      ];
+
+  static List<RehabDayReport> _defaultDays() => [
+        RehabDayReport(
+          workers: [
+            Worker('Pelaksana', 1),
+            Worker('Mandor', 1),
+            Worker('Tukang', 4),
+            Worker('Pekerja', 4),
+          ],
+          materials: [
+            RehabMaterialItem(jenis: 'semen', diterima: '15', satuan: 'zak'),
+            RehabMaterialItem(jenis: 'bata tempel', diterima: '20', satuan: 'dus'),
+            RehabMaterialItem(jenis: 'hollow 40x40 plafond', diterima: '50', satuan: 'batang'),
+            RehabMaterialItem(jenis: 'hollow 20x40 plafond', diterima: '50', satuan: 'batang'),
+            RehabMaterialItem(jenis: 'Hollow C.75', diterima: '10', satuan: 'batang'),
+          ],
+          tools: [
+            'Cangkul, Sekop dan Arko',
+            'Palu, Cetok dan Gergaji',
+            'Timba, Palu dan benang',
+            'Waterpass',
+            'Linggis',
+            'alat bor dan gerinda',
+            'jackdrill',
+          ],
+          activities: [
+            'Pekerjaan plesteran sisi belakang luar gedung aula satpol pp',
+            'Pekerjaan Pas. Bata tempel pos jaga benteng',
+            'Pekerjaan plamir tembok dalam gedung aula satpol pp',
+            'Pekerjaan backdrop aula',
+          ],
+          cuacaBaik: '08.00 WIB - 16.00 WIB',
+          cuacaHujan: '-',
+        ),
+        RehabDayReport(
+          workers: [
+            Worker('Pelaksana', 1),
+            Worker('Mandor', 1),
+            Worker('Tukang', 4),
+            Worker('Pekerja', 4),
+          ],
+          materials: [
+            RehabMaterialItem(jenis: 'semen', diterima: '10', satuan: 'zak'),
+            RehabMaterialItem(jenis: 'bata tempel', diterima: '15', satuan: 'dus'),
+            RehabMaterialItem(jenis: 'hollow 40x40 plafond', diterima: '30', satuan: 'batang'),
+          ],
+          tools: [
+            'Palu, Cetok dan Gergaji',
+            'Waterpass',
+            'alat bor dan gerinda',
+          ],
+          activities: [
+            'Pekerjaan plesteran dan acian dinding luar',
+            'Pekerjaan pemasangan bata tempel pos benteng',
+            'Pekerjaan rangka backdrop aula',
+          ],
+          cuacaBaik: '08.00 WIB - 16.00 WIB',
+          cuacaHujan: '-',
+        ),
+        RehabDayReport(
+          workers: [
+            Worker('Pelaksana', 1),
+            Worker('Mandor', 1),
+            Worker('Tukang', 4),
+            Worker('Pekerja', 4),
+          ],
+          materials: [
+            RehabMaterialItem(jenis: 'semen', diterima: '10', satuan: 'zak'),
+            RehabMaterialItem(jenis: 'plamir tembok', diterima: '5', satuan: 'sak'),
+          ],
+          tools: [
+            'Cetok, Palu, Benang',
+            'Waterpass',
+          ],
+          activities: [
+            'Pekerjaan plamir tembok dan uitset',
+            'Pekerjaan pasangan bata tempel',
+            'Pekerjaan rangka plafon',
+          ],
+          cuacaBaik: '08.00 WIB - 16.00 WIB',
+          cuacaHujan: '-',
+        ),
+        RehabDayReport(
+          workers: [
+            Worker('Pelaksana', 1),
+            Worker('Mandor', 1),
+            Worker('Tukang', 4),
+            Worker('Pekerja', 4),
+          ],
+          materials: [
+            RehabMaterialItem(jenis: 'plamir tembok', diterima: '5', satuan: 'sak'),
+            RehabMaterialItem(jenis: 'gypsumboard', diterima: '20', satuan: 'lembar'),
+          ],
+          tools: [
+            'Cetok, Kape, Gergaji',
+            'Scaffolding',
+          ],
+          activities: [
+            'Pekerjaan plamir tembok gedung aula',
+            'Pekerjaan pas. gypsumboard dan backdrop aula',
+          ],
+          cuacaBaik: '08.00 WIB - 16.00 WIB',
+          cuacaHujan: '-',
+        ),
+        RehabDayReport(
+          workers: [
+            Worker('Pelaksana', 1),
+            Worker('Mandor', 1),
+            Worker('Tukang', 4),
+            Worker('Pekerja', 4),
+          ],
+          materials: [
+            RehabMaterialItem(jenis: 'plamir tembok', diterima: '4', satuan: 'sak'),
+            RehabMaterialItem(jenis: 'cat dasar', diterima: '2', satuan: 'pail'),
+          ],
+          tools: [
+            'Kape, Kuas, Roller',
+            'Scaffolding',
+          ],
+          activities: [
+            'Pekerjaan plamir dan finishing dinding aula',
+            'Pekerjaan backdrop aula',
+          ],
+          cuacaBaik: '08.00 WIB - 16.00 WIB',
+          cuacaHujan: '-',
+        ),
+        RehabDayReport(
+          workers: [
+            Worker('Pelaksana', 1),
+            Worker('Mandor', 1),
+            Worker('Tukang', 3),
+            Worker('Pekerja', 3),
+          ],
+          materials: [
+            RehabMaterialItem(jenis: 'cat interior', diterima: '2', satuan: 'pail'),
+            RehabMaterialItem(jenis: 'amplas', diterima: '10', satuan: 'lembar'),
+          ],
+          tools: [
+            'Roller, Kuas',
+            'Amplas',
+          ],
+          activities: [
+            'Pekerjaan pengamplasan dan pengecatan aula',
+            'Pekerjaan perapihan area pos benteng',
+          ],
+          cuacaBaik: '08.00 WIB - 16.00 WIB',
+          cuacaHujan: '-',
+        ),
+        RehabDayReport(
+          isLibur: true,
+          cuacaBaik: '-',
+          cuacaHujan: '-',
         ),
       ];
 }

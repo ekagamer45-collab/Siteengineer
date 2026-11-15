@@ -581,7 +581,9 @@ void _paintStampOnCanvas(
 
   // 3. Kartu info hitam transparan membulat di kanan
   final cardRRect = RRect.fromRectAndRadius(cardRect, Radius.circular(11.0 * scale));
-  canvas.drawRRect(cardRRect, Paint()..color = const Color(0xB40C0E12));
+  // Background kartu info maptag dibuat lebih transparan / pudar (~42% opacity)
+  // agar foto di baliknya tetap terlihat jelas tanpa menutupi objek foto.
+  canvas.drawRRect(cardRRect, Paint()..color = const Color(0x6A0C0E12));
 
   final parsed = parseGpsAddress(stamp.address, fallbackArea: stamp.fallbackArea);
   final padX = 14.0 * scale;
@@ -764,11 +766,11 @@ Future<({Uint8List rgba, int width, int height})?> renderStampedPhotoRgba({
     final int targetW;
     final int targetH;
     if (aspect >= 1.0) {
-      targetW = 3840;
-      targetH = (3840 / aspect).round().clamp(120, 6000);
+      targetW = 1920;
+      targetH = (1920 / aspect).round().clamp(120, 6000);
     } else {
-      targetH = 3840;
-      targetW = (3840 * aspect).round().clamp(120, 6000);
+      targetH = 1920;
+      targetW = (1920 * aspect).round().clamp(120, 6000);
     }
     final double w = srcImg.width.toDouble();
     final double h = srcImg.height.toDouble();
@@ -1046,7 +1048,7 @@ class GpsMapCameraPreviewOverlay extends StatelessWidget {
                       vertical: (7.0 * scale).clamp(3.0, 12.0),
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xB40C0E12),
+                      color: const Color(0x6A0C0E12),
                       borderRadius: BorderRadius.circular(11.0 * scale),
                     ),
                     child: FittedBox(

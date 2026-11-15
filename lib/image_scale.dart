@@ -323,19 +323,14 @@ Uint8List resizeJpegBytesForExport(
     final perPhotoCap = math.max(16 * 1024, remainingBudget ~/ remainingCount);
 
     final raw = e.value.readAsBytesSync();
-    final isSlot = e.key.contains('slot_');
-
     final d = jpegDimensions(raw);
-    final curAspect = d != null ? (d.width / d.height) : null;
-    final needsFitting = isSlot && curAspect != null && (curAspect - 1.9246).abs() >= 0.03;
 
-    // Fast path jika foto asli sudah berada di dalam budget, rasio sudah pas, dan memakai mode HD.
-    if (!needsFitting &&
-        start.width >= desiredMaxWidth &&
-        desiredMaxWidth >= 1920 &&
-        desiredQuality >= 90 &&
-        raw.length <= perPhotoCap &&
-        ((d?.width ?? 0) <= desiredMaxWidth)) {
+    // Fast path super cepat: jika foto asli sudah JPEG valid dan ukuran byte
+    // berada dalam batas budget per foto, langsung gunakan bytes aslinya tanpa perlu decode ulang di CPU.
+    // Ini membuat ekspor Excel & PDF melesat instan (1-2 detik) tanpa beban proses berat.
+    if (raw.length <= perPhotoCap &&
+        d != null &&
+        d.width <= (desiredMaxWidth * 1.5).round()) {
       out[e.key] = raw;
       usedBytes += raw.length;
       continue;
@@ -349,14 +344,6 @@ Uint8List resizeJpegBytesForExport(
     }
 
     var toEncode = decoded;
-    if (needsFitting) {
-      toEncode = fitPhotoInSlotCanvas(
-        decoded,
-        slotAspect: 1.9246,
-        canvasWidth: start.width,
-        marginCm: 0.08,
-      );
-    }
 
     var curW = math.min(toEncode.width, start.width);
     var curQ = start.quality;
