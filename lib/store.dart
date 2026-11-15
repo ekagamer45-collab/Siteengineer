@@ -1350,6 +1350,74 @@ class Store extends ChangeNotifier {
     return path;
   }
 
+  /// Ekspor dokumen khusus Pengawas untuk 1 progres stage tertentu (0%, 50%, atau 100%) ke format PDF.
+  Future<String> exportRehabSingleProgressPdf({
+    required int stagePct,
+    int dayIndex = 0,
+    ExportSizeConfig size = ExportSizeConfig.hd,
+    RehabProject? overrideProject,
+    String? overridePhotoDir,
+  }) async {
+    final p = overrideProject ?? rehabProject;
+    final dir = overridePhotoDir ?? rehabPhotoDir.path;
+    final maxW = size.maxWidth;
+    final qual = size.jpegQuality;
+    final maxBytes = size.maxFileBytes;
+    final res = await Isolate.run(
+      () => RehabPdfFiller.buildSingleProgressStagePdf(
+        p.toJson(),
+        dir,
+        stagePct,
+        singleDayIndex: dayIndex,
+        exportMaxWidth: maxW,
+        exportJpegQuality: qual,
+        maxFileBytes: maxBytes,
+      ),
+    );
+    final out = await getTemporaryDirectory();
+    final dt = p.dateOf(dayIndex);
+    final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+    final hari = hariNama[dayIndex.clamp(0, 6)].toLowerCase();
+    final fileName = '$stagePct%-Pengawas_${hari}_$tglStr';
+    final path = '${out.path}/$fileName.pdf';
+    File(path).writeAsBytesSync(res);
+    return path;
+  }
+
+  /// Ekspor dokumen khusus Pengawas untuk 1 progres stage tertentu (0%, 50%, atau 100%) ke format Excel .xlsx.
+  Future<String> exportRehabSingleProgressXlsx({
+    required int stagePct,
+    int dayIndex = 0,
+    ExportSizeConfig size = ExportSizeConfig.hd,
+    RehabProject? overrideProject,
+    String? overridePhotoDir,
+  }) async {
+    final p = overrideProject ?? rehabProject;
+    final dir = overridePhotoDir ?? rehabPhotoDir.path;
+    final maxW = size.maxWidth;
+    final qual = size.jpegQuality;
+    final maxBytes = size.maxFileBytes;
+    final bytes = await Isolate.run(
+      () => RehabXlsxFiller.buildSingleProgressStageXlsx(
+        p,
+        dir,
+        stagePct,
+        dayIndex: dayIndex,
+        exportMaxWidth: maxW,
+        exportJpegQuality: qual,
+        maxFileBytes: maxBytes,
+      ),
+    );
+    final out = await getTemporaryDirectory();
+    final dt = p.dateOf(dayIndex);
+    final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+    final hari = hariNama[dayIndex.clamp(0, 6)].toLowerCase();
+    final fileName = '$stagePct%-Pengawas_${hari}_$tglStr';
+    final path = '${out.path}/$fileName.xlsx';
+    File(path).writeAsBytesSync(bytes);
+    return path;
+  }
+
   /// Ekspor dokumen khusus Pengawas Progres 0%, 50%, dan 100% ke format PDF.
   Future<String> exportRehabProgress0_50_100Pdf({
     int dayIndex = 0,

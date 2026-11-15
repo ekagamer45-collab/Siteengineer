@@ -289,6 +289,56 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
     );
   }
 
+  Future<void> _exportSingleProgressStage({required int stagePct, int dayIndex = 0}) async {
+    final photoCount = widget.store.countAllRehabPhotos(
+      singleDayIndex: dayIndex,
+      overridePhotoDir: _photoDir.path,
+    );
+    await showCanvaExportSheet(
+      context,
+      title: 'Unduh $stagePct%-Pengawas (${hariNama[dayIndex]})',
+      subtitle: _proj.namaPekerjaan,
+      photoCount: photoCount,
+      folderContext: ExportFolderContext(
+        programName: '$stagePct%-Pengawas',
+        weekNumber: _proj.minggu,
+        dayName: hariNama[dayIndex],
+      ),
+      onBuildXlsx: (size) => widget.store.exportRehabSingleProgressXlsx(
+        stagePct: stagePct,
+        dayIndex: dayIndex,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: _photoDir.path,
+      ),
+      onBuildPdf: (size) => widget.store.exportRehabSingleProgressPdf(
+        stagePct: stagePct,
+        dayIndex: dayIndex,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: _photoDir.path,
+      ),
+    );
+  }
+
+  void _openProgressStagesManager() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RehabProgressStagesScreen(
+          store: widget.store,
+          project: _proj,
+          photoDir: _photoDir,
+          customProgramId: widget.customProgram?.id,
+          onChanged: (updated) {
+            if (updated != null) {
+              setState(() => _proj = updated);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _exportProgress0_50_100({int dayIndex = 0}) async {
     final photoCount = widget.store.countAllRehabPhotos(
       singleDayIndex: dayIndex,
@@ -414,7 +464,166 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              // Card Dokumen 2: 0_50_100-Pengawas
+              // Card Dokumen 2: 0%-Pengawas (Kondisi Awal / Lahan Kosong)
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.blue.shade300, width: 1.2),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.crop_original_rounded, color: Colors.blue.shade900),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '2. 0%-Pengawas (Lahan Kosong / Kondisi Awal)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.blue.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Format: 0%-Pengawas_${hariNama[dayIdx].toLowerCase()}_... Berisi dokumen khusus foto progres 0% saja (kondisi awal lahan).',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _exportSingleProgressStage(stagePct: 0, dayIndex: dayIdx);
+                              },
+                              icon: const Icon(Icons.download_rounded, size: 15),
+                              label: const Text('Unduh Excel/PDF (0%)', style: TextStyle(fontSize: 11)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Card Dokumen 3: 50%-Pengawas (Pondasi & Bangun Rumah)
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.orange.shade300, width: 1.2),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.foundation_rounded, color: Colors.orange.shade900),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '3. 50%-Pengawas (Pondasi & Bangun Rumah)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.orange.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Format: 50%-Pengawas_${hariNama[dayIdx].toLowerCase()}_... Berisi dokumen khusus foto progres 50% saja (pondasi & dinding).',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _exportSingleProgressStage(stagePct: 50, dayIndex: dayIdx);
+                              },
+                              icon: const Icon(Icons.download_rounded, size: 15),
+                              label: const Text('Unduh Excel/PDF (50%)', style: TextStyle(fontSize: 11)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Card Dokumen 4: 100%-Pengawas (Rumah Utuh Selesai)
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.green.shade300, width: 1.2),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.home_work_rounded, color: Colors.green.shade900),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '4. 100%-Pengawas (Rumah Utuh Selesai)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.green.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Format: 100%-Pengawas_${hariNama[dayIdx].toLowerCase()}_... Berisi dokumen khusus foto progres 100% saja (rumah jadi rapi).',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _exportSingleProgressStage(stagePct: 100, dayIndex: dayIdx);
+                              },
+                              icon: const Icon(Icons.download_rounded, size: 15),
+                              label: const Text('Unduh Excel/PDF (100%)', style: TextStyle(fontSize: 11)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Card Dokumen 5: Gabungan 0_50_100-Pengawas
               Card(
                 elevation: 1,
                 shape: RoundedRectangleBorder(
@@ -432,10 +641,10 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '2. 0_50_100-Pengawas',
+                              '5. Gabungan 0_50_100-Pengawas (Semua Tahap)',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 color: Colors.teal.shade900,
                               ),
                             ),
@@ -444,10 +653,10 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Format: 0_50_100-Pengawas_${hariNama[dayIdx].toLowerCase()}_... Berisi dokumen khusus Pengawas Lapangan mencakup foto progres 0%, 50%, dan 100%.',
-                        style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.3),
+                        'Format: 0_50_100-Pengawas_${hariNama[dayIdx].toLowerCase()}_... Berisi gabungan 3 tahap (0%, 50%, 100%).',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
@@ -456,8 +665,8 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                                 Navigator.pop(ctx);
                                 _exportProgress0_50_100(dayIndex: dayIdx);
                               },
-                              icon: const Icon(Icons.download_rounded, size: 16),
-                              label: const Text('Unduh Excel/PDF', style: TextStyle(fontSize: 12)),
+                              icon: const Icon(Icons.download_rounded, size: 15),
+                              label: const Text('Unduh Gabungan (Excel/PDF)', style: TextStyle(fontSize: 11)),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -468,8 +677,8 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                                 Navigator.pop(ctx);
                                 _syncToCloud(dayIndex: singleDayIndex);
                               },
-                              icon: const Icon(Icons.send_rounded, size: 16),
-                              label: const Text('Kirim ke Admin', style: TextStyle(fontSize: 12)),
+                              icon: const Icon(Icons.send_rounded, size: 15),
+                              label: const Text('Kirim ke Admin', style: TextStyle(fontSize: 11)),
                             ),
                           ),
                         ],
@@ -634,6 +843,19 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                       onPressed: _openPreview,
                       icon: const Icon(Icons.preview_outlined, size: 18),
                       label: const Text('Preview Laporan, Kurva S & Foto'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.teal.shade700,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: _openProgressStagesManager,
+                      icon: const Icon(Icons.collections_rounded, size: 18),
+                      label: const Text('Dokumentasi Progres Khusus (0%, 50%, 100%)'),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -2361,4 +2583,495 @@ class _KurvaSPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _KurvaSPainter oldDelegate) => true;
+}
+
+/// Layar Khusus Pengelolaan Dokumentasi Progres 0%, 50%, dan 100% Pengawas
+class RehabProgressStagesScreen extends StatefulWidget {
+  const RehabProgressStagesScreen({
+    super.key,
+    required this.store,
+    required this.project,
+    required this.photoDir,
+    this.customProgramId,
+    required this.onChanged,
+  });
+
+  final Store store;
+  final RehabProject project;
+  final Directory photoDir;
+  final String? customProgramId;
+  final void Function(RehabProject? updated) onChanged;
+
+  @override
+  State<RehabProgressStagesScreen> createState() =>
+      _RehabProgressStagesScreenState();
+}
+
+class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
+  late RehabProject _proj;
+  int _selectedStage = 0; // 0, 50, atau 100
+
+  @override
+  void initState() {
+    super.initState();
+    _proj = widget.project;
+  }
+
+  List<String> get _currentLabels {
+    if (_selectedStage == 0) return _proj.photoLabels0;
+    if (_selectedStage == 50) return _proj.photoLabels50;
+    return _proj.photoLabels100;
+  }
+
+  void _saveProject() {
+    if (widget.customProgramId != null) {
+      final idx = widget.store.customPrograms
+          .indexWhere((e) => e.id == widget.customProgramId);
+      if (idx >= 0) {
+        widget.store.customPrograms[idx].rehabilitasiData = _proj.toJson();
+        widget.store.updateCustomProgram(
+          widget.store.customPrograms[idx],
+          forceCheckpoint: true,
+        );
+      }
+    } else {
+      widget.store.rehabProject = _proj;
+      widget.store.rehabChanged(forceCheckpoint: true);
+    }
+    widget.onChanged(_proj);
+    setState(() {});
+  }
+
+  Future<void> _editLabel(int index) async {
+    final labels = _currentLabels;
+    final current = index < labels.length ? labels[index] : '';
+    final ctrl = TextEditingController(text: current);
+    final res = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Ubah Label Foto ${index + 1} ($_selectedStage%)'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Keterangan Foto Progres',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+    if (res != null && res.isNotEmpty) {
+      if (index < labels.length) {
+        labels[index] = res;
+      }
+      _saveProject();
+    }
+  }
+
+  Future<void> _takePhoto(int index) async {
+    final slotId = 'rehab_${_selectedStage}pct_${index + 1}';
+    final labels = _currentLabels;
+    final label = index < labels.length ? labels[index] : 'Foto ${index + 1}';
+    final slot = Slot(
+      slotId,
+      label,
+      '',
+      16.0 / 9.0,
+    );
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CameraScreen(
+          slot: slot,
+          projectTitle: '${_proj.namaPekerjaan} - Progres $_selectedStage%',
+          onCustomSave: (rawBytes, wm, crop) async {
+            await widget.store.saveSlotPhotoToDir(
+              widget.photoDir,
+              slotId,
+              rawBytes,
+              slot.aspect,
+              wm: wm,
+              crop: crop,
+            );
+          },
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _deletePhoto(int index) {
+    final slotId = 'rehab_${_selectedStage}pct_${index + 1}';
+    final files = [
+      File('${widget.photoDir.path}/$slotId.jpg'),
+      File('${widget.photoDir.path}/${slotId}_raw.jpg'),
+      File('${widget.photoDir.path}/${slotId}_hd.jpg'),
+    ];
+    for (final f in files) {
+      if (f.existsSync()) {
+        try {
+          f.deleteSync();
+        } catch (_) {}
+      }
+    }
+    setState(() {});
+  }
+
+  Future<void> _exportExcel() async {
+    await showCanvaExportSheet(
+      context,
+      title: 'Unduh Excel Progres $_selectedStage%',
+      subtitle: _proj.namaPekerjaan,
+      photoCount: 6,
+      folderContext: ExportFolderContext(
+        programName: '$_selectedStage%-Pengawas',
+        weekNumber: _proj.minggu,
+        dayName: 'Progres',
+      ),
+      onBuildXlsx: (size) => widget.store.exportRehabSingleProgressXlsx(
+        stagePct: _selectedStage,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+      onBuildPdf: (size) => widget.store.exportRehabSingleProgressPdf(
+        stagePct: _selectedStage,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = _currentLabels;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dokumentasi Progres Khusus'),
+        actions: [
+          IconButton(
+            tooltip: 'Unduh Excel / PDF',
+            onPressed: _exportExcel,
+            icon: const Icon(Icons.download_rounded),
+          ),
+          IconButton(
+            tooltip: 'Kirim ke Admin',
+            onPressed: () {
+              showSendReportToAdminDialog(
+                context,
+                store: widget.store,
+                programType: widget.customProgramId != null ? 'custom' : 'rehabilitasi',
+                customProgramId: widget.customProgramId,
+              );
+            },
+            icon: const Icon(Icons.cloud_upload_outlined),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            color: const Color(0xFF062C65),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Pilih Tahapan Progres Fisik:',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStageButton(
+                        pct: 0,
+                        title: '0%',
+                        desc: 'Lahan Kosong',
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildStageButton(
+                        pct: 50,
+                        title: '50%',
+                        desc: 'Pondasi & Bangun',
+                        color: Colors.orangeAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildStageButton(
+                        pct: 100,
+                        title: '100%',
+                        desc: 'Rumah Utuh Selesai',
+                        color: Colors.greenAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(14),
+              itemCount: 6,
+              itemBuilder: (ctx, idx) {
+                final slotId = 'rehab_${_selectedStage}pct_${idx + 1}';
+                final photoFile = File('${widget.photoDir.path}/$slotId.jpg');
+                final hasPhoto = photoFile.existsSync();
+                final label = idx < labels.length ? labels[idx] : 'Foto ${idx + 1}';
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  elevation: 1.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: hasPhoto ? Colors.teal.shade300 : Colors.grey.shade300,
+                      width: 1,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.teal.shade800,
+                              child: Text(
+                                '${idx + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Ubah Label',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => _editLabel(idx),
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                            ),
+                            if (hasPhoto)
+                              IconButton(
+                                tooltip: 'Hapus Foto',
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => _deletePhoto(idx),
+                                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () => _takePhoto(idx),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            height: 180,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: hasPhoto
+                                ? Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      Image.file(
+                                        photoFile,
+                                        fit: BoxFit.cover,
+                                        key: ValueKey(photoFile.lastModifiedSync()),
+                                      ),
+                                      Positioned(
+                                        right: 8,
+                                        bottom: 8,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.65),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'Ganti Foto',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.add_a_photo_rounded,
+                                        size: 38,
+                                        color: Colors.teal.shade700,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Ambil Foto Progres $_selectedStage% (Slot ${idx + 1})',
+                                        style: TextStyle(
+                                          color: Colors.teal.shade900,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _selectedStage == 0
+                                            ? 'Kondisi awal / batas tapak / tanah kosong'
+                                            : _selectedStage == 50
+                                                ? 'Pondasi / kolom beton / dinding berdiri'
+                                                : 'Fisik bangunan utuh, cat rapi, siap pakai',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 10.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 6,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _exportExcel,
+                  icon: const Icon(Icons.download_rounded, size: 16),
+                  label: Text('Unduh ($_selectedStage%)', style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: Colors.teal.shade800),
+                  onPressed: () {
+                    showSendReportToAdminDialog(
+                      context,
+                      store: widget.store,
+                      programType: widget.customProgramId != null ? 'custom' : 'rehabilitasi',
+                      customProgramId: widget.customProgramId,
+                    );
+                  },
+                  icon: const Icon(Icons.send_rounded, size: 16),
+                  label: const Text('Kirim ke Admin', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStageButton({
+    required int pct,
+    required String title,
+    required String desc,
+    required Color color,
+  }) {
+    final isSel = _selectedStage == pct;
+    return InkWell(
+      onTap: () => setState(() => _selectedStage = pct),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: isSel ? color.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSel ? color : Colors.white24,
+            width: isSel ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: isSel ? Colors.white : Colors.white70,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              desc,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isSel ? Colors.white : Colors.white60,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

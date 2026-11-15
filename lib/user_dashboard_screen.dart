@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'avatar_widget.dart';
 import 'custom_report_screen.dart';
 import 'custom_xlsx_importer.dart';
@@ -866,6 +867,25 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                               ],
                             ),
                           ),
+                        ),
+                        IconButton(
+                          tooltip: 'Segarkan Data & Status Sinkronisasi',
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            HapticFeedback.lightImpact();
+                            setState(() => _busyCloud = true);
+                            await s.fetchCloudSubmissions();
+                            await _flushOfflineQueue(silentIfEmpty: true);
+                            if (!mounted) return;
+                            setState(() => _busyCloud = false);
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Data progres dan status sinkronisasi berhasil diperbarui.'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.refresh_rounded, color: Colors.white),
                         ),
                         IconButton(
                           tooltip: 'Keluar Akun',

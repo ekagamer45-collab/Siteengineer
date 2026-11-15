@@ -279,6 +279,9 @@ class RehabProject {
     List<RehabSection>? sections,
     List<RehabDayReport>? days,
     List<String>? photoLabels,
+    List<String>? photoLabels0,
+    List<String>? photoLabels50,
+    List<String>? photoLabels100,
     Map<String, PhotoMeta>? photoMeta,
   })  : mulai = mulai ?? DateTime(2026, 10, 12),
         realisasiKumulatifMingguan = realisasiKumulatifMingguan ?? [0.0, 0.0, 6.95, 32.93, 44.60, 83.09],
@@ -292,6 +295,33 @@ class RehabProject {
               'Dokumentasi Foto 4 (Pelaksanaan)',
               'Dokumentasi Foto 5 (100% / Selesai)',
               'Dokumentasi Foto 6 (Tambahan)',
+            ],
+        photoLabels0 = photoLabels0 ??
+            [
+              'Kondisi Awal Lahan 1 (0%)',
+              'Batas Tapak & Pengukuran (0%)',
+              'Kondisi Lahan Samping Kiri (0%)',
+              'Kondisi Lahan Samping Kanan (0%)',
+              'Akses Masuk & Lokasi Proyek (0%)',
+              'Dokumentasi Titik Nol Lahan (0%)',
+            ],
+        photoLabels50 = photoLabels50 ??
+            [
+              'Pekerjaan Galian & Pondasi (50%)',
+              'Pekerjaan Pembesian & Bekisting (50%)',
+              'Pekerjaan Cor Struktur Kolom (50%)',
+              'Pekerjaan Pasangan Dinding Bata (50%)',
+              'Pekerjaan Rangka Atap/Plafon (50%)',
+              'Pekerjaan Utilitas & Pemipaan (50%)',
+            ],
+        photoLabels100 = photoLabels100 ??
+            [
+              'Tampak Depan Bangunan Selesai (100%)',
+              'Tampak Samping Bangunan Selesai (100%)',
+              'Tampak Belakang Bangunan (100%)',
+              'Interior / Ruang Utama Selesai (100%)',
+              'Penyelesaian Finishing & Cat (100%)',
+              'Serah Terima Pertama Fisik Utuh (100%)',
             ],
         photoMeta = photoMeta ?? {};
 
@@ -328,6 +358,9 @@ class RehabProject {
   List<RehabSection> sections;
   List<RehabDayReport> days;
   List<String> photoLabels; // 6 label foto dokumentasi per hari
+  List<String> photoLabels0; // 6 label foto progres 0% (Kondisi Awal / Lahan Kosong)
+  List<String> photoLabels50; // 6 label foto progres 50% (Pondasi & Pembangunan)
+  List<String> photoLabels100; // 6 label foto progres 100% (Bangunan Utuh Selesai)
   Map<String, PhotoMeta> photoMeta;
 
   DateTime dateOf(int i) => DateTime(mulai.year, mulai.month, mulai.day + i);
@@ -422,6 +455,9 @@ class RehabProject {
         'sections': sections.map((e) => e.toJson()).toList(),
         'days': days.map((e) => e.toJson()).toList(),
         'photoLabels': photoLabels,
+        'photoLabels0': photoLabels0,
+        'photoLabels50': photoLabels50,
+        'photoLabels100': photoLabels100,
         'photoMeta': photoMeta.map((k, v) => MapEntry(k, v.toJson())),
       };
 
@@ -461,6 +497,9 @@ class RehabProject {
             ?.map((e) => RehabDayReport.fromJson(e as Map<String, dynamic>))
             .toList(),
         photoLabels: (j['photoLabels'] as List?)?.cast<String>(),
+        photoLabels0: (j['photoLabels0'] as List?)?.cast<String>(),
+        photoLabels50: (j['photoLabels50'] as List?)?.cast<String>(),
+        photoLabels100: (j['photoLabels100'] as List?)?.cast<String>(),
         photoMeta: j['photoMeta'] is Map
             ? (j['photoMeta'] as Map<String, dynamic>)
                 .map((k, v) => MapEntry(k, PhotoMeta.fromJson(v as Map<String, dynamic>)))

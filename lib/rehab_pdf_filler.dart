@@ -1389,6 +1389,157 @@ class RehabPdfFiller {
     );
   }
 
+  /// Menghasilkan PDF Laporan Khusus Pengawas untuk 1 tahap tertentu: Progres 0%, 50%, atau 100%.
+  static Future<Uint8List> buildSingleProgressStagePdf(
+    Map<String, dynamic> rehabJson,
+    String photoDir,
+    int stagePct, {
+    int? singleDayIndex,
+    int exportMaxWidth = 1920,
+    int exportJpegQuality = 92,
+    int? maxFileBytes,
+  }) async {
+    final p = RehabProject.fromJson(rehabJson);
+    final regular = pw.Font.times();
+    final bold = pw.Font.timesBold();
+
+    final dayIdx = (singleDayIndex ?? 0).clamp(0, 6);
+    final dt = p.dateOf(dayIdx);
+
+    final photoPaths = <String, String>{};
+    for (var s = 0; s < 6; s++) {
+      final stageSlotId = 'rehab_${stagePct}pct_${s + 1}';
+      final stageFile = File('$photoDir/$stageSlotId.jpg');
+      if (stageFile.existsSync()) {
+        photoPaths[stageSlotId] = stageFile.path;
+      } else {
+        final dailySlotId = 'rehab_H${dayIdx + 1}_${s + 1}';
+        final dailyFile = File('$photoDir/$dailySlotId.jpg');
+        if (dailyFile.existsSync()) {
+          photoPaths[stageSlotId] = dailyFile.path;
+        }
+      }
+    }
+
+    final stageLabels = stagePct == 0
+        ? p.photoLabels0
+        : stagePct == 50
+            ? p.photoLabels50
+            : p.photoLabels100;
+
+    return buildExportWithinMaxBytesAsync(
+      maxFileBytes: maxFileBytes,
+      estimatedOverheadBytes: 40 * 1024,
+      buildWithBudget: (photoBudgetBytes) async {
+        final packed = encodeExportPhotosWithBudget(
+          keyToFilePath: photoPaths,
+          desiredMaxWidth: exportMaxWidth,
+          desiredQuality: exportJpegQuality,
+          photoBudgetBytes: photoBudgetBytes,
+        );
+
+        final doc = pw.Document(
+          title: '$stagePct%-Pengawas',
+          author: p.konsultanPengawas,
+        );
+
+        const pageMargin = 20.0;
+        final cardW = (PdfPageFormat.a4.width - 2 * pageMargin - 10) / 2;
+        final cardH = (PdfPageFormat.a4.height - 2 * pageMargin - 150) / 3;
+
+        doc.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.all(pageMargin),
+            build: (_) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Text(
+                    'DOKUMENTASI PEKERJAAN - PROGRES $stagePct%',
+                    textAlign: pw.TextAlign.center,
+                    style: pw.TextStyle(font: bold, fontSize: 11),
+                  ),
+                  pw.SizedBox(height: 6),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.black, width: 0.5),
+                      color: PdfColor.fromHex('#F9FAFB'),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Row(
+                          children: [
+                            pw.SizedBox(width: 90, child: pw.Text('KEGIATAN', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                            pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                            pw.Expanded(child: pw.Text(_safe(p.kegiatanDokumentasi), style: pw.TextStyle(font: regular, fontSize: 7.5))),
+                          ],
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Row(
+                          children: [
+                            pw.SizedBox(width: 90, child: pw.Text('LOKASI', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                            pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                            pw.Expanded(child: pw.Text('${_safe(p.lokasi)} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}', style: pw.TextStyle(font: regular, fontSize: 7.5))),
+                          ],
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Row(
+                          children: [
+                            pw.SizedBox(width: 90, child: pw.Text('PROGRES (%)', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                            pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                            pw.Expanded(child: pw.Text('$stagePct.00%', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 10),
+                  for (var r = 0; r < 6; r += 2)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.only(bottom: 8),
+                      child: pw.Row(
+                        children: [
+                          pw.SizedBox(
+                            width: cardW,
+                            child: _buildProgressSlotCard(
+                              r < stageLabels.length ? stageLabels[r] : 'Dokumentasi Foto ${r + 1} ($stagePct%)',
+                              packed.photos['rehab_${stagePct}pct_${r + 1}'],
+                              cardW,
+                              cardH,
+                              regular,
+                              bold,
+                            ),
+                          ),
+                          pw.SizedBox(width: 10),
+                          pw.SizedBox(
+                            width: cardW,
+                            child: _buildProgressSlotCard(
+                              (r + 1) < stageLabels.length ? stageLabels[r + 1] : 'Dokumentasi Foto ${r + 2} ($stagePct%)',
+                              packed.photos['rehab_${stagePct}pct_${r + 2}'],
+                              cardW,
+                              cardH,
+                              regular,
+                              bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+
+        final docBytes = await doc.save();
+        return (docBytes: docBytes, photoBytesUsed: packed.totalBytes);
+      },
+    );
+  }
+
   /// Menghasilkan PDF Laporan Khusus Pengawas: Progres 0%, 50%, dan 100%.
   /// Setiap tahap (0%, 50%, 100%) memiliki 1 halaman khusus dengan header resmi & 6 slot foto berbingkai rapi.
   static Future<Uint8List> buildProgress0_50_100(

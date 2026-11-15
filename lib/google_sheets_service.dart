@@ -529,10 +529,15 @@ class GoogleSheetsService {
     String? clientUuid,
   }) async {
     try {
+      final subJson = submission.toJson();
+      final cleanPayload = Map<String, dynamic>.from(submission.payloadJson);
+      cleanPayload.remove('photoThumbnails'); // Hapus thumbnail base64 agar aman dari limit 50.000 karakter per sel Spreadsheet!
+      subJson['payloadJson'] = cleanPayload;
+
       final res = await _postAction(scriptUrl, {
         'action': 'pushSubmission',
         if (clientUuid != null && clientUuid.isNotEmpty) 'clientUuid': clientUuid,
-        'submission': submission.toJson(),
+        'submission': subJson,
       });
       if (res['ok'] == true) {
         return CloudResult(
@@ -950,6 +955,13 @@ function doPost(e) {
           break;
         }
       }
+      const pCopy = Object.assign({}, s.payloadJson || {});
+      delete pCopy.photoThumbnails;
+      let payloadStr = JSON.stringify(pCopy);
+      if (payloadStr.length > 48000) {
+        payloadStr = payloadStr.substring(0, 48000);
+      }
+
       const rowValues = [
         s.id || '',
         s.userId || '',
@@ -960,7 +972,7 @@ function doPost(e) {
         s.title || '',
         Number(s.weekNumber || 1),
         s.updatedAt || new Date().toISOString(),
-        JSON.stringify(s.payloadJson || {}),
+        payloadStr,
         JSON.stringify(photoMap),
         photoLinks,
         JSON.stringify(dayFolderUrls),

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io' show File, Platform;
-import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -12,7 +11,6 @@ import 'package:image_picker/image_picker.dart';
 import 'config.dart';
 import 'crop_screen.dart';
 import 'gps_stamp.dart';
-import 'models.dart';
 import 'store.dart';
 
 class CameraScreen extends StatefulWidget {
@@ -54,6 +52,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   Offset? _focusPointScreen;
   bool _showFocusRing = false;
   Timer? _focusRingTimer;
+  bool _isFocusing = false;
+  DateTime _lastTapFocusTime = DateTime.fromMillisecondsSinceEpoch(0);
+  double _currentExposure = 0.0;
+  double _minExposure = -2.0;
+  double _maxExposure = 2.0;
+  double _exposureStep = 0.1;
 
   List<CameraDescription> _availableCameras = [];
   int _selectedCameraIndex = 0;
@@ -86,6 +90,14 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     final ctrl = _controller;
     if (ctrl == null || !ctrl.value.isInitialized) return;
 
+    final now = DateTime.now();
+    if (now.difference(_lastTapFocusTime).inMilliseconds < 350) {
+      return; // Debounce rapid double taps to prevent CameraX preview freeze
+    }
+    _lastTapFocusTime = now;
+    if (_isFocusing) return;
+    _isFocusing = true;
+
     final screenPoint = details.localPosition;
     final normalizedPoint = Offset(
       (screenPoint.dx / boxSize.width).clamp(0.0, 1.0),
@@ -94,13 +106,15 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
     HapticFeedback.selectionClick();
 
-    setState(() {
-      _focusPointScreen = screenPoint;
-      _showFocusRing = true;
-    });
+    if (mounted) {
+      setState(() {
+        _focusPointScreen = screenPoint;
+        _showFocusRing = true;
+      });
+    }
 
     _focusRingTimer?.cancel();
-    _focusRingTimer = Timer(const Duration(milliseconds: 2000), () {
+    _focusRingTimer = Timer(const Duration(milliseconds: 3500), () {
       if (mounted) {
         setState(() => _showFocusRing = false);
       }
@@ -119,6 +133,33 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       }
       await ctrl.setExposureMode(ExposureMode.auto);
     } catch (_) {}
+
+    _isFocusing = false;
+  }
+
+  Future<void> _onExposureDrag(double deltaDy) async {
+    final ctrl = _controller;
+    if (ctrl == null || !ctrl.value.isInitialized) return;
+
+    // Geser ke atas = naikkan exposure (lebih terang), ke bawah = turunkan (lebih gelap)
+    final change = (-deltaDy / 60.0) * (_exposureStep > 0 ? _exposureStep * 2 : 0.2);
+    final newExp = (_currentExposure + change).clamp(_minExposure, _maxExposure);
+    if ((newExp - _currentExposure).abs() > 0.01) {
+      _currentExposure = newExp;
+      try {
+        await ctrl.setExposureOffset(_currentExposure);
+        HapticFeedback.selectionClick();
+      } catch (_) {}
+      if (mounted) setState(() {});
+    }
+
+    // Perpanjang visibilitas reticle saat exposure digeser
+    _focusRingTimer?.cancel();
+    _focusRingTimer = Timer(const Duration(milliseconds: 3500), () {
+      if (mounted) {
+        setState(() => _showFocusRing = false);
+      }
+    });
   }
 
   @override
@@ -247,6 +288,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     final oldCtrl = _controller;
     _controller = null;
     await oldCtrl?.dispose();
+    // Beri jeda 150ms agar Camera HAL Android sepenuhnya melepaskan session hardware
+    await Future.delayed(const Duration(milliseconds: 150));
 
     CameraController? readyCtrl;
     Object? lastErr;
@@ -268,6 +311,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         } catch (_) {}
         try {
           await attemptCtrl.setFlashMode(_flashMode);
+        } catch (_) {}
+        try {
+          _minExposure = await attemptCtrl.getMinExposureOffset();
+          _maxExposure = await attemptCtrl.getMaxExposureOffset();
+          _exposureStep = await attemptCtrl.getExposureOffsetStepSize();
+          _currentExposure = 0.0;
         } catch (_) {}
         if (!mounted) {
           await attemptCtrl.dispose();
@@ -936,15 +985,18 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
               ),
             ),
 
-            // Indikator Titik Fokus Animasi (Tap-to-Focus Reticle)
+            // Indikator Titik Fokus Animasi (Tap-to-Focus Reticle) & Pengatur Kecerahan Matahari
             if (_showFocusRing && _focusPointScreen != null)
               Positioned(
-                left: (_focusPointScreen!.dx - 36).clamp(0.0, screenW - 72),
-                top: (_focusPointScreen!.dy - 36).clamp(0.0, screenH - 72),
-                child: IgnorePointer(
-                  child: _FocusReticleWidget(
-                    key: ValueKey('${_focusPointScreen!.dx.toInt()}_${_focusPointScreen!.dy.toInt()}'),
-                  ),
+                left: (_focusPointScreen!.dx - 40).clamp(0.0, screenW - 100),
+                top: (_focusPointScreen!.dy - 40).clamp(0.0, screenH - 100),
+                child: _FocusReticleWidget(
+                  key: ValueKey(
+                      '${_focusPointScreen!.dx.toInt()}_${_focusPointScreen!.dy.toInt()}'),
+                  currentExposure: _currentExposure,
+                  minExposure: _minExposure,
+                  maxExposure: _maxExposure,
+                  onExposureDrag: _onExposureDrag,
                 ),
               ),
 
@@ -1211,9 +1263,20 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 }
 
-/// Widget Reticle Titik Fokus Animasi (Snap-in bounce + Amber Glow + Sun icon)
+/// Widget Reticle Titik Fokus Animasi (Snap-in bounce + Amber Glow + Sun icon + Exposure Slider)
 class _FocusReticleWidget extends StatefulWidget {
-  const _FocusReticleWidget({super.key});
+  final double currentExposure;
+  final double minExposure;
+  final double maxExposure;
+  final Future<void> Function(double deltaDy) onExposureDrag;
+
+  const _FocusReticleWidget({
+    super.key,
+    required this.currentExposure,
+    required this.minExposure,
+    required this.maxExposure,
+    required this.onExposureDrag,
+  });
 
   @override
   State<_FocusReticleWidget> createState() => _FocusReticleWidgetState();
@@ -1249,6 +1312,14 @@ class _FocusReticleWidgetState extends State<_FocusReticleWidget>
 
   @override
   Widget build(BuildContext context) {
+    // Normalisasi posisi matahari pada slider vertikal: -2.0 s.d +2.0 dipetakan ke -24 s.d +24 px
+    final range = (widget.maxExposure - widget.minExposure).abs();
+    final norm = range > 0
+        ? ((widget.currentExposure - widget.minExposure) / range).clamp(0.0, 1.0)
+        : 0.5;
+    // norm 1.0 (paling terang) -> posisi atas (-22px), norm 0.0 (paling gelap) -> posisi bawah (+22px)
+    final sunOffsetDy = (0.5 - norm) * 44.0;
+
     return AnimatedBuilder(
       animation: _anim,
       builder: (context, child) {
@@ -1257,40 +1328,96 @@ class _FocusReticleWidgetState extends State<_FocusReticleWidget>
           child: Opacity(
             opacity: _opacity.value,
             child: SizedBox(
-              width: 72,
-              height: 72,
+              width: 96,
+              height: 84,
               child: Stack(
                 alignment: Alignment.center,
+                clipBehavior: Clip.none,
                 children: [
-                  CustomPaint(
-                    size: const Size(64, 64),
-                    painter: _FocusBoxPainter(),
-                  ),
-                  Container(
-                    width: 5,
-                    height: 5,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFD54F),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black45,
-                          blurRadius: 3,
-                        ),
-                      ],
+                  // 1. Kotak Fokus DSLR dengan bayangan
+                  Positioned(
+                    left: 4,
+                    child: CustomPaint(
+                      size: const Size(60, 60),
+                      painter: _FocusBoxPainter(),
                     ),
                   ),
+                  // 2. Titik Pusat Kuning
                   const Positioned(
-                    right: 0,
-                    child: Icon(
-                      Icons.wb_sunny_rounded,
-                      color: Color(0xFFFFD54F),
-                      size: 14,
-                      shadows: [
-                        Shadow(color: Colors.black54, blurRadius: 4),
-                      ],
+                    left: 32,
+                    child: SizedBox(
+                      width: 5,
+                      height: 5,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFFD54F),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black45,
+                              blurRadius: 3,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
+                  // 3. Garis Slider Exposure Vertikal di Sisi Kanan Kotak Fokus
+                  Positioned(
+                    right: 14,
+                    top: 14,
+                    bottom: 14,
+                    child: Container(
+                      width: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ),
+                  // 4. Ikon Matahari yang dapat Digeser Naik/Turun (Drag to adjust exposure)
+                  Positioned(
+                    right: 4,
+                    top: 34 + sunOffsetDy,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragUpdate: (details) {
+                        widget.onExposureDrag(details.delta.dy);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        child: const Icon(
+                          Icons.wb_sunny_rounded,
+                          color: Color(0xFFFFD54F),
+                          size: 18,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 4),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 5. Label EV jika exposure diubah (+0.5, -1.0)
+                  if (widget.currentExposure.abs() > 0.05)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${widget.currentExposure > 0 ? "+" : ""}${widget.currentExposure.toStringAsFixed(1)}',
+                          style: const TextStyle(
+                            color: Color(0xFFFFD54F),
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

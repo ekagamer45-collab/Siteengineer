@@ -533,6 +533,107 @@ class RehabXlsxFiller {
     return '${dt.day} ${bln[dt.month]} ${dt.year}';
   }
 
+  /// Menghasilkan file Excel khusus untuk 1 progres stage tertentu (0%, 50%, atau 100%)
+  static Uint8List buildSingleProgressStageXlsx(
+    RehabProject project,
+    String photoDir,
+    int stagePct, {
+    int dayIndex = 0,
+    int exportMaxWidth = 1920,
+    int exportJpegQuality = 75,
+    int? maxFileBytes,
+  }) {
+    final dayIdx = dayIndex.clamp(0, 6);
+    final dt = project.dateOf(dayIdx);
+
+    // Kumpulkan foto spesifik progres: slot rehab_0pct_1..6, rehab_50pct_1..6, rehab_100pct_1..6
+    // Jika belum ada foto khusus progres, fallback ke foto harian rehab_H${dayIdx+1}_${s+1}
+    final photoPaths = <String, String>{};
+    for (var s = 0; s < 6; s++) {
+      final stageSlotId = 'rehab_${stagePct}pct_${s + 1}';
+      final stageFile = File('$photoDir/$stageSlotId.jpg');
+      if (stageFile.existsSync()) {
+        photoPaths[stageSlotId] = stageFile.path;
+      } else {
+        final dailySlotId = 'rehab_H${dayIdx + 1}_${s + 1}';
+        final dailyFile = File('$photoDir/$dailySlotId.jpg');
+        if (dailyFile.existsSync()) {
+          photoPaths[stageSlotId] = dailyFile.path;
+        }
+      }
+    }
+
+    final packed = encodeExportPhotosWithBudget(
+      keyToFilePath: photoPaths,
+      desiredMaxWidth: exportMaxWidth,
+      desiredQuality: exportJpegQuality,
+      photoBudgetBytes: maxFileBytes != null ? (maxFileBytes - 250 * 1024) : null,
+    );
+
+    final stageLabels = stagePct == 0
+        ? project.photoLabels0
+        : stagePct == 50
+            ? project.photoLabels50
+            : project.photoLabels100;
+
+    final sh = _SheetData('Progres $stagePct%', landscape: false);
+    sh.colWidths.addAll([12, 12, 12, 12, 12, 12, 12, 12]);
+
+    // Header Dokumentasi Progres
+    sh.setText(2, 1, 'DOKUMENTASI PEKERJAAN - PROGRES $stagePct%', style: 1);
+    sh.merge(2, 1, 2, 8);
+
+    sh.setText(4, 1, 'KEGIATAN', style: 2);
+    sh.setText(4, 2, ':', style: 2);
+    sh.setText(4, 3, project.kegiatanDokumentasi, style: 0);
+    sh.merge(4, 3, 4, 8);
+
+    sh.setText(5, 1, 'LOKASI', style: 2);
+    sh.setText(5, 2, ':', style: 2);
+    sh.setText(5, 3, '${project.lokasi} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}', style: 0);
+    sh.merge(5, 3, 5, 8);
+
+    sh.setText(6, 1, 'PROGRES (%)', style: 2);
+    sh.setText(6, 2, ':', style: 2);
+    sh.setText(6, 3, '$stagePct.00%', style: 2);
+    sh.merge(6, 3, 6, 8);
+
+    // 6 slot foto
+    for (var s = 0; s < 6; s++) {
+      final stageSlotId = 'rehab_${stagePct}pct_${s + 1}';
+      final photoBytes = packed.photos[stageSlotId];
+      final isRight = s % 2 == 1;
+      final rowIdx = 8 + (s ~/ 2) * 16;
+      final labelCol = isRight ? 5 : 1;
+      final label = s < stageLabels.length
+          ? stageLabels[s]
+          : 'Dokumentasi Foto ${s + 1} ($stagePct%)';
+
+      sh.setText(rowIdx, labelCol, label, style: 4);
+      if (isRight) {
+        sh.merge(rowIdx, 5, rowIdx, 8);
+      } else {
+        sh.merge(rowIdx, 1, rowIdx, 4);
+      }
+
+      if (photoBytes != null) {
+        sh.pics.add(
+          _SheetPic(
+            mediaPath: 'xl/media/prog_${stagePct}_$stageSlotId.jpeg',
+            bytes: photoBytes,
+            fromCol: isRight ? 4 : 0,
+            fromRow: rowIdx + 1,
+            toCol: isRight ? 8 : 4,
+            toRow: rowIdx + 15,
+            name: 'Progres_${stagePct}_$stageSlotId',
+          ),
+        );
+      }
+    }
+
+    return _encodeWorkbook([sh]);
+  }
+
   /// Menghasilkan file Excel khusus laporan Progres 0%, 50%, dan 100% Pengawas (3 sheet)
   static Uint8List buildProgress0_50_100(
     RehabProject project,
