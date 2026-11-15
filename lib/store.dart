@@ -1298,19 +1298,19 @@ class Store extends ChangeNotifier {
     if (singleDayIndex != null) {
       final dt = p.dateOf(singleDayIndex);
       final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
-      final hari = hariNama[singleDayIndex].toUpperCase();
-      fileName = 'REHABILITASI_MINGGU_${p.minggu}_H${singleDayIndex + 1}_${hari}_$tglStr';
+      final hari = hariNama[singleDayIndex].toLowerCase();
+      fileName = 'rehabilitasi harian_${hari}_$tglStr';
     } else {
       final dt = p.dateOf(0);
       final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
-      fileName = 'REHABILITASI_MINGGU_${p.minggu}_LENGKAP_$tglStr';
+      fileName = 'rehabilitasi harian_minggu_${p.minggu}_lengkap_$tglStr';
     }
     final path = '${out.path}/$fileName.xlsx';
     File(path).writeAsBytesSync(bytes);
     return path;
   }
 
-  /// Ekspor laporan Rehabilitasi ke file `.pdf` lengkap (Cover, Rekap, Kurva S, Kemajuan, Harian, Foto).
+  /// Ekspor laporan Rehabilitasi ke file `.pdf` lengkap (Laporan Harian + Dokumentasi Harian).
   Future<String> exportRehabPdf({
     int? singleDayIndex,
     ExportSizeConfig size = ExportSizeConfig.hd,
@@ -1338,14 +1338,78 @@ class Store extends ChangeNotifier {
     if (singleDayIndex != null) {
       final dt = p.dateOf(singleDayIndex);
       final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
-      final hari = hariNama[singleDayIndex].toUpperCase();
-      fileName = 'REHABILITASI_MINGGU_${p.minggu}_H${singleDayIndex + 1}_${hari}_$tglStr';
+      final hari = hariNama[singleDayIndex].toLowerCase();
+      fileName = 'rehabilitasi harian_${hari}_$tglStr';
     } else {
       final dt = p.dateOf(0);
       final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
-      fileName = 'REHABILITASI_MINGGU_${p.minggu}_LENGKAP_$tglStr';
+      fileName = 'rehabilitasi harian_minggu_${p.minggu}_lengkap_$tglStr';
     }
     final path = '${out.path}/$fileName.pdf';
+    File(path).writeAsBytesSync(bytes);
+    return path;
+  }
+
+  /// Ekspor dokumen khusus Pengawas Progres 0%, 50%, dan 100% ke format PDF.
+  Future<String> exportRehabProgress0_50_100Pdf({
+    int dayIndex = 0,
+    ExportSizeConfig size = ExportSizeConfig.hd,
+    RehabProject? overrideProject,
+    String? overridePhotoDir,
+  }) async {
+    final p = overrideProject ?? rehabProject;
+    final dir = overridePhotoDir ?? rehabPhotoDir.path;
+    final maxW = size.maxWidth;
+    final qual = size.jpegQuality;
+    final maxBytes = size.maxFileBytes;
+    final res = await Isolate.run(
+      () => RehabPdfFiller.buildProgress0_50_100(
+        p.toJson(),
+        dir,
+        singleDayIndex: dayIndex,
+        exportMaxWidth: maxW,
+        exportJpegQuality: qual,
+        maxFileBytes: maxBytes,
+      ),
+    );
+    final out = await getTemporaryDirectory();
+    final dt = p.dateOf(dayIndex);
+    final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+    final hari = hariNama[dayIndex.clamp(0, 6)].toLowerCase();
+    final fileName = '0_50_100-Pengawas_${hari}_$tglStr';
+    final path = '${out.path}/$fileName.pdf';
+    File(path).writeAsBytesSync(res);
+    return path;
+  }
+
+  /// Ekspor dokumen khusus Pengawas Progres 0%, 50%, dan 100% ke format Excel .xlsx.
+  Future<String> exportRehabProgress0_50_100Xlsx({
+    int dayIndex = 0,
+    ExportSizeConfig size = ExportSizeConfig.hd,
+    RehabProject? overrideProject,
+    String? overridePhotoDir,
+  }) async {
+    final p = overrideProject ?? rehabProject;
+    final dir = overridePhotoDir ?? rehabPhotoDir.path;
+    final maxW = size.maxWidth;
+    final qual = size.jpegQuality;
+    final maxBytes = size.maxFileBytes;
+    final bytes = await Isolate.run(
+      () => RehabXlsxFiller.buildProgress0_50_100(
+        p,
+        dir,
+        dayIndex: dayIndex,
+        exportMaxWidth: maxW,
+        exportJpegQuality: qual,
+        maxFileBytes: maxBytes,
+      ),
+    );
+    final out = await getTemporaryDirectory();
+    final dt = p.dateOf(dayIndex);
+    final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+    final hari = hariNama[dayIndex.clamp(0, 6)].toLowerCase();
+    final fileName = '0_50_100-Pengawas_${hari}_$tglStr';
+    final path = '${out.path}/$fileName.xlsx';
     File(path).writeAsBytesSync(bytes);
     return path;
   }
@@ -2325,31 +2389,34 @@ class Store extends ChangeNotifier {
       if (pendingUploads.isNotEmpty) {
         parallelTasks.add(() async {
           onProgress?.call('Mengunggah ${pendingUploads.length} foto ke Google Drive...');
-          await Future.wait(pendingUploads.map((item) async {
-            try {
-              final raw = await item.file.readAsBytes();
-              Uint8List bytesToUpload = raw;
-              if (raw.lengthInBytes > 300 * 1024) {
-                bytesToUpload = await Isolate.run(
-                  () => resizeJpegBytesForExport(raw, 960, 68),
+          // Unggah dalam batch kecil (maksimal 3 serentak) agar stabil & tidak membebani limit Google Apps Script
+          const batchSize = 3;
+          for (var i = 0; i < pendingUploads.length; i += batchSize) {
+            final batch = pendingUploads.skip(i).take(batchSize).toList();
+            await Future.wait(batch.map((item) async {
+              try {
+                final raw = await item.file.readAsBytes();
+                // Kompresi kilat ke ~25-30 KB agar transmisi data seketika selesai (<0.3 detik per foto)
+                final bytesToUpload = await Isolate.run(
+                  () => resizeJpegBytesForExport(raw, 640, 50),
                 );
-              }
-              final up = await sheetsService
-                  .uploadPhotoBytes(
-                    appsScriptUrl,
-                    filename: '${user.username}_${item.name}',
-                    bytes: bytesToUpload,
-                    dayFolder: item.dayFolder,
-                    clientUuid: '${clientUuid}_${item.name}_${item.fp}',
-                    onFolderUrl: (url) => dayFolderUrls[item.dayFolder] = url,
-                  )
-                  .timeout(const Duration(seconds: 25));
-              if (up.ok && up.data != null) {
-                photoDriveMap[item.name] = up.data!;
-                _photoFingerprints[item.fpKey] = item.fp;
-              }
-            } catch (_) {}
-          }));
+                final up = await sheetsService
+                    .uploadPhotoBytes(
+                      appsScriptUrl,
+                      filename: '${user.username}_${item.name}',
+                      bytes: bytesToUpload,
+                      dayFolder: item.dayFolder,
+                      clientUuid: '${clientUuid}_${item.name}_${item.fp}',
+                      onFolderUrl: (url) => dayFolderUrls[item.dayFolder] = url,
+                    )
+                    .timeout(const Duration(seconds: 15));
+                if (up.ok && up.data != null) {
+                  photoDriveMap[item.name] = up.data!;
+                  _photoFingerprints[item.fpKey] = item.fp;
+                }
+              } catch (_) {}
+            }));
+          }
         }());
       }
     }
@@ -2405,6 +2472,8 @@ class Store extends ChangeNotifier {
 
           try {
             if (effectiveProgramType == 'rehabilitasi') {
+              final tglStr = '${dt.day.toString().padLeft(2, '0')}_${dt.month.toString().padLeft(2, '0')}_${dt.year}';
+              final hari = hariNama[dIdx].toLowerCase();
               final docs = await Future.wait([
                 exportRehabXlsx(
                   singleDayIndex: dIdx,
@@ -2418,19 +2487,43 @@ class Store extends ChangeNotifier {
                   overrideProject: activeRehab,
                   overridePhotoDir: srcPhotoDir?.path,
                 ),
+                exportRehabProgress0_50_100Xlsx(
+                  dayIndex: dIdx,
+                  size: cloudDocSize,
+                  overrideProject: activeRehab,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
+                exportRehabProgress0_50_100Pdf(
+                  dayIndex: dIdx,
+                  size: cloudDocSize,
+                  overrideProject: activeRehab,
+                  overridePhotoDir: srcPhotoDir?.path,
+                ),
               ]);
               onProgress?.call('Mengunggah Excel & PDF ke Drive...');
               await Future.wait([
                 uploadDoc(
                   dayFolder: dayFolder,
                   filePath: docs[0],
-                  driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.xlsx',
+                  driveName: '${safeUserPrefix}_rehabilitasi harian_${hari}_$tglStr.xlsx',
                   mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 ),
                 uploadDoc(
                   dayFolder: dayFolder,
                   filePath: docs[1],
-                  driveName: '${safeUserPrefix}_REHABILITASI_M${week}_$dayTag.pdf',
+                  driveName: '${safeUserPrefix}_rehabilitasi harian_${hari}_$tglStr.pdf',
+                  mimeType: 'application/pdf',
+                ),
+                uploadDoc(
+                  dayFolder: dayFolder,
+                  filePath: docs[2],
+                  driveName: '${safeUserPrefix}_0_50_100-Pengawas_${hari}_$tglStr.xlsx',
+                  mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+                uploadDoc(
+                  dayFolder: dayFolder,
+                  filePath: docs[3],
+                  driveName: '${safeUserPrefix}_0_50_100-Pengawas_${hari}_$tglStr.pdf',
                   mimeType: 'application/pdf',
                 ),
               ]);

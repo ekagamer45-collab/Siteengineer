@@ -456,14 +456,26 @@ class GoogleSheetsService {
     String? clientUuid,
   }) async {
     try {
-      final res = await _postAction(scriptUrl, {
+      final b64 = base64Encode(bytes);
+      var res = await _postAction(scriptUrl, {
         'action': 'uploadReportFile',
         'filename': filename,
         'mimeType': mimeType,
         'dayFolder': dayFolder,
         if (clientUuid != null && clientUuid.isNotEmpty) 'clientUuid': clientUuid,
-        'base64': base64Encode(bytes),
+        'base64': b64,
       });
+      if (res['ok'] != true) {
+        // Fallback otomatis ke action 'uploadPhoto' yang kompatibel dengan seluruh versi Apps Script
+        res = await _postAction(scriptUrl, {
+          'action': 'uploadPhoto',
+          'filename': filename,
+          'mimeType': mimeType,
+          'dayFolder': dayFolder,
+          if (clientUuid != null && clientUuid.isNotEmpty) 'clientUuid': clientUuid,
+          'base64': b64,
+        });
+      }
       if (res['ok'] == true && res['fileId'] != null) {
         final fid = res['fileId'].toString();
         final fileUrl = (res['fileUrl'] as String?)?.isNotEmpty == true

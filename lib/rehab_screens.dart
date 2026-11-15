@@ -265,12 +265,12 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
     await showCanvaExportSheet(
       context,
       title: singleDayIndex == null
-          ? 'Unduh Laporan Mingguan & Harian'
-          : 'Unduh ${hariNama[singleDayIndex]}',
+          ? 'Unduh Rehabilitasi Harian (Mingguan & Harian)'
+          : 'Unduh Rehabilitasi Harian (${hariNama[singleDayIndex]})',
       subtitle: _proj.namaPekerjaan,
       photoCount: photoCount,
       folderContext: ExportFolderContext(
-        programName: 'Rehabilitasi',
+        programName: 'Rehabilitasi Harian',
         weekNumber: _proj.minggu,
         dayName: singleDayIndex != null ? hariNama[singleDayIndex] : null,
       ),
@@ -285,6 +285,203 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
         size: size,
         overrideProject: _proj,
         overridePhotoDir: _photoDir.path,
+      ),
+    );
+  }
+
+  Future<void> _exportProgress0_50_100({int dayIndex = 0}) async {
+    final photoCount = widget.store.countAllRehabPhotos(
+      singleDayIndex: dayIndex,
+      overridePhotoDir: _photoDir.path,
+    );
+    await showCanvaExportSheet(
+      context,
+      title: 'Unduh 0_50_100-Pengawas (${hariNama[dayIndex]})',
+      subtitle: _proj.namaPekerjaan,
+      photoCount: photoCount,
+      folderContext: ExportFolderContext(
+        programName: '0_50_100-Pengawas',
+        weekNumber: _proj.minggu,
+        dayName: hariNama[dayIndex],
+      ),
+      onBuildXlsx: (size) => widget.store.exportRehabProgress0_50_100Xlsx(
+        dayIndex: dayIndex,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: _photoDir.path,
+      ),
+      onBuildPdf: (size) => widget.store.exportRehabProgress0_50_100Pdf(
+        dayIndex: dayIndex,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: _photoDir.path,
+      ),
+    );
+  }
+
+  void _showDocumentSelectionSheet({int? singleDayIndex}) {
+    final dayIdx = singleDayIndex ?? 0;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.description_rounded, color: Color(0xFF0B3C7D)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      singleDayIndex != null
+                          ? 'Pilih Berkas Laporan (${hariNama[dayIdx]})'
+                          : 'Pilih Berkas Laporan Rehabilitasi',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Card Dokumen 1: Rehabilitasi Harian
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.blue.shade300, width: 1.2),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.assignment_rounded, color: Colors.blue.shade900),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '1. Rehabilitasi Harian',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                                color: Colors.blue.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Format: rehabilitasi harian_${hariNama[dayIdx].toLowerCase()}_... Berisi gabungan 2 lampiran resmi: Laporan Harian (Tabel, Pekerja, Bahan & TTD) + Dokumentasi Harian.',
+                        style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.3),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _exportReport(singleDayIndex: singleDayIndex);
+                              },
+                              icon: const Icon(Icons.download_rounded, size: 16),
+                              label: const Text('Unduh Excel/PDF', style: TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF0B3C7D)),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _syncToCloud(dayIndex: singleDayIndex);
+                              },
+                              icon: const Icon(Icons.send_rounded, size: 16),
+                              label: const Text('Kirim ke Admin', style: TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Card Dokumen 2: 0_50_100-Pengawas
+              Card(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.teal.shade300, width: 1.2),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.collections_rounded, color: Colors.teal.shade900),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '2. 0_50_100-Pengawas',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                                color: Colors.teal.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Format: 0_50_100-Pengawas_${hariNama[dayIdx].toLowerCase()}_... Berisi dokumen khusus Pengawas Lapangan mencakup foto progres 0%, 50%, dan 100%.',
+                        style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.3),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _exportProgress0_50_100(dayIndex: dayIdx);
+                              },
+                              icon: const Icon(Icons.download_rounded, size: 16),
+                              label: const Text('Unduh Excel/PDF', style: TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(backgroundColor: Colors.teal.shade800),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _syncToCloud(dayIndex: singleDayIndex);
+                              },
+                              icon: const Icon(Icons.send_rounded, size: 16),
+                              label: const Text('Kirim ke Admin', style: TextStyle(fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -419,9 +616,9 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                             backgroundColor: Colors.amber.shade700,
                             foregroundColor: Colors.black,
                           ),
-                          onPressed: () => _exportReport(),
+                          onPressed: () => _showDocumentSelectionSheet(),
                           icon: const Icon(Icons.download_rounded, size: 18),
-                          label: const Text('Ekspor Excel/PDF'),
+                          label: const Text('Unduh / Kirim Laporan'),
                         ),
                       ),
                     ],
@@ -544,9 +741,9 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              tooltip: 'Unduh H${dayIdx + 1} (Excel/PDF)',
+              tooltip: 'Unduh / Kirim H${dayIdx + 1}',
               icon: const Icon(Icons.download_outlined, size: 20),
-              onPressed: () => _exportReport(singleDayIndex: dayIdx),
+              onPressed: () => _showDocumentSelectionSheet(singleDayIndex: dayIdx),
             ),
             const Icon(Icons.chevron_right),
           ],
@@ -796,6 +993,118 @@ class _RehabDayScreenState extends State<RehabDayScreen>
     }
   }
 
+  void _showDayDownloadModal() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Unduh Berkas ${hariNama[widget.dayIndex]}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE3F2FD),
+                  child: Icon(Icons.assignment_rounded, color: Color(0xFF0B3C7D)),
+                ),
+                title: const Text('1. Rehabilitasi Harian (Excel / PDF)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Laporan Harian (Tabel, Pekerja, Bahan & TTD) + Dokumentasi Foto.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportDayReport();
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE0F2F1),
+                  child: Icon(Icons.collections_rounded, color: Color(0xFF00796B)),
+                ),
+                title: const Text('2. 0_50_100-Pengawas (Excel / PDF)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Dokumentasi khusus Pengawas (Progres 0%, 50%, 100%).'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportDayProgress0_50_100();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportDayReport() async {
+    final photoCount = widget.store.countAllRehabPhotos(
+      singleDayIndex: widget.dayIndex,
+      overridePhotoDir: widget.photoDir.path,
+    );
+    await showCanvaExportSheet(
+      context,
+      title: 'Unduh Rehabilitasi Harian (${hariNama[widget.dayIndex]})',
+      subtitle: _proj.namaPekerjaan,
+      photoCount: photoCount,
+      folderContext: ExportFolderContext(
+        programName: 'Rehabilitasi Harian',
+        weekNumber: _proj.minggu,
+        dayName: hariNama[widget.dayIndex],
+      ),
+      onBuildXlsx: (size) => widget.store.exportRehabXlsx(
+        singleDayIndex: widget.dayIndex,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+      onBuildPdf: (size) => widget.store.exportRehabPdf(
+        singleDayIndex: widget.dayIndex,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+    );
+  }
+
+  Future<void> _exportDayProgress0_50_100() async {
+    final photoCount = widget.store.countAllRehabPhotos(
+      singleDayIndex: widget.dayIndex,
+      overridePhotoDir: widget.photoDir.path,
+    );
+    await showCanvaExportSheet(
+      context,
+      title: 'Unduh 0_50_100-Pengawas (${hariNama[widget.dayIndex]})',
+      subtitle: _proj.namaPekerjaan,
+      photoCount: photoCount,
+      folderContext: ExportFolderContext(
+        programName: '0_50_100-Pengawas',
+        weekNumber: _proj.minggu,
+        dayName: hariNama[widget.dayIndex],
+      ),
+      onBuildXlsx: (size) => widget.store.exportRehabProgress0_50_100Xlsx(
+        dayIndex: widget.dayIndex,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+      onBuildPdf: (size) => widget.store.exportRehabProgress0_50_100Pdf(
+        dayIndex: widget.dayIndex,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final dt = _proj.dateOf(widget.dayIndex);
@@ -810,6 +1119,11 @@ class _RehabDayScreenState extends State<RehabDayScreen>
               _syncProj();
               setState(() {});
             },
+          ),
+          IconButton(
+            tooltip: 'Unduh Berkas ${hariNama[widget.dayIndex]} (Excel/PDF)',
+            icon: const Icon(Icons.download_rounded),
+            onPressed: _showDayDownloadModal,
           ),
           if (widget.store.currentUser?.isSuperadmin != true)
             IconButton(

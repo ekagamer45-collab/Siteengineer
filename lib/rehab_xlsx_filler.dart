@@ -449,15 +449,15 @@ class RehabXlsxFiller {
       sh.setText(rSign + 2, 5, p.konsultanPengawas, style: 2);
       sh.merge(rSign + 2, 5, rSign + 2, 8);
 
-      sh.setText(rSign + 6, 1, p.pelaksanaLapangan, style: 2);
-      sh.merge(rSign + 6, 1, rSign + 6, 4);
-      sh.setText(rSign + 6, 5, p.pengawasLapangan, style: 2);
-      sh.merge(rSign + 6, 5, rSign + 6, 8);
+      sh.setText(rSign + 8, 1, p.pelaksanaLapangan, style: 2);
+      sh.merge(rSign + 8, 1, rSign + 8, 4);
+      sh.setText(rSign + 8, 5, p.pengawasLapangan, style: 2);
+      sh.merge(rSign + 8, 5, rSign + 8, 8);
 
-      sh.setText(rSign + 7, 1, 'Pelaksana Lapangan', style: 0);
-      sh.merge(rSign + 7, 1, rSign + 7, 4);
-      sh.setText(rSign + 7, 5, 'Pengawas Lapangan', style: 0);
-      sh.merge(rSign + 7, 5, rSign + 7, 8);
+      sh.setText(rSign + 9, 1, 'Pelaksana Lapangan', style: 0);
+      sh.merge(rSign + 9, 1, rSign + 9, 4);
+      sh.setText(rSign + 9, 5, 'Pengawas Lapangan', style: 0);
+      sh.merge(rSign + 9, 5, rSign + 9, 8);
     }
 
     return sh;
@@ -524,6 +524,115 @@ class RehabXlsxFiller {
     return sh;
   }
 
+  /// Format tanggal Indonesia untuk header laporan progres
+  static String _fmtDateId(DateTime dt) {
+    const bln = [
+      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    return '${dt.day} ${bln[dt.month]} ${dt.year}';
+  }
+
+  /// Menghasilkan file Excel khusus laporan Progres 0%, 50%, dan 100% Pengawas (3 sheet)
+  static Uint8List buildProgress0_50_100(
+    RehabProject project,
+    String photoDir, {
+    int dayIndex = 0,
+    int exportMaxWidth = 1920,
+    int exportJpegQuality = 75,
+    int? maxFileBytes,
+  }) {
+    final dayIdx = dayIndex.clamp(0, 6);
+    final dt = project.dateOf(dayIdx);
+
+    // Kumpulkan seluruh slot foto yang ada
+    final photoPaths = <String, String>{};
+    for (var d = 0; d < 7; d++) {
+      for (var s = 0; s < 6; s++) {
+        final slotId = 'rehab_H${d + 1}_${s + 1}';
+        final f = File('$photoDir/$slotId.jpg');
+        if (f.existsSync()) {
+          photoPaths[slotId] = f.path;
+        }
+      }
+    }
+
+    final packed = encodeExportPhotosWithBudget(
+      keyToFilePath: photoPaths,
+      desiredMaxWidth: exportMaxWidth,
+      desiredQuality: exportJpegQuality,
+      photoBudgetBytes: maxFileBytes != null ? (maxFileBytes - 250 * 1024) : null,
+    );
+
+    final stages = [
+      (sheetName: 'Progres 0%', pct: '0.00%'),
+      (sheetName: 'Progres 50%', pct: '50.00%'),
+      (sheetName: 'Progres 100%', pct: '100.00%'),
+    ];
+
+    final sheets = <_SheetData>[];
+    for (var sIdx = 0; sIdx < stages.length; sIdx++) {
+      final st = stages[sIdx];
+      final sh = _SheetData(st.sheetName, landscape: false);
+      sh.colWidths.addAll([12, 12, 12, 12, 12, 12, 12, 12]);
+
+      // Header Dokumentasi Progres
+      sh.setText(2, 1, 'DOKUMENTASI PEKERJAAN', style: 1);
+      sh.merge(2, 1, 2, 8);
+
+      sh.setText(4, 1, 'KEGIATAN', style: 2);
+      sh.setText(4, 2, ':', style: 2);
+      sh.setText(4, 3, project.kegiatanDokumentasi, style: 0);
+      sh.merge(4, 3, 4, 8);
+
+      sh.setText(5, 1, 'LOKASI', style: 2);
+      sh.setText(5, 2, ':', style: 2);
+      sh.setText(5, 3, '${project.lokasi} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}', style: 0);
+      sh.merge(5, 3, 5, 8);
+
+      sh.setText(6, 1, 'PROGRES (%)', style: 2);
+      sh.setText(6, 2, ':', style: 2);
+      sh.setText(6, 3, st.pct, style: 2);
+      sh.merge(6, 3, 6, 8);
+
+      // 6 slot foto
+      for (var s = 0; s < 6; s++) {
+        final slotId = 'rehab_H${dayIdx + 1}_${s + 1}';
+        final photoBytes = packed.photos[slotId];
+        final isRight = s % 2 == 1;
+        final rowIdx = 8 + (s ~/ 2) * 16;
+        final labelCol = isRight ? 5 : 1;
+        final label = s < project.photoLabels.length
+            ? project.photoLabels[s]
+            : 'Dokumentasi Foto ${s + 1} (${st.pct})';
+
+        sh.setText(rowIdx, labelCol, label, style: 4);
+        if (isRight) {
+          sh.merge(rowIdx, 5, rowIdx, 8);
+        } else {
+          sh.merge(rowIdx, 1, rowIdx, 4);
+        }
+
+        if (photoBytes != null) {
+          sh.pics.add(
+            _SheetPic(
+              mediaPath: 'xl/media/prog_${sIdx}_$slotId.jpeg',
+              bytes: photoBytes,
+              fromCol: isRight ? 4 : 0,
+              fromRow: rowIdx + 1,
+              toCol: isRight ? 8 : 4,
+              toRow: rowIdx + 15,
+              name: '${st.sheetName}_$slotId',
+            ),
+          );
+        }
+      }
+      sheets.add(sh);
+    }
+
+    return _encodeWorkbook(sheets);
+  }
+
   static Uint8List _encodeWorkbook(List<_SheetData> sheets) {
     final archive = Archive();
 
@@ -540,7 +649,9 @@ class RehabXlsxFiller {
       ..write('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">')
       ..write('<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>')
       ..write('<Default Extension="xml" ContentType="application/xml"/>')
+      ..write('<Default Extension="jpg" ContentType="image/jpeg"/>')
       ..write('<Default Extension="jpeg" ContentType="image/jpeg"/>')
+      ..write('<Default Extension="png" ContentType="image/png"/>')
       ..write('<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>')
       ..write('<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>');
     for (var i = 0; i < sheets.length; i++) {

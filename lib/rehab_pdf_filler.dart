@@ -1052,14 +1052,14 @@ class RehabPdfFiller {
                     border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
                     columnWidths: const {
                       0: pw.FlexColumnWidth(1.2),
-                      1: pw.FixedColumnWidth(42),
-                      2: pw.FixedColumnWidth(34),
+                      1: pw.FixedColumnWidth(48),
+                      2: pw.FixedColumnWidth(40),
                     },
                     children: [
                       pw.TableRow(children: [
                         _cell('BAHAN YANG DIGUNAKAN', font: bold, size: 7, bg: hdrBg),
-                        _cell('DITERIMA', font: bold, size: 6.8, bg: hdrBg, align: pw.Alignment.center),
-                        _cell('DITOLAK', font: bold, size: 6.8, bg: hdrBg, align: pw.Alignment.center),
+                        _cell('DITERIMA', font: bold, size: 6.2, bg: hdrBg, align: pw.Alignment.center, pad: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 3)),
+                        _cell('DITOLAK', font: bold, size: 6.2, bg: hdrBg, align: pw.Alignment.center, pad: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 3)),
                       ]),
                       for (var r = 0; r < maxMat; r++)
                         pw.TableRow(children: [
@@ -1112,12 +1112,12 @@ class RehabPdfFiller {
                   child: pw.Table(
                     border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
                     columnWidths: const {
-                      0: pw.FixedColumnWidth(18),
+                      0: pw.FixedColumnWidth(24),
                       1: pw.FlexColumnWidth(1),
                     },
                     children: [
                       pw.TableRow(children: [
-                        _cell('NO', font: bold, size: 7, bg: hdrBg, align: pw.Alignment.center),
+                        _cell('NO', font: bold, size: 6.5, bg: hdrBg, align: pw.Alignment.center, pad: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 3)),
                         _cell('URAIAN KEGIATAN PEKERJAAN', font: bold, size: 7, bg: hdrBg),
                       ]),
                       for (var a = 0; a < maxAct; a++)
@@ -1146,7 +1146,7 @@ class RehabPdfFiller {
                 pw.Text('Disetujui Oleh :', style: pw.TextStyle(font: regular, fontSize: 7)),
                 pw.Text('Kontraktor Pelaksana', style: pw.TextStyle(font: bold, fontSize: 7.5)),
                 pw.Text(_safe(p.kontraktorPelaksana), style: pw.TextStyle(font: bold, fontSize: 7)),
-                pw.SizedBox(height: 14),
+                pw.SizedBox(height: 58), // Jarak ~2.0 cm spasi lega untuk tanda tangan & stempel agar tidak berdempetan
                 pw.Text(_safe(p.pelaksanaLapangan), style: pw.TextStyle(font: bold, fontSize: 7.5, decoration: pw.TextDecoration.underline)),
                 pw.Text('Pelaksana Lapangan', style: pw.TextStyle(font: regular, fontSize: 6.5)),
               ],
@@ -1156,7 +1156,7 @@ class RehabPdfFiller {
                 pw.Text('Dibuat Oleh :', style: pw.TextStyle(font: regular, fontSize: 7)),
                 pw.Text('Konsultan Pengawas', style: pw.TextStyle(font: bold, fontSize: 7.5)),
                 pw.Text(_safe(p.konsultanPengawas), style: pw.TextStyle(font: bold, fontSize: 7)),
-                pw.SizedBox(height: 14),
+                pw.SizedBox(height: 58), // Jarak ~2.0 cm spasi lega untuk tanda tangan & stempel agar tidak berdempetan
                 pw.Text(_safe(p.pengawasLapangan), style: pw.TextStyle(font: bold, fontSize: 7.5, decoration: pw.TextDecoration.underline)),
                 pw.Text('Pengawas Lapangan', style: pw.TextStyle(font: regular, fontSize: 6.5)),
               ],
@@ -1206,11 +1206,11 @@ class RehabPdfFiller {
                 bottom: pw.BorderSide(color: PdfColors.black, width: 0.6),
               ),
             ),
-            padding: const pw.EdgeInsets.all(2.83), // 0.10 cm margin
+            padding: const pw.EdgeInsets.all(1.5), // Celah tipis agar garis kotak tetap terlihat jelas
             child: photoBytes != null
                 ? pw.Image(
                     pw.MemoryImage(photoBytes),
-                    fit: pw.BoxFit.contain,
+                    fit: pw.BoxFit.fill, // Full sekotak memenuhi bingkai
                   )
                 : pw.Center(
                     child: pw.Text(
@@ -1386,6 +1386,223 @@ class RehabPdfFiller {
         final docBytes = await doc.save();
         return (docBytes: docBytes, photoBytesUsed: packed.totalBytes);
       },
+    );
+  }
+
+  /// Menghasilkan PDF Laporan Khusus Pengawas: Progres 0%, 50%, dan 100%.
+  /// Setiap tahap (0%, 50%, 100%) memiliki 1 halaman khusus dengan header resmi & 6 slot foto berbingkai rapi.
+  static Future<Uint8List> buildProgress0_50_100(
+    Map<String, dynamic> rehabJson,
+    String photoDir, {
+    int? singleDayIndex,
+    int exportMaxWidth = 1920,
+    int exportJpegQuality = 92,
+    int? maxFileBytes,
+  }) async {
+    final p = RehabProject.fromJson(rehabJson);
+    final regular = pw.Font.times();
+    final bold = pw.Font.timesBold();
+
+    final stages = [
+      (pct: '0%', title: '0% (Awal)', slots: [1, 2]),
+      (pct: '50%', title: '50% (Pelaksanaan)', slots: [3, 4]),
+      (pct: '100%', title: '100% (Selesai)', slots: [5, 6]),
+    ];
+
+    final photoPaths = <String, String>{};
+    for (var i = 0; i < 7 && i < p.days.length; i++) {
+      if (singleDayIndex != null && i != singleDayIndex) continue;
+      for (var s = 0; s < 6; s++) {
+        final slotId = 'rehab_H${i + 1}_${s + 1}';
+        final path = '$photoDir/$slotId.jpg';
+        if (File(path).existsSync()) {
+          photoPaths[slotId] = path;
+        }
+      }
+    }
+
+    return buildExportWithinMaxBytesAsync(
+      maxFileBytes: maxFileBytes,
+      estimatedOverheadBytes: 80 * 1024,
+      buildWithBudget: (photoBudgetBytes) async {
+        final packed = encodeExportPhotosWithBudget(
+          keyToFilePath: photoPaths,
+          desiredMaxWidth: exportMaxWidth,
+          desiredQuality: exportJpegQuality,
+          photoBudgetBytes: photoBudgetBytes,
+        );
+
+        final doc = pw.Document(
+          title: '0_50_100-Pengawas',
+          author: p.konsultanPengawas,
+        );
+
+        const pageMargin = 20.0;
+        const gap = 10.0;
+        final cardW = (PdfPageFormat.a4.width - (pageMargin * 2) - gap) / 2;
+        final cardH = cardW / 1.6;
+
+        final dayIdx = singleDayIndex ?? 0;
+        final dt = p.dateOf(dayIdx);
+
+        for (final stage in stages) {
+          doc.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4,
+              margin: const pw.EdgeInsets.all(pageMargin),
+              build: (_) {
+                final stagePhotos = <({String label, Uint8List? bytes})>[];
+                if (singleDayIndex != null) {
+                  for (var sIdx = 0; sIdx < 6; sIdx++) {
+                    final isPrimary = stage.slots.contains(sIdx + 1);
+                    final slotId = 'rehab_H${dayIdx + 1}_${sIdx + 1}';
+                    final b = packed.photos[slotId];
+                    if (isPrimary || b != null) {
+                      stagePhotos.add((
+                        label: 'Dokumentasi ${stage.pct} - Titik ${stagePhotos.length + 1}',
+                        bytes: b,
+                      ));
+                    }
+                  }
+                } else {
+                  for (var d = 0; d < 7 && d < p.days.length; d++) {
+                    for (final sNum in stage.slots) {
+                      final slotId = 'rehab_H${d + 1}_$sNum';
+                      final b = packed.photos[slotId];
+                      if (b != null && stagePhotos.length < 6) {
+                        stagePhotos.add((
+                          label: 'Dokumentasi ${stage.pct} - ${hariNama[d]} (Titik $sNum)',
+                          bytes: b,
+                        ));
+                      }
+                    }
+                  }
+                }
+                while (stagePhotos.length < 6) {
+                  stagePhotos.add((
+                    label: 'Dokumentasi ${stage.pct} - Titik ${stagePhotos.length + 1}',
+                    bytes: null,
+                  ));
+                }
+
+                return pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    pw.Text(
+                      'DOKUMENTASI PEKERJAAN',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(font: bold, fontSize: 11),
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.black, width: 0.5),
+                        color: PdfColor.fromHex('#F9FAFB'),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Row(
+                            children: [
+                              pw.SizedBox(width: 90, child: pw.Text('KEGIATAN', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                              pw.Expanded(child: pw.Text(_safe(p.kegiatanDokumentasi), style: pw.TextStyle(font: regular, fontSize: 7.5))),
+                            ],
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Row(
+                            children: [
+                              pw.SizedBox(width: 90, child: pw.Text('LOKASI', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                              pw.Expanded(child: pw.Text(_safe('${p.lokasi} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}'), style: pw.TextStyle(font: regular, fontSize: 7.5))),
+                            ],
+                          ),
+                          pw.SizedBox(height: 2),
+                          pw.Row(
+                            children: [
+                              pw.SizedBox(width: 90, child: pw.Text('PROGRES (%)', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                              pw.Expanded(child: pw.Text(stage.pct, style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    pw.SizedBox(height: 10),
+                    for (var r = 0; r < 6; r += 2)
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.only(bottom: 8),
+                        child: pw.Row(
+                          children: [
+                            pw.SizedBox(
+                              width: cardW,
+                              child: _buildProgressSlotCard(stagePhotos[r].label, stagePhotos[r].bytes, cardW, cardH, regular, bold),
+                            ),
+                            pw.SizedBox(width: gap),
+                            pw.SizedBox(
+                              width: cardW,
+                              child: _buildProgressSlotCard(stagePhotos[r + 1].label, stagePhotos[r + 1].bytes, cardW, cardH, regular, bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          );
+        }
+
+        final docBytes = await doc.save();
+        return (docBytes: docBytes, photoBytesUsed: packed.totalBytes);
+      },
+    );
+  }
+
+  static pw.Widget _buildProgressSlotCard(
+    String label,
+    Uint8List? photoBytes,
+    double cardW,
+    double cardH,
+    pw.Font regular,
+    pw.Font bold,
+  ) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: pw.BoxDecoration(
+            color: PdfColor.fromHex('#D9E1F2'),
+            border: pw.Border.all(color: PdfColors.black, width: 0.6),
+          ),
+          child: pw.Text(_safe(label), style: pw.TextStyle(font: bold, fontSize: 7.5), maxLines: 1),
+        ),
+        pw.Container(
+          width: cardW,
+          height: cardH,
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(
+              left: pw.BorderSide(color: PdfColors.black, width: 0.6),
+              right: pw.BorderSide(color: PdfColors.black, width: 0.6),
+              bottom: pw.BorderSide(color: PdfColors.black, width: 0.6),
+            ),
+          ),
+          padding: const pw.EdgeInsets.all(1.5),
+          child: photoBytes != null
+              ? pw.Image(
+                  pw.MemoryImage(photoBytes),
+                  fit: pw.BoxFit.fill,
+                )
+              : pw.Center(
+                  child: pw.Text(
+                    '(Belum ada foto)',
+                    style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey500),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }
