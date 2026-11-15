@@ -3218,25 +3218,48 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
     );
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _showExportDialog() async {
     final stage = _currentStage;
-    await showCanvaExportSheet(
+    await showBatch3DocsExportSheet(
       context,
-      title: 'Unduh Excel Progres ${stage.percentage}%',
       subtitle: _proj.namaPekerjaan,
-      photoCount: stage.photoLabels.length,
+      activeStagePct: stage.percentage,
       folderContext: ExportFolderContext(
-        programName: '${stage.percentage}%-Pengawas',
+        programName: '0_50_100-Pengawas',
         weekNumber: _proj.minggu,
         dayName: 'Progres',
       ),
-      onBuildXlsx: (size) => widget.store.exportRehabSingleProgressXlsx(
+      onBuildAll3Xlsx: (size) => widget.store.exportRehabAll3StagesXlsx(
+        dayIndex: 0,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+      onBuildAll3Pdf: (size) => widget.store.exportRehabAll3StagesPdf(
+        dayIndex: 0,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+      onBuildMerged0_50_100Xlsx: (size) => widget.store.exportRehabProgress0_50_100Xlsx(
+        dayIndex: 0,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+      onBuildMerged0_50_100Pdf: (size) => widget.store.exportRehabProgress0_50_100Pdf(
+        dayIndex: 0,
+        size: size,
+        overrideProject: _proj,
+        overridePhotoDir: widget.photoDir.path,
+      ),
+      onBuildSingleXlsx: (size) => widget.store.exportRehabSingleProgressXlsx(
         stagePct: stage.percentage,
         size: size,
         overrideProject: _proj,
         overridePhotoDir: widget.photoDir.path,
       ),
-      onBuildPdf: (size) => widget.store.exportRehabSingleProgressPdf(
+      onBuildSinglePdf: (size) => widget.store.exportRehabSingleProgressPdf(
         stagePct: stage.percentage,
         size: size,
         overrideProject: _proj,
@@ -3255,8 +3278,8 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
         title: const Text('Dokumentasi Progres Khusus'),
         actions: [
           IconButton(
-            tooltip: 'Unduh Excel / PDF',
-            onPressed: _exportExcel,
+            tooltip: 'Unduh Dokumen (0%, 50%, 100%)',
+            onPressed: _showExportDialog,
             icon: const Icon(Icons.download_rounded),
           ),
           IconButton(
@@ -3569,11 +3592,11 @@ class _RehabProgressStagesScreenState extends State<RehabProgressStagesScreen> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _exportExcel,
+                  onPressed: _showExportDialog,
                   icon: const Icon(Icons.download_rounded, size: 16),
-                  label: Text(
-                    'Unduh (${stage.percentage}%)',
-                    style: const TextStyle(fontSize: 12),
+                  label: const Text(
+                    'Unduh (0, 50, 100%)',
+                    style: TextStyle(fontSize: 12),
                   ),
                 ),
               ),

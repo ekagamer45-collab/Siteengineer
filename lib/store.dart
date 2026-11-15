@@ -1482,6 +1482,46 @@ class Store extends ChangeNotifier {
     return path;
   }
 
+  /// Ekspor 3 dokumen fisik Pengawas (0%, 50%, dan 100%) sekaligus ke 3 berkas file Excel terpisah.
+  Future<List<String>> exportRehabAll3StagesXlsx({
+    int dayIndex = 0,
+    ExportSizeConfig size = ExportSizeConfig.hd,
+    RehabProject? overrideProject,
+    String? overridePhotoDir,
+  }) async {
+    final stages = [0, 50, 100];
+    final tasks = stages.map(
+      (pct) => exportRehabSingleProgressXlsx(
+        stagePct: pct,
+        dayIndex: dayIndex,
+        size: size,
+        overrideProject: overrideProject,
+        overridePhotoDir: overridePhotoDir,
+      ),
+    );
+    return Future.wait(tasks);
+  }
+
+  /// Ekspor 3 dokumen fisik Pengawas (0%, 50%, dan 100%) sekaligus ke 3 berkas file PDF terpisah.
+  Future<List<String>> exportRehabAll3StagesPdf({
+    int dayIndex = 0,
+    ExportSizeConfig size = ExportSizeConfig.hd,
+    RehabProject? overrideProject,
+    String? overridePhotoDir,
+  }) async {
+    final stages = [0, 50, 100];
+    final tasks = stages.map(
+      (pct) => exportRehabSingleProgressPdf(
+        stagePct: pct,
+        dayIndex: dayIndex,
+        size: size,
+        overrideProject: overrideProject,
+        overridePhotoDir: overridePhotoDir,
+      ),
+    );
+    return Future.wait(tasks);
+  }
+
   /// Hitung foto terpasang pada Custom Program berbasis format bebas.
   int countCustomPhotos(CustomProgram cp, {String? overridePhotoDir}) {
     if (overridePhotoDir == null && !_hasDir) return 0;

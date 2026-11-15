@@ -463,6 +463,345 @@ Future<void> runExportTask(
   }
 }
 
+/// Menjalankan build beberapa file dokumen sekaligus (0%, 50%, 100%),
+/// menyimpan semuanya langsung ke folder perangkat, lalu membagikannya sekaligus via Share.shareXFiles.
+Future<void> runBatchMultiFilesExportTask(
+  BuildContext context, {
+  required String label,
+  required bool saveToDevice,
+  required Future<List<String>> Function() builder,
+  ExportFolderContext? folderContext,
+}) async {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      content: Row(
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(width: 16),
+          Expanded(child: Text('Menyusun 3 file $label sekaligus…')),
+        ],
+      ),
+    ),
+  );
+
+  try {
+    final paths = await builder();
+    if (!context.mounted) return;
+    Navigator.pop(context);
+
+    if (paths.isEmpty) return;
+
+    if (saveToDevice) {
+      final subRel = folderContext?.relativePath ?? 'Rekapan data/0_50_100';
+      int savedCount = 0;
+      for (final p in paths) {
+        final f = File(p);
+        if (!f.existsSync()) continue;
+        final filename = p.split('/').last.split('\\').last;
+        final bytes = f.readAsBytesSync();
+        final candidates = <String>[
+          if (Platform.isAndroid) '/storage/emulated/0/Download/$subRel',
+          if (Platform.isAndroid) '/storage/emulated/0/Documents/$subRel',
+        ];
+        final extDir = await getExternalStorageDirectory();
+        if (extDir != null) candidates.add('${extDir.path}/$subRel');
+        for (final dirPath in candidates) {
+          try {
+            final targetDir = Directory(dirPath);
+            if (!targetDir.existsSync()) targetDir.createSync(recursive: true);
+            File('${targetDir.path}/$filename').writeAsBytesSync(bytes);
+            savedCount++;
+            break;
+          } catch (_) {}
+        }
+      }
+      if (savedCount > 0 && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$savedCount dokumen berhasil disimpan di folder $subRel'),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+      }
+    }
+
+    final xfiles = paths.where((p) => File(p).existsSync()).map((p) => XFile(p)).toList();
+    if (xfiles.isNotEmpty) {
+      await Share.shareXFiles(xfiles, text: '3 Dokumen Progres (0%, 50%, 100%)');
+    }
+  } catch (e) {
+    if (!context.mounted) return;
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Gagal mengekspor 3 dokumen: $e')),
+    );
+  }
+}
+
+/// Menampilkan Sheet Unduh Fleksibel untuk Progres 0%, 50%, 100%:
+/// Mendukung unduh 3 dokumen sekaligus (Excel / PDF), kompilasi 0_50_100, maupun per-tahap tunggal.
+Future<void> showBatch3DocsExportSheet(
+  BuildContext context, {
+  required String subtitle,
+  required int activeStagePct,
+  required Future<List<String>> Function(ExportSizeConfig size) onBuildAll3Xlsx,
+  required Future<List<String>> Function(ExportSizeConfig size) onBuildAll3Pdf,
+  required Future<String> Function(ExportSizeConfig size) onBuildMerged0_50_100Xlsx,
+  required Future<String> Function(ExportSizeConfig size) onBuildMerged0_50_100Pdf,
+  required Future<String> Function(ExportSizeConfig size) onBuildSingleXlsx,
+  required Future<String> Function(ExportSizeConfig size) onBuildSinglePdf,
+  ExportFolderContext? folderContext,
+}) async {
+  ExportSizeConfig currentSize = ExportSizeConfig.hd;
+  bool saveToDevice = true;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => StatefulBuilder(
+      builder: (context, setSheetState) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            18,
+            16,
+            18,
+            MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Row(
+                children: [
+                  Icon(Icons.download_for_offline_rounded, color: Color(0xFF0B3C7D)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Pilihan Unduh Dokumen Progres',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 14),
+
+              // Pilihan Ukuran Kualitas
+              const Text(
+                'Kualitas Berkas:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 6),
+              SegmentedButton<String>(
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  ),
+                ),
+                segments: const [
+                  ButtonSegment(
+                    value: 'small',
+                    label: Text('Kecil', softWrap: false, maxLines: 1, style: TextStyle(fontSize: 12)),
+                    icon: Icon(Icons.compress, size: 15),
+                  ),
+                  ButtonSegment(
+                    value: 'medium',
+                    label: Text('Sedang', softWrap: false, maxLines: 1, style: TextStyle(fontSize: 12)),
+                    icon: Icon(Icons.balance, size: 15),
+                  ),
+                  ButtonSegment(
+                    value: 'hd',
+                    label: Text('HD Cetak', softWrap: false, maxLines: 1, style: TextStyle(fontSize: 12)),
+                    icon: Icon(Icons.hd, size: 15),
+                  ),
+                ],
+                selected: {currentSize.preset},
+                onSelectionChanged: (sel) {
+                  final v = sel.first;
+                  setSheetState(() {
+                    if (v == 'small') {
+                      currentSize = ExportSizeConfig.small;
+                    } else if (v == 'medium') {
+                      currentSize = ExportSizeConfig.medium;
+                    } else {
+                      currentSize = ExportSizeConfig.hd;
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Simpan langsung ke HP
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text('Simpan langsung ke folder Download/Documents HP'),
+                value: saveToDevice,
+                onChanged: (v) => setSheetState(() => saveToDevice = v),
+              ),
+              const Divider(height: 18),
+
+              // SECTION 1: UNDUH 3 DOKUMEN SEKALIGUS
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome, color: Colors.blue.shade900, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Unduh 3 Dokumen Sekaligus (0%, 50%, 100%)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Menghasilkan dokumen untuk seluruh tahapan tanpa perlu unduh satu per satu.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade800),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        // Tombol 3 File Excel Sekaligus
+                        Expanded(
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF1D6F42),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              runBatchMultiFilesExportTask(
+                                context,
+                                label: 'Excel (0%, 50%, 100%)',
+                                saveToDevice: saveToDevice,
+                                folderContext: folderContext,
+                                builder: () => onBuildAll3Xlsx(currentSize),
+                              );
+                            },
+                            icon: const Icon(Icons.table_chart_rounded, size: 16),
+                            label: const Text('3 Excel Sekaligus', style: TextStyle(fontSize: 11.5)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Tombol 3 File PDF Sekaligus
+                        Expanded(
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.red.shade700,
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              runBatchMultiFilesExportTask(
+                                context,
+                                label: 'PDF (0%, 50%, 100%)',
+                                saveToDevice: saveToDevice,
+                                folderContext: folderContext,
+                                builder: () => onBuildAll3Pdf(currentSize),
+                              );
+                            },
+                            icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+                            label: const Text('3 PDF Sekaligus', style: TextStyle(fontSize: 11.5)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Tombol 1 File Kompilasi Gabungan (0_50_100-Pengawas)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        side: BorderSide(color: Colors.blue.shade700),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        runExportTask(
+                          context,
+                          label: 'Kompilasi Gabungan 0_50_100-Pengawas (PDF)',
+                          saveToDevice: saveToDevice,
+                          folderContext: folderContext,
+                          builder: () => onBuildMerged0_50_100Pdf(currentSize),
+                        );
+                      },
+                      icon: const Icon(Icons.file_copy_rounded, size: 15),
+                      label: const Text(
+                        '1 File Gabungan 0_50_100 (PDF Lengkap)',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // SECTION 2: UNDUH HANYA TAHAP AKTIF
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  side: BorderSide(color: Colors.grey.shade400),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  showCanvaExportSheet(
+                    context,
+                    title: 'Unduh Progres $activeStagePct%',
+                    subtitle: subtitle,
+                    photoCount: 6,
+                    folderContext: folderContext,
+                    onBuildXlsx: onBuildSingleXlsx,
+                    onBuildPdf: onBuildSinglePdf,
+                  );
+                },
+                icon: const Icon(Icons.description_outlined, size: 18),
+                label: Text(
+                  'Unduh Tahap Ini Saja ($activeStagePct%)',
+                  style: const TextStyle(fontSize: 12.5),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
 /// Preview foto Full HD (zoomable) lengkap tombol Simpan ke Galeri & Bagikan.
 void showFullscreenPhotoPreview(
   BuildContext context, {
