@@ -111,7 +111,8 @@ class RehabXlsxFiller {
         }
         for (var i = 0; i < 7 && i < p.days.length; i++) {
           if (singleDayIndex != null && i != singleDayIndex) continue;
-          sheets.add(_buildDaySheet(p, i, packed.photos));
+          sheets.add(_buildDaySheet(p, i));
+          sheets.add(_buildDocSheet(p, i, packed.photos));
         }
         return (
           docBytes: _encodeWorkbook(sheets),
@@ -293,27 +294,78 @@ class RehabXlsxFiller {
   static _SheetData _buildDaySheet(
     RehabProject p,
     int dayIdx,
-    Map<String, Uint8List> photoBytesMap,
   ) {
     final day = p.days[dayIdx];
     final dt = p.dateOf(dayIdx);
     final sh = _SheetData('H${dayIdx + 1}', landscape: true);
-    sh.colWidths.addAll([24, 12, 26, 14, 14, 24, 38]);
+    sh.colWidths.addAll([18, 10, 26, 14, 14, 24, 6, 38]);
 
-    sh.setText(1, 1, 'DOKUMENTASI PEKERJAAN HARIAN - ${hariNama[dayIdx]} (${dt.day}/${dt.month}/${dt.year}) | MINGGU KE-${p.minggu}', style: 1);
-    sh.setText(2, 1, 'Pekerjaan: ${p.namaPekerjaan} | Lokasi: ${p.lokasi}', style: 2);
+    // Judul
+    sh.setText(2, 4, 'LAPORAN HARIAN', style: 1);
+
+    // Header Informasi Kontrak (2 Kolom Sejajar)
+    sh.setText(4, 1, 'HARI, TANGGAL', style: 2);
+    sh.setText(4, 2, ':', style: 2);
+    sh.setText(4, 3, '${hariNama[dayIdx]}, ${dt.day}-${dt.month}-${dt.year}', style: 0);
+
+    sh.setText(4, 6, 'NOMOR KONTRAK', style: 2);
+    sh.setText(4, 7, ':', style: 2);
+    sh.setText(4, 8, p.nomorSpk, style: 0);
+
+    sh.setText(5, 1, 'MINGGU KE', style: 2);
+    sh.setText(5, 2, ':', style: 2);
+    sh.setText(5, 3, '${p.minggu} (Minggu ke-${p.minggu})', style: 0);
+
+    sh.setText(5, 6, 'TANGGAL KONTRAK', style: 2);
+    sh.setText(5, 7, ':', style: 2);
+    sh.setText(5, 8, p.tanggalSpk, style: 0);
+
+    sh.setText(6, 1, 'NAMA PEKERJAAN', style: 2);
+    sh.setText(6, 2, ':', style: 2);
+    sh.setText(6, 3, p.namaPekerjaan, style: 0);
+
+    sh.setText(6, 6, 'NILAI KONTRAK', style: 2);
+    sh.setText(6, 7, ':', style: 2);
+    sh.setText(6, 8, p.nilaiKontrak, style: 0);
+
+    sh.setText(7, 1, 'LOKASI', style: 2);
+    sh.setText(7, 2, ':', style: 2);
+    sh.setText(7, 3, p.lokasi, style: 0);
+
+    sh.setText(8, 1, 'TAHUN', style: 2);
+    sh.setText(8, 2, ':', style: 2);
+    sh.setText(8, 3, p.tahun, style: 0);
+
+    sh.setText(9, 1, 'PELAKSANA', style: 2);
+    sh.setText(9, 2, ':', style: 2);
+    sh.setText(9, 3, p.pelaksana, style: 0);
+
+    // Baris 11: Main Table Headers
+    sh.setText(11, 1, 'TENAGA KERJA', style: 3);
+    sh.setText(11, 2, '', style: 3);
+    sh.setText(11, 3, 'BAHAN YANG DIGUNAKAN', style: 3);
+    sh.setText(11, 4, '', style: 3);
+    sh.setText(11, 5, '', style: 3);
+    sh.setText(11, 6, 'ALAT YANG DIGUNAKAN', style: 3);
+    sh.setText(11, 7, 'URAIAN KEGIATAN', style: 3);
+    sh.setText(11, 8, '', style: 3);
+
+    // Baris 12: Subheaders
+    sh.setText(12, 1, 'Keahlian', style: 4);
+    sh.setText(12, 2, 'Jumlah', style: 4);
+    sh.setText(12, 3, 'Jenis Bahan yang Didatangkan', style: 4);
+    sh.setText(12, 4, 'Jumlah Diterima', style: 4);
+    sh.setText(12, 5, 'Jumlah Ditolak', style: 4);
+    sh.setText(12, 6, 'Nama Peralatan', style: 4);
+    sh.setText(12, 7, 'No', style: 4);
+    sh.setText(12, 8, 'Uraian Pekerjaan', style: 4);
 
     if (day.isLibur) {
-      sh.setText(4, 1, 'STATUS: HARI LIBUR / TIDAK ADA PEKERJAAN', style: 4);
+      sh.setText(13, 1, 'LIBUR / TIDAK ADA PEKERJAAN', style: 5);
+      for (var c = 2; c <= 8; c++) {
+        sh.setText(13, c, '-', style: 5);
+      }
     } else {
-      sh.setText(4, 1, 'KEAHLIAN', style: 3);
-      sh.setText(4, 2, 'JUMLAH', style: 3);
-      sh.setText(4, 3, 'BAHAN YANG DIGUNAKAN', style: 3);
-      sh.setText(4, 4, 'DITERIMA', style: 3);
-      sh.setText(4, 5, 'DITOLAK', style: 3);
-      sh.setText(4, 6, 'ALAT YANG DIGUNAKAN', style: 3);
-      sh.setText(4, 7, 'URAIAN KEGIATAN', style: 3);
-
       final maxRows = [
         day.workers.length,
         day.materials.length,
@@ -323,55 +375,109 @@ class RehabXlsxFiller {
       ].reduce((a, b) => a > b ? a : b);
 
       for (var i = 0; i < maxRows; i++) {
-        final r = 5 + i;
+        final r = 13 + i;
         if (i < day.workers.length) {
           sh.setText(r, 1, day.workers[i].name, style: 5);
           sh.setNum(r, 2, day.workers[i].count, style: 5);
+        } else {
+          sh.setText(r, 1, '', style: 5);
+          sh.setText(r, 2, '', style: 5);
         }
+
         if (i < day.materials.length) {
           sh.setText(r, 3, day.materials[i].jenis, style: 5);
           sh.setText(r, 4, '${day.materials[i].diterima} ${day.materials[i].satuan}'.trim(), style: 5);
-          sh.setText(r, 5, day.materials[i].ditolak, style: 5);
+          sh.setText(r, 5, day.materials[i].ditolak.isEmpty ? '-' : day.materials[i].ditolak, style: 5);
+        } else {
+          sh.setText(r, 3, '', style: 5);
+          sh.setText(r, 4, '', style: 5);
+          sh.setText(r, 5, '', style: 5);
         }
+
         if (i < day.tools.length) {
           sh.setText(r, 6, day.tools[i], style: 5);
+        } else {
+          sh.setText(r, 6, '', style: 5);
         }
+
         if (i < day.activities.length) {
-          sh.setText(r, 7, '${i + 1}. ${day.activities[i]}', style: 5);
+          sh.setText(r, 7, '${i + 1}', style: 5);
+          sh.setText(r, 8, day.activities[i], style: 5);
+        } else {
+          sh.setText(r, 7, '', style: 5);
+          sh.setText(r, 8, '', style: 5);
         }
       }
 
-      final rWeather = 6 + maxRows;
-      sh.setText(rWeather, 1, 'Cuaca Baik', style: 4);
-      sh.setText(rWeather, 2, day.cuacaBaik, style: 5);
-      sh.setText(rWeather + 1, 1, 'Cuaca Hujan', style: 4);
-      sh.setText(rWeather + 1, 2, day.cuacaHujan, style: 5);
-      sh.setText(rWeather + 2, 1, 'Catatan', style: 4);
-      sh.setText(rWeather + 2, 2, day.catatan, style: 5);
+      final rWeather = 14 + maxRows;
+      sh.setText(rWeather, 1, 'CUACA', style: 4);
+      sh.setText(rWeather, 3, 'Baik: ${day.cuacaBaik} | Hujan: ${day.cuacaHujan.isEmpty ? '-' : day.cuacaHujan}', style: 5);
+
+      sh.setText(rWeather + 1, 1, 'CATATAN HAL-HAL PENTING', style: 4);
+      sh.setText(rWeather + 1, 3, day.catatan.isEmpty ? '-' : day.catatan, style: 5);
+
+      final rSign = rWeather + 3;
+      sh.setText(rSign, 2, 'Disetujui Oleh :', style: 0);
+      sh.setText(rSign, 6, 'Dibuat Oleh :', style: 0);
+
+      sh.setText(rSign + 1, 2, 'Kontraktor Pelaksana', style: 2);
+      sh.setText(rSign + 1, 6, 'Konsultan Pengawas', style: 2);
+
+      sh.setText(rSign + 2, 2, p.kontraktorPelaksana, style: 2);
+      sh.setText(rSign + 2, 6, p.konsultanPengawas, style: 2);
+
+      sh.setText(rSign + 6, 2, p.pelaksanaLapangan, style: 2);
+      sh.setText(rSign + 6, 6, p.pengawasLapangan, style: 2);
+
+      sh.setText(rSign + 7, 2, 'Pelaksana Lapangan', style: 0);
+      sh.setText(rSign + 7, 6, 'Pengawas Lapangan', style: 0);
     }
 
-    // Sematkan 6 foto dokumentasi di bagian bawah sheet
-    var photoStartRow = 18;
-    sh.setText(photoStartRow, 1, 'DOKUMENTASI PEKERJAAN (0%, 50%, 100%)', style: 1);
-    photoStartRow += 2;
+    return sh;
+  }
+
+  static _SheetData _buildDocSheet(
+    RehabProject p,
+    int dayIdx,
+    Map<String, Uint8List> photoBytesMap,
+  ) {
+    final sh = _SheetData('D${dayIdx + 1}', landscape: false);
+    sh.colWidths.addAll([14, 4, 30, 14, 4, 30]);
+
+    // Header Dokumentasi
+    sh.setText(2, 1, 'DOKUMENTASI PEKERJAAN', style: 1);
+    sh.setText(4, 1, 'KEGIATAN', style: 2);
+    sh.setText(4, 2, ':', style: 2);
+    sh.setText(4, 3, p.kegiatanDokumentasi, style: 0);
+
+    sh.setText(5, 1, 'LOKASI', style: 2);
+    sh.setText(5, 2, ':', style: 2);
+    sh.setText(5, 3, p.lokasi, style: 0);
+
+    sh.setText(6, 1, 'PROGRES (%)', style: 2);
+    sh.setText(6, 2, ':', style: 2);
+    sh.setText(6, 3, '${p.totalSdMingguIni.toStringAsFixed(2)}%', style: 0);
+
+    // 6 slot foto dokumentasi: 2 kolom x 3 baris
     for (var s = 0; s < 6; s++) {
       final slotId = 'rehab_H${dayIdx + 1}_${s + 1}';
       final scaled = photoBytesMap[slotId];
       final isRight = s % 2 == 1;
-      final blockRow = photoStartRow + (s ~/ 2) * 14;
-      final labelCol = isRight ? 5 : 1;
-      final label = s < p.photoLabels.length ? p.photoLabels[s] : 'Foto ${s + 1}';
-      sh.setText(blockRow, labelCol, label, style: 4);
+      final rowIdx = 8 + (s ~/ 2) * 16;
+      final labelCol = isRight ? 4 : 1;
+      final label = s < p.photoLabels.length ? p.photoLabels[s] : 'Dokumentasi Foto ${s + 1}';
+
+      sh.setText(rowIdx, labelCol, label, style: 4);
 
       if (scaled != null) {
         sh.pics.add(
           _SheetPic(
             mediaPath: 'xl/media/$slotId.jpeg',
             bytes: scaled,
-            fromCol: isRight ? 4 : 0,
-            fromRow: blockRow,
-            toCol: isRight ? 7 : 3,
-            toRow: blockRow + 12,
+            fromCol: isRight ? 3 : 0,
+            fromRow: rowIdx,
+            toCol: isRight ? 6 : 3,
+            toRow: rowIdx + 14,
             name: slotId,
           ),
         );

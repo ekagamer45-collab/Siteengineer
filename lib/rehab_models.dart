@@ -43,17 +43,24 @@ class RehabDayReport {
     List<String>? tools,
     List<String>? activities,
     this.cuacaBaik = '08.00 WIB - 16.00 WIB',
-    this.cuacaHujan = '',
+    this.cuacaHujan = '-',
     this.catatan = '',
     this.isLibur = false,
   })  : workers = workers ??
             [
               Worker('Pelaksana', 1),
               Worker('Mandor', 1),
-              Worker('Tukang', 6),
-              Worker('Pekerja', 5),
+              Worker('Tukang', 4),
+              Worker('Pekerja', 4),
             ],
-        materials = materials ?? [],
+        materials = materials ??
+            [
+              RehabMaterialItem(jenis: 'semen', diterima: '15', satuan: 'zak', ditolak: '-'),
+              RehabMaterialItem(jenis: 'bata tempel', diterima: '20', satuan: 'dus', ditolak: '-'),
+              RehabMaterialItem(jenis: 'hollow 40x40 plafond', diterima: '50', satuan: 'batang', ditolak: '-'),
+              RehabMaterialItem(jenis: 'hollow 20x40 plafond', diterima: '50', satuan: 'batang', ditolak: '-'),
+              RehabMaterialItem(jenis: 'Hollow C75', diterima: '10', satuan: 'batang', ditolak: '-'),
+            ],
         tools = tools ??
             [
               'Cangkul, Sekop dan Arko',
@@ -63,9 +70,14 @@ class RehabDayReport {
               'Linggis',
               'alat bor dan gerinda',
               'jackdrill',
-              'kuas',
             ],
-        activities = activities ?? [];
+        activities = activities ??
+            [
+              'Pekerjaan plesteran sisi belakang luar gedung aula satpol pp',
+              'Pekerjaan Pas. Bata tempel pos jaga benteng',
+              'Pekerjaan plamir tembok dalam gedung aula satpol pp',
+              'Pekerjaan backdrop aula',
+            ];
 
   List<Worker> workers;
   List<RehabMaterialItem> materials;
@@ -238,13 +250,15 @@ class RehabSection {
 class RehabProject {
   RehabProject({
     this.instansi = 'PEMERINTAH KOTA MOJOKERTO\nSATUAN POLISI PAMONG PRAJA',
-    this.namaPekerjaan = 'BELANJA PEMELIHARAAN BANGUNAN GEDUNG NEGARA SEDERHANA',
+    this.namaPekerjaan = 'BELANJA MODAL BANGUNAN GEDUNG KANTOR - BIAYA PENGAWASAN TEKNIS KONSTRUKSI',
     this.lokasi = 'KOTA MOJOKERTO',
-    this.tahun = '2025',
-    this.nomorSpk = '000.3.2/617/417.508.1/2025',
-    this.tanggalSpk = '25 SEPTEMBER 2025',
-    this.nilaiKontrak = 'Rp 243.230.803,50',
-    this.waktuPelaksanaan = '25 SEPTEMBER 2025 s/d 4 DESEMBER 2025',
+    this.tahun = '2026',
+    this.nomorSpk = '000.3.2/620/417.508.1/2025',
+    this.tanggalSpk = '2026-09-25',
+    this.nilaiKontrak = 'Rp 9.621.000',
+    this.pelaksana = 'CV. CAKRAWANGSA CONSULTANT',
+    this.kegiatanDokumentasi = 'PEKERJAAN PERAWATAN GEDUNG SKALA RINGAN (BADAN KEPEGAWAIAN DAN PENGEMBANGAN SUMBER DAYA MANUSIA KOTA MOJOKERTO)',
+    this.waktuPelaksanaan = '25 SEPTEMBER 2026 s/d 4 DESEMBER 2026',
     this.konsultanPengawas = 'CV. ANANTA SHESHA',
     this.kontraktorPelaksana = 'CV. KARYA LANGGENG MAKMUR',
     this.ppkJabatan = 'Plt. Kepala Satuan Polisi Pamong Praja Kota Mojokerto',
@@ -258,7 +272,7 @@ class RehabProject {
     this.pptkNip = '19920427 201507 1 001',
     this.pengawasLapangan = 'WISNU DANAR PRADANA',
     this.pelaksanaLapangan = 'FIRMAN SETIYO',
-    this.minggu = 5,
+    this.minggu = 1,
     this.totalMinggu = 11,
     DateTime? mulai,
     List<double>? realisasiKumulatifMingguan,
@@ -266,7 +280,7 @@ class RehabProject {
     List<RehabDayReport>? days,
     List<String>? photoLabels,
     Map<String, PhotoMeta>? photoMeta,
-  })  : mulai = mulai ?? DateTime(2025, 10, 20),
+  })  : mulai = mulai ?? DateTime(2026, 10, 12),
         realisasiKumulatifMingguan = realisasiKumulatifMingguan ?? [0.0, 0.0, 6.95, 32.93, 44.60, 83.09],
         sections = sections ?? _defaultSections(),
         days = days ?? List.generate(7, (_) => RehabDayReport()),
@@ -288,6 +302,8 @@ class RehabProject {
   String nomorSpk;
   String tanggalSpk;
   String nilaiKontrak;
+  String pelaksana;
+  String kegiatanDokumentasi;
   String waktuPelaksanaan;
   String konsultanPengawas;
   String kontraktorPelaksana;
@@ -383,6 +399,8 @@ class RehabProject {
         'nomorSpk': nomorSpk,
         'tanggalSpk': tanggalSpk,
         'nilaiKontrak': nilaiKontrak,
+        'pelaksana': pelaksana,
+        'kegiatanDokumentasi': kegiatanDokumentasi,
         'waktuPelaksanaan': waktuPelaksanaan,
         'konsultanPengawas': konsultanPengawas,
         'kontraktorPelaksana': kontraktorPelaksana,
@@ -409,15 +427,17 @@ class RehabProject {
 
   factory RehabProject.fromJson(Map<String, dynamic> j) => RehabProject(
         instansi: j['instansi'] as String? ?? 'PEMERINTAH KOTA MOJOKERTO\nSATUAN POLISI PAMONG PRAJA',
-        namaPekerjaan: j['namaPekerjaan'] as String? ?? 'BELANJA PEMELIHARAAN BANGUNAN GEDUNG NEGARA SEDERHANA',
+        namaPekerjaan: j['namaPekerjaan'] as String? ?? 'BELANJA MODAL BANGUNAN GEDUNG KANTOR - BIAYA PENGAWASAN TEKNIS KONSTRUKSI',
         lokasi: j['lokasi'] as String? ?? 'KOTA MOJOKERTO',
-        tahun: j['tahun'] as String? ?? '2025',
-        nomorSpk: j['nomorSpk'] as String? ?? '',
-        tanggalSpk: j['tanggalSpk'] as String? ?? '',
-        nilaiKontrak: j['nilaiKontrak'] as String? ?? '',
-        waktuPelaksanaan: j['waktuPelaksanaan'] as String? ?? '',
-        konsultanPengawas: j['konsultanPengawas'] as String? ?? '',
-        kontraktorPelaksana: j['kontraktorPelaksana'] as String? ?? '',
+        tahun: j['tahun'] as String? ?? '2026',
+        nomorSpk: j['nomorSpk'] as String? ?? '000.3.2/620/417.508.1/2025',
+        tanggalSpk: j['tanggalSpk'] as String? ?? '2026-09-25',
+        nilaiKontrak: j['nilaiKontrak'] as String? ?? 'Rp 9.621.000',
+        pelaksana: j['pelaksana'] as String? ?? 'CV. CAKRAWANGSA CONSULTANT',
+        kegiatanDokumentasi: j['kegiatanDokumentasi'] as String? ?? 'PEKERJAAN PERAWATAN GEDUNG SKALA RINGAN (BADAN KEPEGAWAIAN DAN PENGEMBANGAN SUMBER DAYA MANUSIA KOTA MOJOKERTO)',
+        waktuPelaksanaan: j['waktuPelaksanaan'] as String? ?? '25 SEPTEMBER 2026 s/d 4 DESEMBER 2026',
+        konsultanPengawas: j['konsultanPengawas'] as String? ?? 'CV. ANANTA SHESHA',
+        kontraktorPelaksana: j['kontraktorPelaksana'] as String? ?? 'CV. KARYA LANGGENG MAKMUR',
         ppkJabatan: j['ppkJabatan'] as String? ?? '',
         ppkNama: j['ppkNama'] as String? ?? '',
         ppkPangkat: j['ppkPangkat'] as String? ?? '',
@@ -427,11 +447,11 @@ class RehabProject {
         pptkJabatan: j['pptkJabatan'] as String? ?? '',
         pptkNama: j['pptkNama'] as String? ?? '',
         pptkNip: j['pptkNip'] as String? ?? '',
-        pengawasLapangan: j['pengawasLapangan'] as String? ?? '',
-        pelaksanaLapangan: j['pelaksanaLapangan'] as String? ?? '',
+        pengawasLapangan: j['pengawasLapangan'] as String? ?? 'WISNU DANAR PRADANA',
+        pelaksanaLapangan: j['pelaksanaLapangan'] as String? ?? 'FIRMAN SETIYO',
         minggu: (j['minggu'] as num?)?.toInt() ?? 1,
         totalMinggu: (j['totalMinggu'] as num?)?.toInt() ?? 11,
-        mulai: j['mulai'] != null ? DateTime.parse(j['mulai'] as String) : DateTime.now(),
+        mulai: j['mulai'] != null ? DateTime.parse(j['mulai'] as String) : DateTime(2026, 10, 12),
         realisasiKumulatifMingguan:
             (j['realisasiKumulatifMingguan'] as List?)?.map((e) => (e as num).toDouble()).toList(),
         sections: (j['sections'] as List?)

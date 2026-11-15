@@ -93,6 +93,8 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
     final tglSpk = TextEditingController(text: _proj.tanggalSpk);
     final nilai = TextEditingController(text: _proj.nilaiKontrak);
     final waktu = TextEditingController(text: _proj.waktuPelaksanaan);
+    final pelaksana = TextEditingController(text: _proj.pelaksana);
+    final kegiatanDok = TextEditingController(text: _proj.kegiatanDokumentasi);
     final konsultan = TextEditingController(text: _proj.konsultanPengawas);
     final kontraktor = TextEditingController(text: _proj.kontraktorPelaksana);
     final minggu = TextEditingController(text: '${_proj.minggu}');
@@ -157,6 +159,15 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                   decoration: const InputDecoration(labelText: 'Waktu Pelaksanaan'),
                 ),
                 TextField(
+                  controller: pelaksana,
+                  decoration: const InputDecoration(labelText: 'Pelaksana (Kontrak)'),
+                ),
+                TextField(
+                  controller: kegiatanDok,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Kegiatan Dokumentasi Foto'),
+                ),
+                TextField(
                   controller: konsultan,
                   decoration: const InputDecoration(labelText: 'Konsultan Pengawas'),
                 ),
@@ -205,6 +216,8 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
       _proj.nomorSpk = spk.text.trim();
       _proj.tanggalSpk = tglSpk.text.trim();
       _proj.nilaiKontrak = nilai.text.trim();
+      _proj.pelaksana = pelaksana.text.trim();
+      _proj.kegiatanDokumentasi = kegiatanDok.text.trim();
       _proj.waktuPelaksanaan = waktu.text.trim();
       _proj.konsultanPengawas = konsultan.text.trim();
       _proj.kontraktorPelaksana = kontraktor.text.trim();

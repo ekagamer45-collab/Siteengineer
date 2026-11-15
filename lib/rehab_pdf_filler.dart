@@ -890,37 +890,77 @@ class RehabPdfFiller {
     final day = p.days[dayIdx];
     final dt = p.dateOf(dayIdx);
     final hdrBg = PdfColor.fromHex('#D9E1F2');
-    final maxMat = day.materials.length > 8 ? day.materials.length : 8;
-    final maxAct = day.activities.length > 10 ? day.activities.length : 10;
+    final maxMat = day.materials.length > 7 ? day.materials.length : 7;
+    final maxAct = day.activities.length > 7 ? day.activities.length : 7;
+
+    pw.Widget infoRow(String k, String v) => pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+          child: pw.Row(
+            children: [
+              pw.SizedBox(
+                width: 95,
+                child: pw.Text(_safe(k), style: pw.TextStyle(font: bold, fontSize: 7)),
+              ),
+              pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7)),
+              pw.Expanded(
+                child: pw.Text(_safe(v), style: pw.TextStyle(font: regular, fontSize: 7), maxLines: 1),
+              ),
+            ],
+          ),
+        );
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('DOKUMENTASI PEKERJAAN HARIAN', style: pw.TextStyle(font: bold, fontSize: 11)),
-                pw.Text(_safe(p.namaPekerjaan), style: pw.TextStyle(font: bold, fontSize: 8.5)),
-                pw.Text(_safe('Lokasi: ${p.lokasi} | No. SPK: ${p.nomorSpk}'), style: pw.TextStyle(font: regular, fontSize: 7.5)),
-              ],
-            ),
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: pw.BoxDecoration(
-                color: hdrBg,
-                border: pw.Border.all(color: PdfColors.black, width: 0.6),
-              ),
-              child: pw.Text(
-                _safe('MINGGU KE-${p.minggu} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}'),
-                style: pw.TextStyle(font: bold, fontSize: 8.5),
-              ),
-            ),
-          ],
+        // Judul Utama
+        pw.Center(
+          child: pw.Text('LAPORAN HARIAN', style: pw.TextStyle(font: bold, fontSize: 11)),
         ),
-        pw.SizedBox(height: 6),
+        pw.SizedBox(height: 5),
+
+        // Grid Informasi Kontrak (2 Kolom Sejajar Rapi)
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.black, width: 0.5),
+            color: PdfColor.fromHex('#F9FAFB'),
+          ),
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Kolom Kiri
+              pw.Expanded(
+                flex: 55,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    infoRow('HARI, TANGGAL', '${hariNama[dayIdx]}, ${_fmtDateId(dt)}'),
+                    infoRow('MINGGU KE', '${p.minggu} (Minggu ke-${p.minggu})'),
+                    infoRow('NAMA PEKERJAAN', p.namaPekerjaan),
+                    infoRow('LOKASI', p.lokasi),
+                    infoRow('TAHUN', p.tahun),
+                    infoRow('PELAKSANA', p.pelaksana),
+                  ],
+                ),
+              ),
+              pw.SizedBox(width: 14),
+              // Kolom Kanan
+              pw.Expanded(
+                flex: 45,
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    infoRow('NOMOR KONTRAK', p.nomorSpk),
+                    infoRow('TANGGAL KONTRAK', p.tanggalSpk),
+                    infoRow('NILAI KONTRAK', p.nilaiKontrak),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 5),
+
         if (day.isLibur)
           pw.Expanded(
             child: pw.Center(
@@ -944,7 +984,7 @@ class RehabPdfFiller {
               children: [
                 // Kolom 1: Tenaga Kerja + Cuaca + Catatan
                 pw.Expanded(
-                  flex: 24,
+                  flex: 22,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                     children: [
@@ -952,17 +992,17 @@ class RehabPdfFiller {
                         border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
                         children: [
                           pw.TableRow(children: [
-                            _cell('KEAHLIAN', font: bold, size: 7, bg: hdrBg),
+                            _cell('TENAGA KERJA', font: bold, size: 7, bg: hdrBg),
                             _cell('JML', font: bold, size: 7, bg: hdrBg, align: pw.Alignment.center),
                           ]),
                           for (final w in day.workers)
                             pw.TableRow(children: [
-                              _cell(w.name, font: regular, size: 7),
-                              _cell('${w.count}', font: bold, size: 7, align: pw.Alignment.center),
+                              _cell(w.name, font: regular, size: 6.8),
+                              _cell('${w.count}', font: bold, size: 6.8, align: pw.Alignment.center),
                             ]),
                         ],
                       ),
-                      pw.SizedBox(height: 6),
+                      pw.SizedBox(height: 4),
                       pw.Table(
                         border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
                         children: [
@@ -971,28 +1011,28 @@ class RehabPdfFiller {
                             _cell('KETERANGAN WAKTU', font: bold, size: 7, bg: hdrBg),
                           ]),
                           pw.TableRow(children: [
-                            _cell('Baik', font: regular, size: 7),
-                            _cell(day.cuacaBaik, font: regular, size: 7),
+                            _cell('Baik', font: regular, size: 6.8),
+                            _cell(day.cuacaBaik, font: regular, size: 6.8),
                           ]),
                           pw.TableRow(children: [
-                            _cell('Hujan', font: regular, size: 7),
-                            _cell(day.cuacaHujan, font: regular, size: 7),
+                            _cell('Hujan', font: regular, size: 6.8),
+                            _cell(day.cuacaHujan.isEmpty ? '-' : day.cuacaHujan, font: regular, size: 6.8),
                           ]),
                         ],
                       ),
-                      pw.SizedBox(height: 6),
+                      pw.SizedBox(height: 4),
                       pw.Expanded(
                         child: pw.Container(
-                          padding: const pw.EdgeInsets.all(5),
+                          padding: const pw.EdgeInsets.all(4),
                           decoration: pw.BoxDecoration(
                             border: pw.Border.all(color: PdfColors.black, width: 0.4),
                           ),
                           child: pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
-                              pw.Text('CATATAN:', style: pw.TextStyle(font: bold, fontSize: 7)),
+                              pw.Text('CATATAN HAL-HAL PENTING:', style: pw.TextStyle(font: bold, fontSize: 6.8)),
                               pw.SizedBox(height: 2),
-                              pw.Text(_safe(day.catatan), style: pw.TextStyle(font: regular, fontSize: 7)),
+                              pw.Text(_safe(day.catatan.isEmpty ? '-' : day.catatan), style: pw.TextStyle(font: regular, fontSize: 6.5)),
                             ],
                           ),
                         ),
@@ -1000,10 +1040,11 @@ class RehabPdfFiller {
                     ],
                   ),
                 ),
-                pw.SizedBox(width: 6),
+                pw.SizedBox(width: 5),
+
                 // Kolom 2: Bahan Diterima / Ditolak
                 pw.Expanded(
-                  flex: 28,
+                  flex: 30,
                   child: pw.Table(
                     border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
                     children: [
@@ -1017,27 +1058,28 @@ class RehabPdfFiller {
                           _cell(
                             r < day.materials.length ? day.materials[r].jenis : '',
                             font: regular,
-                            size: 6.8,
+                            size: 6.5,
                           ),
                           _cell(
                             r < day.materials.length
                                 ? '${day.materials[r].diterima} ${day.materials[r].satuan}'.trim()
                                 : '',
                             font: regular,
-                            size: 6.8,
+                            size: 6.5,
                             align: pw.Alignment.center,
                           ),
                           _cell(
-                            r < day.materials.length ? day.materials[r].ditolak : '',
+                            r < day.materials.length ? (day.materials[r].ditolak.isEmpty ? '-' : day.materials[r].ditolak) : '',
                             font: regular,
-                            size: 6.8,
+                            size: 6.5,
                             align: pw.Alignment.center,
                           ),
                         ]),
                     ],
                   ),
                 ),
-                pw.SizedBox(width: 6),
+                pw.SizedBox(width: 5),
+
                 // Kolom 3: Alat
                 pw.Expanded(
                   flex: 18,
@@ -1049,12 +1091,13 @@ class RehabPdfFiller {
                       ]),
                       for (final t in day.tools)
                         pw.TableRow(children: [
-                          _cell(t, font: regular, size: 6.8),
+                          _cell(t, font: regular, size: 6.5),
                         ]),
                     ],
                   ),
                 ),
-                pw.SizedBox(width: 6),
+                pw.SizedBox(width: 5),
+
                 // Kolom 4: Uraian Kegiatan
                 pw.Expanded(
                   flex: 30,
@@ -1067,11 +1110,11 @@ class RehabPdfFiller {
                       ]),
                       for (var a = 0; a < maxAct; a++)
                         pw.TableRow(children: [
-                          _cell('${a + 1}', font: regular, size: 6.8, align: pw.Alignment.center),
+                          _cell('${a + 1}', font: regular, size: 6.5, align: pw.Alignment.center),
                           _cell(
                             a < day.activities.length ? day.activities[a] : '',
                             font: regular,
-                            size: 6.8,
+                            size: 6.5,
                             maxLines: 3,
                           ),
                         ]),
@@ -1081,22 +1124,30 @@ class RehabPdfFiller {
               ],
             ),
           ),
-        pw.SizedBox(height: 8),
+        pw.SizedBox(height: 6),
+
+        // Tanda Tangan Resmi 2 Pihak
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
           children: [
             pw.Column(
               children: [
-                pw.Text('Diperiksa Oleh, Konsultan Pengawas (${_safe(p.konsultanPengawas)})', style: pw.TextStyle(font: regular, fontSize: 7.5)),
-                pw.SizedBox(height: 22),
-                pw.Text(_safe(p.pengawasLapangan), style: pw.TextStyle(font: bold, fontSize: 7.5, decoration: pw.TextDecoration.underline)),
+                pw.Text('Disetujui Oleh :', style: pw.TextStyle(font: regular, fontSize: 7)),
+                pw.Text('Kontraktor Pelaksana', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                pw.Text(_safe(p.kontraktorPelaksana), style: pw.TextStyle(font: bold, fontSize: 7)),
+                pw.SizedBox(height: 20),
+                pw.Text(_safe(p.pelaksanaLapangan), style: pw.TextStyle(font: bold, fontSize: 7.5, decoration: pw.TextDecoration.underline)),
+                pw.Text('Pelaksana Lapangan', style: pw.TextStyle(font: regular, fontSize: 6.5)),
               ],
             ),
             pw.Column(
               children: [
-                pw.Text('Dibuat Oleh, Kontraktor Pelaksana (${_safe(p.kontraktorPelaksana)})', style: pw.TextStyle(font: regular, fontSize: 7.5)),
-                pw.SizedBox(height: 22),
-                pw.Text(_safe(p.pelaksanaLapangan), style: pw.TextStyle(font: bold, fontSize: 7.5, decoration: pw.TextDecoration.underline)),
+                pw.Text('Dibuat Oleh :', style: pw.TextStyle(font: regular, fontSize: 7)),
+                pw.Text('Konsultan Pengawas', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                pw.Text(_safe(p.konsultanPengawas), style: pw.TextStyle(font: bold, fontSize: 7)),
+                pw.SizedBox(height: 20),
+                pw.Text(_safe(p.pengawasLapangan), style: pw.TextStyle(font: bold, fontSize: 7.5, decoration: pw.TextDecoration.underline)),
+                pw.Text('Pengawas Lapangan', style: pw.TextStyle(font: regular, fontSize: 6.5)),
               ],
             ),
           ],
@@ -1115,7 +1166,7 @@ class RehabPdfFiller {
     const pageMargin = 20.0;
     const gap = 10.0;
     final cardW = (PdfPageFormat.a4.width - (pageMargin * 2) - gap) / 2;
-    final cardH = cardW / 1.5;
+    final cardH = cardW / 1.6;
 
     pw.Widget slotCard(int s) {
       final slotId = 'rehab_H${dayIdx + 1}_${s + 1}';
@@ -1165,14 +1216,45 @@ class RehabPdfFiller {
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
         pw.Text(
-          'DOKUMENTASI PEKERJAAN (0%, 50% DAN 100%)',
+          'DOKUMENTASI PEKERJAAN',
           textAlign: pw.TextAlign.center,
-          style: pw.TextStyle(font: bold, fontSize: 10.5),
+          style: pw.TextStyle(font: bold, fontSize: 11),
         ),
-        pw.Text(
-          _safe('${p.namaPekerjaan} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}'),
-          textAlign: pw.TextAlign.center,
-          style: pw.TextStyle(font: regular, fontSize: 8),
+        pw.SizedBox(height: 6),
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: PdfColors.black, width: 0.5),
+            color: PdfColor.fromHex('#F9FAFB'),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                children: [
+                  pw.SizedBox(width: 90, child: pw.Text('KEGIATAN', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                  pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                  pw.Expanded(child: pw.Text(_safe(p.kegiatanDokumentasi), style: pw.TextStyle(font: regular, fontSize: 7.5))),
+                ],
+              ),
+              pw.SizedBox(height: 2),
+              pw.Row(
+                children: [
+                  pw.SizedBox(width: 90, child: pw.Text('LOKASI', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                  pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                  pw.Expanded(child: pw.Text(_safe('${p.lokasi} | ${hariNama[dayIdx]}, ${_fmtDateId(dt)}'), style: pw.TextStyle(font: regular, fontSize: 7.5))),
+                ],
+              ),
+              pw.SizedBox(height: 2),
+              pw.Row(
+                children: [
+                  pw.SizedBox(width: 90, child: pw.Text('PROGRES (%)', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                  pw.Text(' :  ', style: pw.TextStyle(font: bold, fontSize: 7.5)),
+                  pw.Expanded(child: pw.Text('${p.totalSdMingguIni.toStringAsFixed(2)}%', style: pw.TextStyle(font: bold, fontSize: 7.5))),
+                ],
+              ),
+            ],
+          ),
         ),
         pw.SizedBox(height: 10),
         for (var r = 0; r < 6; r += 2)
