@@ -14,6 +14,7 @@ class GpsStampPayload {
     this.address = '',
     this.fallbackArea = '',
     this.note = 'Captured by GPS Map Camera',
+    this.rotation = 0,
   });
 
   final double lat;
@@ -22,6 +23,7 @@ class GpsStampPayload {
   final String address;
   final String fallbackArea;
   final String note;
+  final int rotation;
 }
 
 class GpsParsedAddress {
@@ -840,6 +842,12 @@ Future<({Uint8List rgba, int width, int height})?> renderStampedPhotoRgba({
 
     if (stamp != null) {
       tileImg = await _decodeUiImage(mapTileBytes);
+      if (stamp.rotation != 0) {
+        canvas.save();
+        canvas.translate(targetW / 2.0, targetH / 2.0);
+        canvas.rotate(stamp.rotation * math.pi / 180.0);
+        canvas.translate(-targetW / 2.0, -targetH / 2.0);
+      }
       _paintStampOnCanvas(
         canvas,
         Size(targetW.toDouble(), targetH.toDouble()),
@@ -847,6 +855,9 @@ Future<({Uint8List rgba, int width, int height})?> renderStampedPhotoRgba({
         tileImg,
         photoHeight: targetH,
       );
+      if (stamp.rotation != 0) {
+        canvas.restore();
+      }
     }
 
     final picture = recorder.endRecording();

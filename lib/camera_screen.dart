@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show File, Platform;
+import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -50,6 +51,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   bool _processing = false;
   bool _shutterFlash = false;
   bool _isVertical = false; // false = 16:9 Horizontal (3840x2160), true = 9:16 Vertikal (2160x3840)
+  int _maptagRotation = 0; // 0 atau 180 derajat (rotasi maptag otomatis / manual tanpa perlu putar rotasi sistem HP)
 
   Offset? _focusPointScreen;
   bool _showFocusRing = false;
@@ -625,9 +627,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           schoolName: widget.projectTitle ?? store.project.school,
           address: address,
           mapTileBytes: _cachedMapTile,
+          rotation: _maptagRotation,
         );
       }
-      final double targetAspect = _isVertical ? (9 / 16) : (16 / 9);
+      // Selalu otomatis 16:9 (3840 x 2160 piksel resolusi 4K Ultra HD) sesuai permintaan
+      const double targetAspect = 16 / 9;
 
       if (widget.onCustomSave != null) {
         await widget.onCustomSave!(rawBytes, wm, null);
@@ -775,6 +779,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
             tooltip: 'Beralih Kamera Depan / Belakang',
             onPressed: _loading ? null : _switchCamera,
             icon: const Icon(Icons.flip_camera_ios_rounded, color: Colors.white, size: 20),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: _maptagRotation == 180 ? Colors.amberAccent : Colors.white70,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+            ),
+            icon: const Icon(Icons.screen_rotation_rounded, size: 17),
+            label: Text(
+              _maptagRotation == 180 ? 'Maptag 180°' : 'Maptag 0°',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+            onPressed: () {
+              setState(() => _maptagRotation = _maptagRotation == 0 ? 180 : 0);
+              HapticFeedback.selectionClick();
+            },
           ),
           TextButton.icon(
             style: TextButton.styleFrom(
@@ -1116,21 +1135,25 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
             if (widget.enableGps && pos != null)
               Positioned(
                 left: 12,
-                bottom: isLandscape ? 16 : 126,
+                bottom: _maptagRotation == 180 ? (screenH - (isLandscape ? 200 : 260)).clamp(40.0, screenH - 60) : (isLandscape ? 16 : 126),
                 width: isLandscape
                     ? (screenW - 140).clamp(240.0, 520.0)
                     : (screenW - 24).clamp(240.0, 480.0),
                 child: IgnorePointer(
-                  child: GpsMapCameraPreviewOverlay(
-                    frameAspect: activeAspect,
-                    frameWidth: isLandscape ? ((screenW - 140).clamp(240.0, 520.0)) : (screenW - 24),
-                    mapTileBytes: _cachedMapTile,
-                    stamp: GpsStampPayload(
-                      lat: pos.latitude,
-                      lng: pos.longitude,
-                      time: DateTime.now(),
-                      address: _cachedAddress,
-                      fallbackArea: widget.projectTitle ?? store.project.school,
+                  child: Transform.rotate(
+                    angle: _maptagRotation * math.pi / 180,
+                    child: GpsMapCameraPreviewOverlay(
+                      frameAspect: activeAspect,
+                      frameWidth: isLandscape ? ((screenW - 140).clamp(240.0, 520.0)) : (screenW - 24),
+                      mapTileBytes: _cachedMapTile,
+                      stamp: GpsStampPayload(
+                        lat: pos.latitude,
+                        lng: pos.longitude,
+                        time: DateTime.now(),
+                        address: _cachedAddress,
+                        fallbackArea: widget.projectTitle ?? store.project.school,
+                        rotation: _maptagRotation,
+                      ),
                     ),
                   ),
                 ),

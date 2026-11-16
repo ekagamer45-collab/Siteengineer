@@ -1590,6 +1590,30 @@ class _RehabDayScreenState extends State<RehabDayScreen>
               }
             },
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1B5E20),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              icon: const Icon(Icons.check_circle_rounded, size: 16),
+              label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+              onPressed: () {
+                widget.onChanged(_proj);
+                widget.store.saveRehab();
+                widget.store.changed(forceCheckpoint: true);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Data & nama ruang tersimpan sukses!'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
         bottom: TabBar(
           controller: _tabs,
@@ -1844,6 +1868,57 @@ class _RehabDayScreenState extends State<RehabDayScreen>
     );
   }
 
+  void _editPhotoLabel(int idx) {
+    final current = idx < _proj.photoLabels.length ? _proj.photoLabels[idx] : 'Foto ${idx + 1}';
+    final ctrl = TextEditingController(text: current);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Ubah Nama Ruang / Label Slot ${idx + 1}'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Nama Ruang / Tampak',
+            hintText: 'Mis. RUANG KELAS 1 (TAMPAK DEPAN), RUANG GUDANG, dsb.',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final newName = ctrl.text.trim().toUpperCase();
+              if (newName.isNotEmpty) {
+                while (_proj.photoLabels.length <= idx) {
+                  _proj.photoLabels.add('Foto ${_proj.photoLabels.length + 1}');
+                }
+                _proj.photoLabels[idx] = newName;
+                widget.onChanged(_proj);
+                widget.store.saveRehab();
+                widget.store.changed(forceCheckpoint: true);
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Nama ruang slot ${idx + 1} diubah menjadi "$newName"'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPhotoTab() {
     return GridView.builder(
       padding: const EdgeInsets.all(14),
@@ -1889,12 +1964,26 @@ class _RehabDayScreenState extends State<RehabDayScreen>
               children: [
                 Container(
                   color: const Color(0xFF0B3C7D),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _editPhotoLabel(idx),
+                        borderRadius: BorderRadius.circular(4),
+                        child: const Padding(
+                          padding: EdgeInsets.all(3),
+                          child: Icon(Icons.edit, size: 14, color: Colors.amberAccent),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(

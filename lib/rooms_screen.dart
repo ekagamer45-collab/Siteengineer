@@ -275,6 +275,30 @@ class _RoomsScreenState extends State<RoomsScreen> {
             icon: const Icon(Icons.restore),
             onPressed: _confirmResetRooms,
           ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1B5E20),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              icon: const Icon(Icons.check_circle_rounded, size: 18),
+              label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              onPressed: () {
+                store.save();
+                store.changed(forceCheckpoint: true);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Nama & susunan ruang berhasil disimpan! Otomatis tampil di seluruh dokumen foto.'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                Navigator.pop(context, true);
+              },
+            ),
+          ),
         ],
       ),
       body: ListenableBuilder(

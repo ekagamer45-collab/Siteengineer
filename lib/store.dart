@@ -18,6 +18,7 @@ import 'google_sheets_service.dart';
 import 'gps_stamp.dart';
 import 'image_scale.dart';
 import 'models.dart';
+import 'notification_service.dart';
 import 'pdf_filler.dart';
 import 'rehab_models.dart';
 import 'rehab_pdf_filler.dart';
@@ -66,6 +67,7 @@ class WatermarkData {
     required this.schoolName,
     this.address = '',
     this.note = 'Captured by GPS Map Camera',
+    this.rotation = 0,
     this.mapTileBytes,
     this.overlayPng,
   });
@@ -77,10 +79,12 @@ class WatermarkData {
   final String schoolName;
   final String address;
   final String note;
+  final int rotation;
   final Uint8List? mapTileBytes;
   final Uint8List? overlayPng;
 
   WatermarkData copyWith({
+    int? rotation,
     Uint8List? mapTileBytes,
     Uint8List? overlayPng,
   }) =>
@@ -93,6 +97,7 @@ class WatermarkData {
         schoolName: schoolName,
         address: address,
         note: note,
+        rotation: rotation ?? this.rotation,
         mapTileBytes: mapTileBytes ?? this.mapTileBytes,
         overlayPng: overlayPng ?? this.overlayPng,
       );
@@ -166,19 +171,72 @@ class Store extends ChangeNotifier {
   List<PendingSyncTask> pendingSyncQueue = [];
   Map<String, String> _photoFingerprints = {};
   Timer? _cloudSyncTimer;
+  DateTime? sessionExpiresAt;
+  bool _isAutoSyncRunning = false;
+  final Set<String> _knownSubmissionIds = <String>{};
 
   void startAutoCloudSync() {
     _cloudSyncTimer?.cancel();
-    _cloudSyncTimer = Timer.periodic(const Duration(seconds: 12), (_) {
-      if (FirebaseService.isValidDbUrl(firebaseDbUrl) && currentUser != null) {
-        fetchCloudSubmissions().catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false));
-      }
+    _knownSubmissionIds.clear();
+    _knownSubmissionIds.addAll(cloudSubmissions.map((s) => s.id));
+
+    // Sinkronisasi awal segera dieksekusi
+    unawaited(_performAutoCloudSync());
+
+    // Timer berkala tiap 6 detik agar respon perubahan lintas device/role seketika
+    _cloudSyncTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      unawaited(_performAutoCloudSync());
     });
+  }
+
+  Future<void> _performAutoCloudSync() async {
+    if (_isAutoSyncRunning || currentUser == null) return;
+    _isAutoSyncRunning = true;
+    try {
+      // 1. Tarik pembaruan user (agar akun yang diedit di HP lain seketika masuk ke HP ini)
+      await refreshUsersFromCloud().catchError((_) => const CloudResult<List<AppUser>>(ok: false));
+
+      // 2. Tarik laporan cloud & deteksi kiriman baru untuk notifikasi pop-up luar aplikasi
+      final beforeIds = Set<String>.from(_knownSubmissionIds);
+      final subRes = await fetchCloudSubmissions().catchError((_) => const CloudResult<List<CloudSubmission>>(ok: false));
+
+      if (subRes.ok && subRes.data != null) {
+        final newReports = subRes.data!
+            .where((s) => !beforeIds.contains(s.id) && s.userId != currentUser?.id)
+            .toList();
+
+        for (final s in subRes.data!) {
+          _knownSubmissionIds.add(s.id);
+        }
+
+        if (newReports.isNotEmpty) {
+          // Jika role Admin / Superadmin: Munculkan heads-up banner pop-up melayang di atas layar HP
+          if (currentUser?.isAdminOrSuper ?? false) {
+            NotificationService.instance.showIncomingReportNotification(
+              senderName: newReports.first.displayName.isNotEmpty
+                  ? newReports.first.displayName
+                  : newReports.first.username,
+              projectName: newReports.map((e) => e.programName).toSet().join(' & '),
+              count: newReports.length,
+            );
+          } else {
+            // Untuk Pelaksana Lapangan: Notifikasi update laporan masuk dari tim / admin
+            NotificationService.instance.showCustomNotification(
+              title: '📩 Update Data Laporan Diterima',
+              body: '${newReports.length} laporan baru diterima dari rekan tim (${newReports.first.programName}).',
+            );
+          }
+        }
+      }
+    } catch (_) {} finally {
+      _isAutoSyncRunning = false;
+    }
   }
 
   void stopAutoCloudSync() {
     _cloudSyncTimer?.cancel();
     _cloudSyncTimer = null;
+    _isAutoSyncRunning = false;
   }
 
   bool get isFirebaseConfigured => FirebaseService.isValidDbUrl(firebaseDbUrl);
@@ -267,6 +325,9 @@ class Store extends ChangeNotifier {
 
     _loadAuthConfig();
     initHistoryBaseline();
+    if (currentUser != null) {
+      startAutoCloudSync();
+    }
     unawaited(
       refreshUsersFromCloud().catchError((_) => const CloudResult<List<AppUser>>(ok: false)),
     );
@@ -334,11 +395,24 @@ class Store extends ChangeNotifier {
                 ? loadedFb
                 : kDefaultFirebaseDbUrl;
         firebaseAuthToken = j['firebaseAuthToken'] as String? ?? '';
-        if (j['currentUser'] is Map) {
-          lastUsername = j['currentUser']['username'] as String? ?? '';
+        if (j['sessionExpiresAt'] is String) {
+          try {
+            sessionExpiresAt = DateTime.parse(j['sessionExpiresAt'] as String);
+          } catch (_) {}
         }
-        // Selalu tampilkan layar Login terlebih dahulu saat aplikasi dibuka
-        currentUser = null;
+        if (j['currentUser'] is Map) {
+          final uMap = Map<String, dynamic>.from(j['currentUser'] as Map);
+          lastUsername = uMap['username'] as String? ?? '';
+          final expires = sessionExpiresAt;
+          // Pertahankan sesi login aktif selama 30 hari tanpa perlu login ulang
+          if (expires == null || DateTime.now().isBefore(expires)) {
+            currentUser = AppUser.fromJson(uMap);
+          } else {
+            currentUser = null; // Sesi 30 hari telah kedaluwarsa
+          }
+        } else {
+          currentUser = null;
+        }
         if (j['localUsers'] is List) {
           localUsers = (j['localUsers'] as List)
               .whereType<Map>()
@@ -388,6 +462,7 @@ class Store extends ChangeNotifier {
       'appsScriptUrl': appsScriptUrl,
       'firebaseDbUrl': firebaseDbUrl,
       'firebaseAuthToken': firebaseAuthToken,
+      'sessionExpiresAt': sessionExpiresAt?.toIso8601String(),
       'currentUser': currentUser?.toJson(),
       'localUsers': localUsers.map((e) => e.toJson()).toList(),
       'deletedSubmissionIds': deletedSubmissionIds.toList(),
@@ -934,6 +1009,7 @@ class Store extends ChangeNotifier {
             address: wm.address,
             fallbackArea: wm.schoolName,
             note: wm.note,
+            rotation: wm.rotation,
           )
         : null;
 
@@ -1660,6 +1736,7 @@ class Store extends ChangeNotifier {
         final loggedIn = fbRes.data!;
         loggedIn.password = password;
         currentUser = loggedIn;
+        sessionExpiresAt = DateTime.now().add(const Duration(days: 30));
         final idx = localUsers.indexWhere(
           (u) => u.username.toLowerCase() == uname,
         );
@@ -1688,6 +1765,7 @@ class Store extends ChangeNotifier {
       if (cloudRes.ok && cloudRes.data != null) {
         final loggedIn = cloudRes.data!;
         currentUser = loggedIn;
+        sessionExpiresAt = DateTime.now().add(const Duration(days: 30));
         final idx = localUsers.indexWhere(
           (u) => u.username.toLowerCase() == uname,
         );
@@ -1723,6 +1801,7 @@ class Store extends ChangeNotifier {
           );
       if (localSuper != null) {
         currentUser = localSuper;
+        sessionExpiresAt = DateTime.now().add(const Duration(days: 30));
         if (isFirebaseConfigured) {
           unawaited(
             firebaseService
@@ -1769,6 +1848,7 @@ class Store extends ChangeNotifier {
     }
     final found = matchedUser;
     currentUser = found;
+    sessionExpiresAt = DateTime.now().add(const Duration(days: 30));
     if (!found.isAdminOrSuper) {
       cloudSubmissions =
           cloudSubmissions.where((s) => s.userId == found.id).toList();
@@ -1906,6 +1986,7 @@ class Store extends ChangeNotifier {
   void logout() {
     stopAutoCloudSync();
     currentUser = null;
+    sessionExpiresAt = null;
     cloudSubmissions = [];
     saveAuthConfig();
     notifyListeners();
@@ -1961,6 +2042,40 @@ class Store extends ChangeNotifier {
     if (anyOk) {
       localUsers = merged;
       _seedDefaultUsersIfEmpty();
+
+      // Sinkronisasi data currentUser jika diedit oleh Admin di HP lain
+      if (currentUser != null) {
+        final myUname = currentUser!.username.trim().toLowerCase();
+        final freshMe = localUsers.cast<AppUser?>().firstWhere(
+              (u) =>
+                  u != null &&
+                  (u.id == currentUser!.id ||
+                      u.username.trim().toLowerCase() == myUname),
+              orElse: () => null,
+            );
+        if (freshMe != null) {
+          if (!freshMe.active) {
+            logout();
+            NotificationService.instance.showCustomNotification(
+              title: '⚠️ Akun Dinonaktifkan',
+              body: 'Akun Anda (@${freshMe.username}) telah dinonaktifkan oleh Administrator.',
+            );
+          } else if (freshMe.role != currentUser!.role ||
+              freshMe.displayName != currentUser!.displayName ||
+              freshMe.password != currentUser!.password ||
+              freshMe.allowedPrograms.length != currentUser!.allowedPrograms.length) {
+            final oldRole = currentUser!.role;
+            currentUser = freshMe;
+            if (oldRole != freshMe.role) {
+              NotificationService.instance.showCustomNotification(
+                title: '👤 Peran Akun Diperbarui',
+                body: 'Peran akun Anda kini adalah ${freshMe.role.toUpperCase()}.',
+              );
+            }
+          }
+        }
+      }
+
       saveAuthConfig();
       notifyListeners();
       return CloudResult(

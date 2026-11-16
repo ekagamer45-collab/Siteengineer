@@ -154,4 +154,35 @@ class NotificationService {
       debugPrint('Error showing reminder notification: $e');
     }
   }
+
+  /// Notifikasi umum untuk pembaruan data, perubahan akun, atau pesan penting lainnya.
+  Future<void> showCustomNotification({
+    required String title,
+    required String body,
+    int id = 3001,
+  }) async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) return;
+    await init();
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDesc,
+        importance: Importance.max,
+        priority: Priority.high,
+        enableVibration: true,
+        playSound: true,
+        styleInformation: BigTextStyleInformation(''),
+      );
+
+      await _plugin.show(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: const NotificationDetails(android: androidDetails),
+      );
+    } catch (e) {
+      debugPrint('Error showing custom notification: $e');
+    }
+  }
 }

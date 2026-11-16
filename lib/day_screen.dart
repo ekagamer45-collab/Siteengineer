@@ -67,7 +67,7 @@ class DayScreen extends StatelessWidget {
         ),
         body: TabBarView(children: [
           DataTab(day: store.project.days[index], dayIndex: index),
-          PhotoTab(sheet: sh),
+          PhotoTab(sheet: sh, dayIndex: index),
         ]),
       ),
     );
@@ -545,8 +545,9 @@ class _DataTabState extends State<DataTab> with AutomaticKeepAliveClientMixin {
 
 // ======================= TAB FOTO =======================
 class PhotoTab extends StatelessWidget {
-  const PhotoTab({super.key, required this.sheet});
+  const PhotoTab({super.key, required this.sheet, required this.dayIndex});
   final SheetCfg sheet;
+  final int dayIndex;
 
   Future<void> _openCamera(BuildContext context, Slot s) async {
     try {
@@ -846,21 +847,29 @@ class PhotoTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (sheet.slots.isEmpty) {
-      return const Center(child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text('Template hari ini tidak punya halaman dokumentasi foto.', textAlign: TextAlign.center),
-      ));
-    }
     return ListenableBuilder(
       listenable: store,
-      builder: (context, _) => GridView.builder(
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.15),
-        itemCount: sheet.slots.length,
-        itemBuilder: (context, i) {
-          final s = sheet.slots[i];
+      builder: (context, _) {
+        final currentSlots = store.activeSlotsForSheet(dayIndex);
+        final list = currentSlots.isNotEmpty ? currentSlots : sheet.slots;
+        if (list.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'Template hari ini tidak punya halaman dokumentasi foto.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.15),
+          itemCount: list.length,
+          itemBuilder: (context, i) {
+            final s = list[i];
           final has = store.hasPhoto(s);
           final meta = store.photoMetaOf(s);
           final hasGps = meta?.hasGps ?? false;
@@ -939,7 +948,8 @@ class PhotoTab extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 }
