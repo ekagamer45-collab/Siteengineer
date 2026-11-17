@@ -9,6 +9,7 @@ import 'config.dart';
 import 'crop_screen.dart';
 import 'main.dart' show tgl;
 import 'models.dart';
+import 'rooms_screen.dart';
 import 'store.dart';
 
 class DayScreen extends StatelessWidget {
@@ -24,6 +25,14 @@ class DayScreen extends StatelessWidget {
         appBar: AppBar(
           title: Text('${hariNama[index]}, ${tgl(store.project.dateOf(index))}'),
           actions: [
+            IconButton(
+              tooltip: 'Kelola Ruang & Tampak',
+              icon: const Icon(Icons.meeting_room_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RoomsScreen()),
+              ),
+            ),
             if (index > 0)
               IconButton(
                 tooltip: 'Salin data dari hari sebelumnya',
@@ -845,6 +854,310 @@ class PhotoTab extends StatelessWidget {
     );
   }
 
+  void _showAddRoomDialog(BuildContext context) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tambah Ruang Baru'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nama Ruang',
+            hintText: 'Misal: RUANG KELAS 5, TOILET, GUDANG...',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.characters,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          FilledButton(
+            onPressed: () {
+              final val = ctrl.text.trim();
+              if (val.isNotEmpty) {
+                store.addRoom(val);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Ruang "$val" berhasil ditambahkan.')),
+                );
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddTampakDialog(BuildContext context, RoomConfig room) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Tambah Tampak di ${room.name}'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nama Tampak',
+            hintText: 'Misal: TAMPAK KIRI, TAMPAK ATAP, TAMPAK LANTAI...',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.characters,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          FilledButton(
+            onPressed: () {
+              final val = ctrl.text.trim();
+              if (val.isNotEmpty) {
+                store.addViewToRoom(room.id, val);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Tampak "$val" berhasil ditambahkan di ${room.name}.')),
+                );
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRenameRoomDialog(BuildContext context, RoomConfig room) {
+    final ctrl = TextEditingController(text: room.name);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ubah Nama Ruang'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nama Ruang',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.characters,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          FilledButton(
+            onPressed: () {
+              final val = ctrl.text.trim();
+              if (val.isNotEmpty) {
+                store.renameRoom(room.id, val);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Nama ruang diperbarui menjadi "$val".')),
+                );
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlotCard(BuildContext context, Slot s) {
+    final has = store.hasPhoto(s);
+    final meta = store.photoMetaOf(s);
+    final hasGps = meta?.hasGps ?? false;
+
+    return InkWell(
+      onTap: () => _menu(context, s),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: has ? Colors.transparent : Colors.grey.shade300),
+        ),
+        color: has ? null : Colors.grey.shade50,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (has)
+              Image.file(
+                store.photoFile(s),
+                key: ValueKey('${s.id}_${store.photoVersion(s)}'),
+                fit: BoxFit.cover,
+                cacheWidth: 600,
+              )
+            else
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_a_photo_outlined, size: 32, color: Colors.blue.shade700),
+                  const SizedBox(height: 4),
+                  const Text('Ambil Foto', style: TextStyle(fontSize: 10.5, color: Colors.black54)),
+                ],
+              ),
+            if (has) ...[
+              Positioned(
+                top: 6,
+                left: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: hasGps
+                        ? Colors.green.shade800.withValues(alpha: 0.88)
+                        : Colors.orange.shade900.withValues(alpha: 0.88),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        hasGps ? Icons.location_on : Icons.location_off,
+                        size: 13,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        hasGps ? 'GPS' : 'Tanpa GPS',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: InkWell(
+                  onTap: () => _confirmDeletePhoto(context, s),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                color: Colors.black54,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Text(
+                  s.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoomSection(BuildContext context, RoomConfig room, List<Slot> slots) {
+    final filledCount = slots.where(store.hasPhoto).length;
+    final totalCount = slots.length;
+    final isComplete = filledCount == totalCount && totalCount > 0;
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isComplete ? Colors.green.shade300 : Colors.grey.shade300,
+          width: isComplete ? 1.5 : 1.0,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Baris Header Ruang
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isComplete ? Colors.green.shade50 : const Color(0xFFEBF3FC),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.meeting_room_rounded,
+                    size: 18,
+                    color: isComplete ? Colors.green.shade800 : const Color(0xFF0B3C7D),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        room.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        '$filledCount / $totalCount foto terisi',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isComplete
+                              ? Colors.green.shade800
+                              : (filledCount > 0 ? Colors.blue.shade800 : Colors.grey.shade600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (room.id != 'extra') ...[
+                  IconButton(
+                    tooltip: 'Tambah Tampak di ${room.name}',
+                    icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _showAddTampakDialog(context, room),
+                  ),
+                  IconButton(
+                    tooltip: 'Ubah Nama Ruang',
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _showRenameRoomDialog(context, room),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Grid Foto dalam Ruang Ini
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.15,
+              ),
+              itemCount: slots.length,
+              itemBuilder: (context, i) => _buildSlotCard(context, slots[i]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -863,93 +1176,106 @@ class PhotoTab extends StatelessWidget {
             ),
           );
         }
-        return GridView.builder(
-          padding: const EdgeInsets.all(12),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 1.15),
-          itemCount: list.length,
-          itemBuilder: (context, i) {
-            final s = list[i];
-          final has = store.hasPhoto(s);
-          final meta = store.photoMetaOf(s);
-          final hasGps = meta?.hasGps ?? false;
-          return InkWell(
-            onTap: () => _menu(context, s),
-            child: Card(
-              clipBehavior: Clip.antiAlias,
-              child: Stack(fit: StackFit.expand, children: [
-                if (has)
-                  Image.file(
-                    store.photoFile(s),
-                    key: ValueKey('${s.id}_${store.photoVersion(s)}'),
-                    fit: BoxFit.cover,
-                    cacheWidth: 600,
-                  )
-                else
-                  const Center(child: Icon(Icons.add_a_photo_outlined, size: 36, color: Colors.black38)),
-                if (has) ...[
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: hasGps
-                            ? Colors.green.shade800.withValues(alpha: 0.88)
-                            : Colors.orange.shade900.withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            hasGps ? Icons.location_on : Icons.location_off,
-                            size: 13,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            hasGps ? 'GPS' : 'Tanpa GPS',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+
+        // Penggolongan foto berdasarkan ruang
+        final roomGroups = <({RoomConfig room, List<Slot> slots})>[];
+        int slotOffset = 0;
+        for (final r in store.rooms) {
+          final count = r.views.length;
+          final roomSlots = <Slot>[];
+          for (var i = 0; i < count && (slotOffset + i) < list.length; i++) {
+            roomSlots.add(list[slotOffset + i]);
+          }
+          slotOffset += count;
+          roomGroups.add((room: r, slots: roomSlots));
+        }
+        if (slotOffset < list.length) {
+          final extraSlots = list.sublist(slotOffset);
+          roomGroups.add((
+            room: RoomConfig(
+              id: 'extra',
+              name: 'Foto Tambahan',
+              views: extraSlots.map((e) => e.label).toList(),
+            ),
+            slots: extraSlots,
+          ));
+        }
+
+        final totalFilled = list.where(store.hasPhoto).length;
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
+          children: [
+            // Header ringkasan & aksi kelola ruang
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F4F8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Color(0xFF0B3C7D),
+                    child: Icon(Icons.photo_library_rounded, size: 20, color: Colors.white),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Total Dokumentasi: $totalFilled / ${list.length} Foto',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0B3C7D)),
+                        ),
+                        Text(
+                          'Tergolong dalam ${roomGroups.length} ruang kerja',
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                        ),
+                      ],
                     ),
                   ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: InkWell(
-                      onTap: () => _confirmDeletePhoto(context, s),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
-                      ),
+                  FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    icon: const Icon(Icons.tune_rounded, size: 16),
+                    label: const Text('Kelola Ruang', style: TextStyle(fontSize: 12)),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RoomsScreen()),
                     ),
                   ),
                 ],
-                Positioned(
-                  left: 0, right: 0, bottom: 0,
-                  child: Container(
-                    color: Colors.black54, padding: const EdgeInsets.all(6),
-                    child: Text(s.label, maxLines: 2, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 11)),
-                  ),
-                ),
-              ]),
+              ),
             ),
-          );
-        },
-      );
-    },
-  );
-}
+            const SizedBox(height: 12),
+
+            // Daftar Ruang Penggolongan
+            for (final group in roomGroups) ...[
+              _buildRoomSection(context, group.room, group.slots),
+              const SizedBox(height: 14),
+            ],
+
+            // Tombol Tambah Ruang di bawah
+            Center(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0B3C7D),
+                  side: BorderSide(color: Colors.blue.shade300),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                ),
+                icon: const Icon(Icons.add_home_work_rounded, size: 18),
+                label: const Text('Tambah Ruang Baru', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () => _showAddRoomDialog(context),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

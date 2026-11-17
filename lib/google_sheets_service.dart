@@ -678,6 +678,25 @@ class GoogleSheetsService {
       return CloudResult(ok: false, message: _errMsg(e, 'Error hapus laporan'));
     }
   }
+
+  /// Panggil fungsi perapian tabel Google Spreadsheet (Reports, Users, Photos).
+  Future<CloudResult<void>> formatSpreadsheet(String scriptUrl) async {
+    try {
+      final res = await _postAction(scriptUrl, {'action': 'formatSheets'});
+      if (res['ok'] == true) {
+        return CloudResult(
+          ok: true,
+          message: res['message'] as String? ?? 'Spreadsheet berhasil dirapikan & diformat!',
+        );
+      }
+      return CloudResult(
+        ok: false,
+        message: res['error'] as String? ?? 'Gagal merapikan tabel Spreadsheet',
+      );
+    } catch (e) {
+      return CloudResult(ok: false, message: _errMsg(e, 'Error merapikan spreadsheet'));
+    }
+  }
 }
 
 /// Script Google Apps Script (`Code.gs`) siap salin ke Google Spreadsheet -> Ekstensi -> Apps Script.
@@ -731,6 +750,169 @@ function getOrCreateSheets_() {
     ensureHeaders_(photos, photoHeaders);
   }
   return { ss, users, reports, photos };
+}
+
+function onOpen() {
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('⚡ Site Engineer')
+      .addItem('✨ Rapikan & Format Semua Tabel', 'formatAllSheets')
+      .addItem('📊 Format Tabel Laporan (Reports)', 'formatReportsSheet')
+      .addItem('👥 Format Tabel Pengguna (Users)', 'formatUsersSheet')
+      .addItem('📸 Format Tabel Galeri Foto (Photos)', 'formatPhotosSheet')
+      .addToUi();
+  } catch (_) {}
+}
+
+function formatAllSheets() {
+  const { reports, users, photos } = getOrCreateSheets_();
+  formatReportsSheet_(reports);
+  formatUsersSheet_(users);
+  formatPhotosSheet_(photos);
+}
+
+function formatReportsSheet() {
+  const { reports } = getOrCreateSheets_();
+  formatReportsSheet_(reports);
+}
+
+function formatUsersSheet() {
+  const { users } = getOrCreateSheets_();
+  formatUsersSheet_(users);
+}
+
+function formatPhotosSheet() {
+  const { photos } = getOrCreateSheets_();
+  formatPhotosSheet_(photos);
+}
+
+function formatReportsSheet_(sheet) {
+  if (!sheet) return;
+  const numRows = sheet.getLastRow();
+  const numCols = 16;
+  if (numRows < 1) return;
+
+  sheet.setFrozenRows(1);
+  const headerLabels = [
+    'ID LAPORAN', 'ID USER', 'USERNAME', 'NAMA PELAKSANA',
+    'TIPE', 'PROGRAM', 'NAMA PROYEK / SEKOLAH', 'MINGGU KE',
+    'WAKTU KIRIM', 'DATA DETAIL (JSON)', 'MAP FOTO DRIVE', 'LINK FOTO DRIVE',
+    'FOLDER HARI', 'FILE PDF', 'LABEL HARI', 'RINGKASAN'
+  ];
+  sheet.getRange(1, 1, 1, numCols).setValues([headerLabels]);
+  const headerRange = sheet.getRange(1, 1, 1, numCols);
+  headerRange.setBackground('#0B3C7D')
+    .setFontColor('#FFFFFF')
+    .setFontWeight('bold')
+    .setFontSize(10)
+    .setVerticalAlignment('middle')
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(1, 36);
+
+  const colWidths = [150, 110, 110, 180, 110, 120, 240, 85, 160, 150, 130, 240, 150, 170, 130, 250];
+  for (let c = 0; c < colWidths.length; c++) {
+    sheet.setColumnWidth(c + 1, colWidths[c]);
+  }
+
+  if (numRows > 1) {
+    const dataRange = sheet.getRange(2, 1, numRows - 1, numCols);
+    dataRange.setVerticalAlignment('middle')
+      .setFontSize(9.5)
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+
+    for (let r = 2; r <= numRows; r++) {
+      sheet.setRowHeight(r, 28);
+      const rowRange = sheet.getRange(r, 1, 1, numCols);
+      rowRange.setBackground(r % 2 === 0 ? '#FFFFFF' : '#F8FAFC');
+    }
+    dataRange.setBorder(true, true, true, true, true, true, '#E2E8F0', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(2, 8, numRows - 1, 1).setHorizontalAlignment('center');
+  }
+}
+
+function formatUsersSheet_(sheet) {
+  if (!sheet) return;
+  const numRows = sheet.getLastRow();
+  const numCols = 9;
+  if (numRows < 1) return;
+
+  sheet.setFrozenRows(1);
+  const headerLabels = [
+    'ID USER', 'USERNAME', 'PASSWORD', 'NAMA LENGKAP',
+    'ROLE / PERAN', 'PROGRAM AKSES', 'STATUS AKTIF', 'TIPE AVATAR', 'FOTO AVATAR'
+  ];
+  sheet.getRange(1, 1, 1, numCols).setValues([headerLabels]);
+  const headerRange = sheet.getRange(1, 1, 1, numCols);
+  headerRange.setBackground('#1B5E20')
+    .setFontColor('#FFFFFF')
+    .setFontWeight('bold')
+    .setFontSize(10)
+    .setVerticalAlignment('middle')
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(1, 36);
+
+  const colWidths = [140, 120, 120, 190, 110, 200, 100, 100, 120];
+  for (let c = 0; c < colWidths.length; c++) {
+    sheet.setColumnWidth(c + 1, colWidths[c]);
+  }
+
+  if (numRows > 1) {
+    const dataRange = sheet.getRange(2, 1, numRows - 1, numCols);
+    dataRange.setVerticalAlignment('middle')
+      .setFontSize(9.5)
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+
+    for (let r = 2; r <= numRows; r++) {
+      sheet.setRowHeight(r, 28);
+      const rowRange = sheet.getRange(r, 1, 1, numCols);
+      rowRange.setBackground(r % 2 === 0 ? '#FFFFFF' : '#F9FBF9');
+    }
+    dataRange.setBorder(true, true, true, true, true, true, '#E2E8F0', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(2, 5, numRows - 1, 1).setHorizontalAlignment('center');
+    sheet.getRange(2, 7, numRows - 1, 1).setHorizontalAlignment('center');
+  }
+}
+
+function formatPhotosSheet_(sheet) {
+  if (!sheet) return;
+  const numRows = sheet.getLastRow();
+  const numCols = 9;
+  if (numRows < 1) return;
+
+  sheet.setFrozenRows(1);
+  const headerLabels = [
+    'ID LAPORAN', 'PROGRAM', 'NAMA PROYEK / SEKOLAH', 'PENGIRIM',
+    'SLOT FOTO', 'ID DRIVE', 'LINK GOOGLE DRIVE', 'PREVIEW FOTO', 'WAKTU UPDATE'
+  ];
+  sheet.getRange(1, 1, 1, numCols).setValues([headerLabels]);
+  const headerRange = sheet.getRange(1, 1, 1, numCols);
+  headerRange.setBackground('#7C2D12')
+    .setFontColor('#FFFFFF')
+    .setFontWeight('bold')
+    .setFontSize(10)
+    .setVerticalAlignment('middle')
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(1, 36);
+
+  const colWidths = [150, 120, 220, 160, 140, 160, 220, 130, 160];
+  for (let c = 0; c < colWidths.length; c++) {
+    sheet.setColumnWidth(c + 1, colWidths[c]);
+  }
+
+  if (numRows > 1) {
+    const dataRange = sheet.getRange(2, 1, numRows - 1, numCols);
+    dataRange.setVerticalAlignment('middle')
+      .setFontSize(9.5)
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+
+    for (let r = 2; r <= numRows; r++) {
+      sheet.setRowHeight(r, 96);
+      const rowRange = sheet.getRange(r, 1, 1, numCols);
+      rowRange.setBackground(r % 2 === 0 ? '#FFFFFF' : '#FFFBF9');
+    }
+    dataRange.setBorder(true, true, true, true, true, true, '#E2E8F0', SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(2, 8, numRows - 1, 1).setHorizontalAlignment('center');
+  }
 }
 
 function getOrCreatePhotoFolder_() {
@@ -801,6 +983,14 @@ function doGet(e) {
       return jsonOut_({ ok: true, sheetName: ss.getName(), message: 'Terhubung ke ' + ss.getName() });
     }
 
+    if (action === 'formatSheets' || action === 'formatSpreadsheet') {
+      const { reports, users, photos } = getOrCreateSheets_();
+      formatReportsSheet_(reports);
+      formatUsersSheet_(users);
+      formatPhotosSheet_(photos);
+      return jsonOut_({ ok: true, message: 'Seluruh tabel Google Spreadsheet (Reports, Users, Photos) berhasil dirapikan dan diformat!' });
+    }
+
     if (action === 'listUsers') {
       return jsonOut_({ ok: true, users: readUsers_(users) });
     }
@@ -867,6 +1057,13 @@ function doPost(e) {
     const clientUuid = String(body.clientUuid || '').trim();
     const cache = CacheService.getScriptCache();
     const { users, reports, photos } = getOrCreateSheets_();
+
+    if (action === 'formatSheets' || action === 'formatSpreadsheet') {
+      formatReportsSheet_(reports);
+      formatUsersSheet_(users);
+      formatPhotosSheet_(photos);
+      return jsonOut_({ ok: true, message: 'Seluruh tabel Google Spreadsheet (Reports, Users, Photos) berhasil dirapikan dan diformat!' });
+    }
 
     if (action === 'login') {
       const uname = String(body.username || '').trim().toLowerCase();
@@ -1099,6 +1296,8 @@ function doPost(e) {
           photos.setRowHeight(photos.getLastRow(), 96);
         }
       });
+
+      try { formatReportsSheet_(reports); } catch (_) {}
 
       if (clientUuid) cache.put('sub_' + clientUuid, '1', 21600);
       return jsonOut_({ ok: true });

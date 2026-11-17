@@ -870,6 +870,41 @@ class Store extends ChangeNotifier {
     changed(forceCheckpoint: true);
   }
 
+  void addViewToRoom(String roomId, String viewName) {
+    final trim = viewName.trim();
+    if (trim.isEmpty) return;
+    for (final r in project.rooms) {
+      if (r.id == roomId) {
+        r.views.add(trim.startsWith('(') ? trim : '($trim)');
+        break;
+      }
+    }
+    changed(forceCheckpoint: true);
+  }
+
+  void renameViewInRoom(String roomId, int viewIdx, String newName) {
+    final trim = newName.trim();
+    if (trim.isEmpty) return;
+    for (final r in project.rooms) {
+      if (r.id == roomId && viewIdx >= 0 && viewIdx < r.views.length) {
+        r.views[viewIdx] = trim.startsWith('(') ? trim : '($trim)';
+        break;
+      }
+    }
+    changed(forceCheckpoint: true);
+  }
+
+  void deleteViewFromRoom(String roomId, int viewIdx) {
+    for (final r in project.rooms) {
+      if (r.id == roomId && viewIdx >= 0 && viewIdx < r.views.length) {
+        if (r.views.length <= 1) return;
+        r.views.removeAt(viewIdx);
+        break;
+      }
+    }
+    changed(forceCheckpoint: true);
+  }
+
   void resetRooms() {
     project.rooms = RoomConfig.defaultRooms();
     changed(forceCheckpoint: true);
@@ -3763,7 +3798,7 @@ Uint8List _encodeRgbaJpeg(Uint8List rgba, int width, int height) {
     order: img.ChannelOrder.rgba,
   );
   return Uint8List.fromList(
-    img.encodeJpg(im, quality: 92, chroma: img.JpegChroma.yuv420),
+    img.encodeJpg(im, quality: 88, chroma: img.JpegChroma.yuv420),
   );
 }
 

@@ -2334,20 +2334,86 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                   style: TextStyle(fontSize: 12.2, height: 1.45),
                 ),
                 const SizedBox(height: 10),
-                FilledButton.icon(
-                  onPressed: () async {
-                    await Clipboard.setData(
-                      const ClipboardData(text: kGoogleAppsScriptTemplate),
-                    );
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Script Code.gs berhasil disalin ke Clipboard!'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          const ClipboardData(text: kGoogleAppsScriptTemplate),
+                        );
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Script Code.gs (lengkap dengan fitur format tabel rapi) berhasil disalin!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.copy_all_rounded),
+                      label: const Text('Salin Kode Script Code.gs'),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0B3C7D),
+                        side: const BorderSide(color: Color(0xFF0B3C7D)),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.copy_all_rounded),
-                  label: const Text('Salin Kode Script Code.gs'),
+                      onPressed: () async {
+                        final url = s.appsScriptUrl.trim();
+                        if (!s.sheetsService.isValidUrl(url)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Harap simpan URL Web App Google Spreadsheet terlebih dahulu.')),
+                          );
+                          return;
+                        }
+                        setState(() {
+                          _busy = true;
+                          _busyMsg = 'Merapikan seluruh tabel Spreadsheet...';
+                        });
+                        final res = await s.sheetsService.formatSpreadsheet(url);
+                        if (!mounted) return;
+                        setState(() => _busy = false);
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: Row(
+                              children: [
+                                Icon(
+                                  res.ok ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                                  color: res.ok ? Colors.green : Colors.blue,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(res.ok ? 'Spreadsheet Dirapikan!' : 'Panduan Format Tabel'),
+                              ],
+                            ),
+                            content: SingleChildScrollView(
+                              child: Text(
+                                res.ok
+                                    ? res.message
+                                    : 'Untuk merapikan tampilan tabel di Google Spreadsheet Anda secara instan:\n\n'
+                                      '1. Klik tombol "Salin Kode Script Code.gs"\n'
+                                      '2. Buka spreadsheet Siteengineer di browser Chrome Anda\n'
+                                      '3. Klik menu Ekstensi -> Apps Script\n'
+                                      '4. Hapus isi Code.gs dan tempel kode baru yang disalin\n'
+                                      '5. Klik ikon Simpan (Save) dan Deploy (Kelola Deployment -> Edit -> Versi Baru -> Terapkan).\n\n'
+                                      '✨ Di Google Spreadsheet akan otomatis muncul menu "⚡ Site Engineer" di atas, cukup klik "✨ Rapikan & Format Semua Tabel" untuk merapikan seluruh kolom dan baris!',
+                                style: const TextStyle(fontSize: 13, height: 1.45),
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Mengerti'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.auto_fix_high_rounded),
+                      label: const Text('Rapikan Tabel Spreadsheet'),
+                    ),
+                  ],
                 ),
               ],
             ),

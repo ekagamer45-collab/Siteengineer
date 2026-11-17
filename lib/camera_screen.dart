@@ -75,6 +75,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Kunci orientasi ke Landscape (16:9 3840x2160 native) otomatis tanpa tergantung rotasi sistem HP
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeRight,
+      DeviceOrientation.landscapeLeft,
+    ]);
     _initAll();
   }
 
@@ -85,6 +90,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     _waitTimer?.cancel();
     _posSub?.cancel();
     _controller?.dispose();
+    // Kembalikan orientasi ke Portrait normal saat keluar kamera
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
     super.dispose();
   }
 
