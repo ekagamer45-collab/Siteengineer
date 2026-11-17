@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'camera_screen.dart';
 import 'config.dart';
 import 'crop_screen.dart';
+import 'history_controls.dart';
 import 'main.dart' show tgl;
 import 'models.dart';
 import 'rooms_screen.dart';
@@ -18,67 +19,74 @@ class DayScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sh = store.cfg.sheets[index];
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('${hariNama[index]}, ${tgl(store.project.dateOf(index))}'),
-          actions: [
-            IconButton(
-              tooltip: 'Kelola Ruang & Tampak',
-              icon: const Icon(Icons.meeting_room_outlined),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RoomsScreen()),
-              ),
-            ),
-            if (index > 0)
-              IconButton(
-                tooltip: 'Salin data dari hari sebelumnya',
-                icon: const Icon(Icons.copy_all),
-                onPressed: () {
-                  store.project.days[index].copyFrom(store.project.days[index - 1]);
-                  store.changed();
-                },
-              ),
-            IconButton(
-              tooltip: 'Reset Foto Hari Ini',
-              icon: const Icon(Icons.delete_sweep_outlined),
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Reset Foto Hari Ini?'),
-                    content: Text('Semua foto dokumentasi pada ${sh.name} (${hariNama[index]}) akan dihapus bersih.'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-                      FilledButton(
-                        style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Reset Bersih'),
-                      ),
-                    ],
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final sh = store.cfg.sheets[index];
+        final dt = store.project.dateOf(index);
+        return DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text('${hariNama[index]}, ${tgl(dt)}'),
+              actions: [
+                HistoryActionButtons(store: store),
+                IconButton(
+                  tooltip: 'Kelola Ruang & Tampak',
+                  icon: const Icon(Icons.meeting_room_outlined),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RoomsScreen()),
                   ),
-                );
-                if (confirm == true) {
-                  await store.resetDayPhotos(index);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Semua foto hari ini telah dibersihkan.')),
+                ),
+                if (index > 0)
+                  IconButton(
+                    tooltip: 'Salin data dari hari sebelumnya',
+                    icon: const Icon(Icons.copy_all),
+                    onPressed: () {
+                      store.project.days[index].copyFrom(store.project.days[index - 1]);
+                      store.changed(forceCheckpoint: true);
+                    },
+                  ),
+                IconButton(
+                  tooltip: 'Reset Foto Hari Ini',
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Reset Foto Hari Ini?'),
+                        content: Text('Semua foto dokumentasi pada ${sh.name} (${hariNama[index]}) akan dihapus bersih.'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                          FilledButton(
+                            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Reset Bersih'),
+                          ),
+                        ],
+                      ),
                     );
-                  }
-                }
-              },
+                    if (confirm == true) {
+                      await store.resetDayPhotos(index);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Semua foto hari ini telah dibersihkan.')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+              bottom: const TabBar(tabs: [Tab(text: 'Data'), Tab(text: 'Foto')]),
             ),
-          ],
-          bottom: const TabBar(tabs: [Tab(text: 'Data'), Tab(text: 'Foto')]),
-        ),
-        body: TabBarView(children: [
-          DataTab(day: store.project.days[index], dayIndex: index),
-          PhotoTab(sheet: sh, dayIndex: index),
-        ]),
-      ),
+            body: TabBarView(children: [
+              DataTab(day: store.project.days[index], dayIndex: index),
+              PhotoTab(sheet: sh, dayIndex: index),
+            ]),
+          ),
+        );
+      },
     );
   }
 }
@@ -95,7 +103,7 @@ class DataTab extends StatefulWidget {
 class _DataTabState extends State<DataTab> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  DayReport get d => widget.day;
+  DayReport get d => store.project.days[widget.dayIndex];
   DayReport? get _prevDay =>
       widget.dayIndex > 0 ? store.project.days[widget.dayIndex - 1] : null;
 
@@ -158,7 +166,7 @@ class _DataTabState extends State<DataTab> with AutomaticKeepAliveClientMixin {
 
   void _upd([VoidCallback? f]) {
     setState(() => f?.call());
-    store.changed();
+    store.changed(forceCheckpoint: true);
   }
 
   Widget _buildWeatherCard(DayReport d) {

@@ -82,6 +82,7 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
         forceCheckpoint: true,
       );
     } else {
+      widget.store.rehabProject = _proj;
       widget.store.rehabChanged(forceCheckpoint: true);
     }
     setState(() {});
@@ -1093,6 +1094,25 @@ class _RehabDayScreenState extends State<RehabDayScreen>
     }
   }
 
+  void _notifyChange() {
+    if (widget.customProgramId != null) {
+      final idx = widget.store.customPrograms
+          .indexWhere((e) => e.id == widget.customProgramId);
+      if (idx >= 0) {
+        widget.store.customPrograms[idx].rehabilitasiData = _proj.toJson();
+        widget.store.updateCustomProgram(
+          widget.store.customPrograms[idx],
+          forceCheckpoint: true,
+        );
+      }
+    } else {
+      widget.store.rehabProject = _proj;
+      widget.store.rehabChanged(forceCheckpoint: true);
+    }
+    widget.onChanged(_proj);
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1147,7 +1167,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                 time: DateTime.now(),
               );
             }
-            widget.onChanged(_proj);
+            _notifyChange();
             final savedFile = File('${widget.photoDir.path}/$slotId.jpg');
             if (savedFile.existsSync()) {
               unawaited(
@@ -1203,7 +1223,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
       widget.store.incrementPhotoVersion();
-      widget.onChanged(_proj);
+      _notifyChange();
       if (mounted) {
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1369,8 +1389,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
     );
     if (res != null && res.isNotEmpty) {
       onAdd(res);
-      widget.onChanged(_proj);
-      setState(() {});
+      _notifyChange();
     }
   }
 
@@ -1392,7 +1411,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
     );
     if (ok == true) {
       day.copyFrom(prevDay);
-      widget.onChanged(_proj);
+      _notifyChange();
       if (mounted) {
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1435,8 +1454,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
           ditolak: ditolak.text.trim(),
         ),
       );
-      widget.onChanged();
-      setState(() {});
+      _notifyChange();
     }
   }
 
@@ -1583,8 +1601,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
         PaintingBinding.instance.imageCache.clearLiveImages();
       } catch (_) {}
       widget.store.incrementPhotoVersion();
-      widget.onChanged(_proj);
-      setState(() {});
+      _notifyChange();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Semua foto hari ini telah dibersihkan.')),
@@ -1735,8 +1752,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
           value: day.isLibur,
           onChanged: (v) {
             day.isLibur = v;
-            widget.onChanged();
-            setState(() {});
+            _notifyChange();
           },
         ),
         const Divider(),
@@ -1769,8 +1785,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                       icon: const Icon(Icons.remove_circle_outline),
                       onPressed: () {
                         if (day.workers[wi].count > 0) day.workers[wi].count--;
-                        widget.onChanged();
-                        setState(() {});
+                        _notifyChange();
                       },
                     ),
                     Text('${day.workers[wi].count}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -1778,16 +1793,14 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                       icon: const Icon(Icons.add_circle_outline),
                       onPressed: () {
                         day.workers[wi].count++;
-                        widget.onChanged();
-                        setState(() {});
+                        _notifyChange();
                       },
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                       onPressed: () {
                         day.workers.removeAt(wi);
-                        widget.onChanged();
-                        setState(() {});
+                        _notifyChange();
                       },
                     ),
                   ],
@@ -1804,7 +1817,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
             decoration: const InputDecoration(labelText: 'Cuaca Baik (Jam)', border: OutlineInputBorder()),
             onChanged: (v) {
               day.cuacaBaik = v;
-              widget.onChanged();
+              _notifyChange();
             },
           ),
           const SizedBox(height: 8),
@@ -1814,7 +1827,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
             decoration: const InputDecoration(labelText: 'Cuaca Hujan (Jam)', border: OutlineInputBorder()),
             onChanged: (v) {
               day.cuacaHujan = v;
-              widget.onChanged();
+              _notifyChange();
             },
           ),
           const SizedBox(height: 8),
@@ -1825,7 +1838,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
             decoration: const InputDecoration(labelText: 'Catatan Lapangan', border: OutlineInputBorder()),
             onChanged: (v) {
               day.catatan = v;
-              widget.onChanged();
+              _notifyChange();
             },
           ),
           const SizedBox(height: 14),
@@ -1857,8 +1870,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () {
                     day.tools.removeAt(ti);
-                    widget.onChanged();
-                    setState(() {});
+                    _notifyChange();
                   },
                 ),
               ),
@@ -1886,8 +1898,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () {
                     day.materials.removeAt(i);
-                    widget.onChanged();
-                    setState(() {});
+                    _notifyChange();
                   },
                 ),
               ),
@@ -1914,8 +1925,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                         for (final a in prevActs) {
                           if (!day.activities.contains(a)) day.activities.add(a);
                         }
-                        widget.onChanged(_proj);
-                        setState(() {});
+                        _notifyChange();
                       },
                       icon: const Icon(Icons.copy, size: 16),
                       label: const Text('Salin Kemarin'),
@@ -1946,8 +1956,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () {
                     day.activities.removeAt(i);
-                    widget.onChanged();
-                    setState(() {});
+                    _notifyChange();
                   },
                 ),
               ),
@@ -1987,10 +1996,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                   _proj.photoLabels.add('Foto ${_proj.photoLabels.length + 1}');
                 }
                 _proj.photoLabels[idx] = newName;
-                widget.onChanged(_proj);
-                widget.store.saveRehab();
-                widget.store.changed(forceCheckpoint: true);
-                setState(() {});
+                _notifyChange();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Nama ruang slot ${idx + 1} diubah menjadi "$newName"'),
@@ -2041,8 +2047,7 @@ class _RehabDayScreenState extends State<RehabDayScreen>
               if (file.existsSync()) file.deleteSync();
               _proj.photoMeta.remove(slotId);
               widget.store.incrementPhotoVersion();
-              widget.onChanged(_proj);
-              setState(() {});
+              _notifyChange();
             },
           ),
           borderRadius: BorderRadius.circular(12),
