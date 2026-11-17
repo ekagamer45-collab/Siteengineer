@@ -9,6 +9,7 @@ import 'google_sheets_service.dart';
 import 'main.dart' show HomeScreen;
 import 'models.dart';
 import 'notification_service.dart';
+import 'prototype_send_screen.dart';
 import 'rehab_models.dart';
 import 'rehab_screens.dart';
 import 'store.dart';
@@ -1124,6 +1125,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         ),
         actions: [
           IconButton(
+            tooltip: 'Uji Prototype (Kirim ke Admin)',
+            visualDensity: VisualDensity.compact,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PrototypeSendScreen(store: s),
+                ),
+              );
+            },
+            icon: const Icon(Icons.science_outlined, size: 22),
+          ),
+          IconButton(
             tooltip: 'Notifikasi Laporan Masuk',
             visualDensity: VisualDensity.compact,
             onPressed: _openNotificationSheet,
@@ -2004,6 +2018,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   );
   }
 
+  Widget _buildPrototypeCard() {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: const Color(0xFFEFF6FF),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFF93C5FD), width: 1.2),
+      ),
+      child: ListTile(
+        leading: const CircleAvatar(
+          backgroundColor: Color(0xFF1D4ED8),
+          child: Icon(Icons.science_rounded, color: Colors.white),
+        ),
+        title: const Text(
+          'Uji Prototype: Simulasi Kirim Laporan',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E3A8A)),
+        ),
+        subtitle: const Text(
+          'Simulasi end-to-end: User kirim laporan ➔ Cloud sync ➔ Admin menerima & terima notifikasi pop-up.',
+          style: TextStyle(fontSize: 11.5, color: Color(0xFF334155)),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF1D4ED8)),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PrototypeSendScreen(store: s),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildSpreadsheetTab() {
     final isSuper = s.currentUser?.isSuperAdmin == true;
     final hasSheet = s.sheetsService.isValidUrl(s.appsScriptUrl);
@@ -2012,6 +2061,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _buildPrototypeCard(),
           Card(
             child: ListTile(
               leading: Icon(
@@ -2053,6 +2103,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _buildPrototypeCard(),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(14),

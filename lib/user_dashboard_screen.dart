@@ -8,6 +8,7 @@ import 'custom_xlsx_importer.dart';
 import 'export_ui.dart';
 import 'models.dart';
 import 'notification_service.dart';
+import 'prototype_send_screen.dart';
 import 'rehab_screens.dart';
 import 'send_report_ui.dart';
 import 'store.dart';
@@ -1014,6 +1015,78 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                   ),
                 ],
                 _buildTodayTaskReminderCard(),
+
+                // Kartu Prototype & Simulasi Kirim ke Admin
+                Card(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  elevation: 0,
+                  color: const Color(0xFFEFF6FF),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Color(0xFF93C5FD), width: 1.2),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PrototypeSendScreen(store: s),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1D4ED8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.science_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Uji Prototype: Kirim ke Admin',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13.5,
+                                        color: Color(0xFF1E3A8A),
+                                      ),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Badge(
+                                      label: Text('DEMO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                      backgroundColor: Color(0xFF2563EB),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 3),
+                                Text(
+                                  'Simulasi alur User ➔ Cloud ➔ Admin dengan notifikasi & link backup file.',
+                                  style: TextStyle(fontSize: 11.5, color: Color(0xFF334155)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF1D4ED8)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 // Grid 3 Menu Utama gaya BCA Mobile
                 const Text(
                   'PILIH MENU LAPORAN (m-Laporan)',
