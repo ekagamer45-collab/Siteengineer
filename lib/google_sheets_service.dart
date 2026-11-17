@@ -797,7 +797,7 @@ function formatReportsSheet_(sheet) {
     'ID LAPORAN', 'ID USER', 'USERNAME', 'NAMA PELAKSANA',
     'TIPE', 'PROGRAM', 'NAMA PROYEK / SEKOLAH', 'MINGGU KE',
     'WAKTU KIRIM', 'DATA DETAIL (JSON)', 'MAP FOTO DRIVE', 'LINK FOTO DRIVE',
-    'FOLDER HARI', 'FILE PDF', 'LABEL HARI', 'RINGKASAN'
+    'FOLDER HARI', 'BACKUP PDF', 'BACKUP EXCEL', 'RINGKASAN'
   ];
   sheet.getRange(1, 1, 1, numCols).setValues([headerLabels]);
   const headerRange = sheet.getRange(1, 1, 1, numCols);
@@ -809,7 +809,7 @@ function formatReportsSheet_(sheet) {
     .setHorizontalAlignment('center');
   sheet.setRowHeight(1, 36);
 
-  const colWidths = [150, 110, 110, 180, 110, 120, 240, 85, 160, 150, 130, 240, 150, 170, 130, 250];
+  const colWidths = [150, 110, 110, 180, 110, 120, 240, 85, 160, 150, 130, 240, 150, 160, 160, 250];
   for (let c = 0; c < colWidths.length; c++) {
     sheet.setColumnWidth(c + 1, colWidths[c]);
   }
@@ -1233,6 +1233,19 @@ function doPost(e) {
         payloadStr = payloadStr.substring(0, 48000);
       }
 
+      let excelUrl = '';
+      let pdfUrl = '';
+      if (typeof reportFileUrls === 'object' && reportFileUrls !== null) {
+        Object.keys(reportFileUrls).forEach(function(k) {
+          const lower = k.toLowerCase();
+          const u = reportFileUrls[k];
+          if (lower.endsWith('.xlsx')) excelUrl = u;
+          if (lower.endsWith('.pdf')) pdfUrl = u;
+        });
+      }
+      const pdfCell = pdfUrl ? ('=HYPERLINK("' + pdfUrl + '", "📄 Unduh PDF")') : (JSON.stringify(reportFileUrls));
+      const excelCell = excelUrl ? ('=HYPERLINK("' + excelUrl + '", "📊 Unduh Excel")') : '';
+
       const rowValues = [
         s.id || '',
         s.userId || '',
@@ -1247,8 +1260,8 @@ function doPost(e) {
         JSON.stringify(photoMap),
         photoLinks,
         JSON.stringify(dayFolderUrls),
-        JSON.stringify(reportFileUrls),
-        JSON.stringify(dayLabels),
+        pdfCell,
+        excelCell,
         summary
       ];
       // Keamanan absolut: pastikan tidak ada sel manapun yang melebihi 48.000 karakter

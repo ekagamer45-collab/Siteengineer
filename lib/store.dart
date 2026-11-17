@@ -193,6 +193,11 @@ class Store extends ChangeNotifier {
     if (_isAutoSyncRunning || currentUser == null) return;
     _isAutoSyncRunning = true;
     try {
+      // 0. Otomatis kirim antrean laporan lokal ke Google Spreadsheet agar seluruh data ter-backup aman
+      if (pendingSyncQueue.isNotEmpty && sheetsService.isValidUrl(appsScriptUrl)) {
+        await flushPendingSyncQueue().catchError((_) => const CloudResult<int>(ok: false, data: 0));
+      }
+
       // 1. Tarik pembaruan user (agar akun yang diedit di HP lain seketika masuk ke HP ini)
       await refreshUsersFromCloud().catchError((_) => const CloudResult<List<AppUser>>(ok: false));
 
