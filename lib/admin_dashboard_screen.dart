@@ -45,6 +45,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   bool _busy = false;
   String _busyMsg = '';
   bool _showMonitoringCard = true;
+  final ScrollController _monitoringScrollCtrl = ScrollController();
   final Map<String, DateTime> _seenTimestamps = {};
   final Set<String> _unreadSubmissionIds = {};
   Timer? _pollTimer;
@@ -91,6 +92,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _urlCtrl.dispose();
     _fbUrlCtrl.dispose();
     _fbAuthCtrl.dispose();
+    _monitoringScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -1370,96 +1372,138 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
               ],
               if (_showMonitoringCard) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'Sudah Kirim Hari Ini (${sentUsers.length})',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11.5,
-                    color: Colors.green.shade800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (sentUsers.isEmpty)
-                  Text(
-                    'Belum ada pelaksana yang mengirim data hari ini.',
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
-                  )
-                else
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final entry in sentUsers)
-                        ActionChip(
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: Colors.green.shade50,
-                          side: BorderSide(color: Colors.green.shade300),
-                          avatar: Icon(
-                            Icons.check_circle_rounded,
-                            size: 15,
-                            color: Colors.green.shade700,
-                          ),
-                          label: Text(
-                            '${entry.user.displayName} (${entry.latest.updatedAt.toLocal().toString().substring(11, 16)})',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Colors.green.shade900,
-                            ),
-                          ),
-                          onPressed: () => setState(
-                            () => _userFilter = entry.user.username,
-                          ),
-                        ),
-                    ],
-                  ),
                 const SizedBox(height: 8),
-                Text(
-                  'Belum Kirim Hari Ini (${missingUsers.length})',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11.5,
-                    color: Colors.deepOrange.shade800,
+                const Divider(height: 1, thickness: 1),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: (MediaQuery.of(context).size.height * 0.42).clamp(180.0, 360.0),
                   ),
-                ),
-                const SizedBox(height: 4),
-                if (missingUsers.isEmpty)
-                  Text(
-                    'Semua pelaksana aktif sudah mengirim data hari ini.',
-                    style: TextStyle(fontSize: 11.5, color: Colors.green.shade700),
-                  )
-                else
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final u in missingUsers)
-                        ActionChip(
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor: Colors.red.shade50,
-                          side: BorderSide(color: Colors.red.shade200),
-                          avatar: Icon(
-                            Icons.schedule_rounded,
-                            size: 15,
-                            color: Colors.red.shade700,
-                          ),
-                          label: Text(
-                            '${u.displayName} (@${u.username})',
+                  child: Scrollbar(
+                    controller: _monitoringScrollCtrl,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _monitoringScrollCtrl,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(right: 8, bottom: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Sudah Kirim Hari Ini (${sentUsers.length})',
                             style: TextStyle(
+                              fontWeight: FontWeight.bold,
                               fontSize: 11.5,
-                              color: Colors.red.shade900,
+                              color: Colors.green.shade800,
                             ),
                           ),
-                          onPressed: () => showUserProfileBiodataDialog(
-                            context,
-                            u,
-                            isCloudConnected:
-                                s.sheetsService.isValidUrl(s.appsScriptUrl),
-                            extraInfo: 'Status hari ini: Belum mengirim laporan',
+                          const SizedBox(height: 4),
+                          if (sentUsers.isEmpty)
+                            Text(
+                              'Belum ada pelaksana yang mengirim data hari ini.',
+                              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                            )
+                          else
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final entry in sentUsers)
+                                  ActionChip(
+                                    visualDensity: VisualDensity.compact,
+                                    backgroundColor: Colors.green.shade50,
+                                    side: BorderSide(color: Colors.green.shade300),
+                                    avatar: Icon(
+                                      Icons.check_circle_rounded,
+                                      size: 15,
+                                      color: Colors.green.shade700,
+                                    ),
+                                    label: Text(
+                                      '${entry.user.displayName} (${entry.latest.updatedAt.toLocal().toString().substring(11, 16)})',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.green.shade900,
+                                      ),
+                                    ),
+                                    onPressed: () => setState(
+                                      () => _userFilter = entry.user.username,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Belum Kirim Hari Ini (${missingUsers.length})',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11.5,
+                              color: Colors.deepOrange.shade800,
+                            ),
                           ),
-                        ),
-                    ],
+                          const SizedBox(height: 4),
+                          if (missingUsers.isEmpty)
+                            Text(
+                              'Semua pelaksana aktif sudah mengirim data hari ini.',
+                              style: TextStyle(fontSize: 11.5, color: Colors.green.shade700),
+                            )
+                          else
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final u in missingUsers)
+                                  ActionChip(
+                                    visualDensity: VisualDensity.compact,
+                                    backgroundColor: Colors.red.shade50,
+                                    side: BorderSide(color: Colors.red.shade200),
+                                    avatar: Icon(
+                                      Icons.schedule_rounded,
+                                      size: 15,
+                                      color: Colors.red.shade700,
+                                    ),
+                                    label: Text(
+                                      '${u.displayName} (@${u.username})',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.red.shade900,
+                                      ),
+                                    ),
+                                    onPressed: () => showUserProfileBiodataDialog(
+                                      context,
+                                      u,
+                                      isCloudConnected:
+                                          s.sheetsService.isValidUrl(s.appsScriptUrl),
+                                      extraInfo: 'Status hari ini: Belum mengirim laporan',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          const SizedBox(height: 14),
+                          Center(
+                            child: FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.blue.shade50,
+                                foregroundColor: const Color(0xFF0B3C7D),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: BorderSide(color: Colors.blue.shade200),
+                                ),
+                              ),
+                              icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20),
+                              label: const Text(
+                                'Tutup Monitoring',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                              onPressed: () => setState(() => _showMonitoringCard = false),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                      ),
+                    ),
                   ),
+                ),
               ],
             ],
           ),
