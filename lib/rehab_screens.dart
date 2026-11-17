@@ -376,31 +376,75 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                width: 44,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
+              child: Row(
                 children: [
-                  const Icon(Icons.description_rounded, color: Color(0xFF0B3C7D)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      singleDayIndex != null
-                          ? 'Pilih Berkas Laporan (${hariNama[dayIdx]})'
-                          : 'Pilih Berkas Laporan Rehabilitasi',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0B3C7D).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: const Icon(Icons.description_rounded, color: Color(0xFF0B3C7D), size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          singleDayIndex != null
+                              ? 'Pilih Berkas Laporan (${hariNama[dayIdx]})'
+                              : 'Pilih Berkas Laporan Rehabilitasi',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: Color(0xFF0F172A)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Pilih format dokumen laporan lapangan untuk diunduh / dikirim',
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Tutup',
+                    icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                    onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 36),
+                children: [
               // Card Dokumen 1: Rehabilitasi Harian
               Card(
                 elevation: 1,
@@ -689,9 +733,10 @@ class _RehabHomeScreenState extends State<RehabHomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-            ],
-          ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1507,13 +1552,58 @@ class _RehabDayScreenState extends State<RehabDayScreen>
     );
   }
 
+  Future<void> _confirmResetPhotos() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset Foto Hari Ini?'),
+        content: Text('Semua foto dokumentasi pada ${hariNama[widget.dayIndex]} akan dihapus bersih.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Reset Bersih'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      for (var s = 0; s < 6; s++) {
+        final slotId = 'rehab_H${widget.dayIndex + 1}_${s + 1}';
+        final file = File('${widget.photoDir.path}/$slotId.jpg');
+        try {
+          FileImage(file).evict();
+        } catch (_) {}
+        if (file.existsSync()) file.deleteSync();
+        _proj.photoMeta.remove(slotId);
+      }
+      try {
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+      } catch (_) {}
+      widget.store.incrementPhotoVersion();
+      widget.onChanged(_proj);
+      setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Semua foto hari ini telah dibersihkan.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dt = _proj.dateOf(widget.dayIndex);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${hariNama[widget.dayIndex]} • ${dt.day}/${dt.month}/${dt.year}'),
+        titleSpacing: 0,
+        title: Text(
+          '${hariNama[widget.dayIndex]}, ${dt.day}/${dt.month}/${dt.year}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5),
+        ),
         actions: [
           HistoryActionButtons(
             store: widget.store,
@@ -1522,84 +1612,17 @@ class _RehabDayScreenState extends State<RehabDayScreen>
               setState(() {});
             },
           ),
-          IconButton(
-            tooltip: 'Unduh Berkas ${hariNama[widget.dayIndex]} (Excel/PDF)',
-            icon: const Icon(Icons.download_rounded),
-            onPressed: _showDayDownloadModal,
-          ),
-          if (widget.store.currentUser?.isSuperadmin != true)
-            IconButton(
-              tooltip: 'Kirim Laporan ${hariNama[widget.dayIndex]} ke Admin',
-              icon: const Icon(Icons.send_rounded),
-              onPressed: () => showSendReportToAdminDialog(
-                context,
-                store: widget.store,
-                programType:
-                    widget.customProgramId != null ? 'custom' : 'rehabilitasi',
-                customProgramId: widget.customProgramId,
-                initialDayIndex: widget.dayIndex,
-              ),
-            ),
-          if (widget.dayIndex > 0)
-            IconButton(
-              tooltip: 'Salin data dari ${hariNama[widget.dayIndex - 1]}',
-              icon: const Icon(Icons.copy_all),
-              onPressed: _copyPreviousDay,
-            ),
-          IconButton(
-            tooltip: 'Reset Foto Hari Ini',
-            icon: const Icon(Icons.delete_sweep_outlined),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Reset Foto Hari Ini?'),
-                  content: Text('Semua foto dokumentasi pada ${hariNama[widget.dayIndex]} akan dihapus bersih.'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
-                    FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Reset Bersih'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirm == true) {
-                for (var s = 0; s < 6; s++) {
-                  final slotId = 'rehab_H${widget.dayIndex + 1}_${s + 1}';
-                  final file = File('${widget.photoDir.path}/$slotId.jpg');
-                  try {
-                    FileImage(file).evict();
-                  } catch (_) {}
-                  if (file.existsSync()) file.deleteSync();
-                  _proj.photoMeta.remove(slotId);
-                }
-                try {
-                  PaintingBinding.instance.imageCache.clear();
-                  PaintingBinding.instance.imageCache.clearLiveImages();
-                } catch (_) {}
-                widget.store.incrementPhotoVersion();
-                widget.onChanged(_proj);
-                setState(() {});
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Semua foto hari ini telah dibersihkan.')),
-                  );
-                }
-              }
-            },
-          ),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF1B5E20),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
+                visualDensity: VisualDensity.compact,
               ),
               icon: const Icon(Icons.check_circle_rounded, size: 16),
-              label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+              label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               onPressed: () {
                 widget.onChanged(_proj);
                 widget.store.saveRehab();
@@ -1613,6 +1636,72 @@ class _RehabDayScreenState extends State<RehabDayScreen>
                 );
               },
             ),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            tooltip: 'Opsi Laporan',
+            onSelected: (val) {
+              if (val == 'download') {
+                _showDayDownloadModal();
+              } else if (val == 'send') {
+                showSendReportToAdminDialog(
+                  context,
+                  store: widget.store,
+                  programType: widget.customProgramId != null ? 'custom' : 'rehabilitasi',
+                  customProgramId: widget.customProgramId,
+                  initialDayIndex: widget.dayIndex,
+                );
+              } else if (val == 'copy') {
+                _copyPreviousDay();
+              } else if (val == 'reset') {
+                _confirmResetPhotos();
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'download',
+                child: Row(
+                  children: [
+                    const Icon(Icons.download_rounded, color: Color(0xFF0B3C7D), size: 20),
+                    const SizedBox(width: 10),
+                    Text('Unduh Berkas (${hariNama[widget.dayIndex]})'),
+                  ],
+                ),
+              ),
+              if (widget.store.currentUser?.isSuperadmin != true)
+                const PopupMenuItem(
+                  value: 'send',
+                  child: Row(
+                    children: [
+                      Icon(Icons.send_rounded, color: Color(0xFF0B3C7D), size: 20),
+                      SizedBox(width: 10),
+                      Text('Kirim ke Admin'),
+                    ],
+                  ),
+                ),
+              if (widget.dayIndex > 0)
+                PopupMenuItem(
+                  value: 'copy',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.copy_all, color: Colors.blueGrey, size: 20),
+                      const SizedBox(width: 10),
+                      Text('Salin dari ${hariNama[widget.dayIndex - 1]}'),
+                    ],
+                  ),
+                ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'reset',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep_outlined, color: Colors.red, size: 20),
+                    SizedBox(width: 10),
+                    Text('Reset Foto Hari Ini', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
         bottom: TabBar(
